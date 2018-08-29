@@ -8,10 +8,10 @@ $(TARGET):
 all: $(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	$(RM) $(TARGET)
 
 install:
 	cp $(TARGET) "${DESTDIR}"
 
 uninstall:
-	rm "${DESTDIR}"/$(TARGET)
+	$(RM) "${DESTDIR}"/$(TARGET)
