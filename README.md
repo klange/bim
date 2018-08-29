@@ -16,7 +16,7 @@ Inspired by Vim and featuring similar mode-based editing, Bim was originally wri
 - Multiple editor tabs.
 - Basic Unicode support (sufficient for things like Japanese, but not capable of more complex scripts).
 - Efficient screen redrawing.
-- Terminal support tested in ToaruOS, xterm, urxvt, Gnome, XFCE, and the Linux VT console.
+- Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux console, FreeBSD console.
 - Mouse support in Xterm-like terminals.
 - Line selection and yanking.
 - Incremental forward search.
