@@ -35,6 +35,9 @@ Scrolling is normally done through `^[[1S` and `^[[1T`, but this can be disabled
 
 Mouse support with `^[[?1000h` is available. The alternate screen is used if available with `^[[?1049h`.
 
+## License
+
+Bim is primarily distributed under the ISC license. In ToaruOS, it is under the NCSA license. The terms are nearly identical from a legal standpoint.
 
 ## Development
 
