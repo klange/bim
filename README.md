@@ -6,6 +6,10 @@ Bim is a terminal text editor with syntax highlighting.
 
 Inspired by Vim and featuring similar mode-based editing, Bim was originally written for ToaruOS, but should work on most Unix-like operating systems with minimal modification.
 
+## Goals / Purpose
+
+Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS-NIH - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platform is a secondary feature.
+
 ## Features
 
 - Vim-like modal interactions.
