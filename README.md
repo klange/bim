@@ -48,24 +48,25 @@ When in normal mode:
 |-------------|-----------------------------------------------------------------------------------------|
 | `:`         | Start entering a command                                                                |
 | `/`         | Start increment search                                                                  |
-| `V`         | Enter LINE SELECTION mode                                                               |
 | `n`         | Find next search match                                                                  |
 | `N`         | Find previous search match                                                              |
-| `hjkl`      | Vi-style navigation                                                                     |
-| Space       | Scroll down a screenful                                                                 |
-| `O`         | Add line before current line, and enter INSERT mode.                                    |
-| `o`         | Add line after current line, and enter INSERT mode.                                     |
+| `V`         | Enter LINE SELECTION mode                                                               |
+| `R`         | Enter REPLACE mode                                                                      |
 | `i`         | Enter INSERT mode                                                                       |
 | `a`         | Enter INSERT mode with the cursor after the current position (for appending characters) |
-| `Pp`        | Paste yanked lines, before or after (respectively)                                      |
+| `O`         | Add line before current line, and enter INSERT mode.                                    |
+| `o`         | Add line after current line, and enter INSERT mode.                                     |
+| `hjkl`      | Vi-style navigation                                                                     |
+| Space       | Scroll down a screenful                                                                 |
 | `%`         | Jump to the matching brace/parenthesis                                                  |
 | `{`         | Jump to previous blank line                                                             |
 | `}`         | Jump to next blank line                                                                 |
 | `$`         | Move the cursor to the end of the line                                                  |
 | `^` or `0`  | Move the cursor to the beginning of the line                                            |
+| `Pp`        | Paste yanked lines, before or after (respectively)                                      |
 | `u`         | Undo last block of edits                                                                |
 | Ctrl-`R`    | Redo last undone block of edits                                                         |
-| `R`         | Enter REPLACE mode                                                                      |
+| Ctrl-`L`    | Repaint the screen                                                                      |
 
 In LINE SELECTION mode the following additional commands are available:
 
@@ -76,7 +77,7 @@ In LINE SELECTION mode the following additional commands are available:
 | `d`         | Delete and yank selected lines                           |
 | `y`         | Yank selected lines                                      |
 
-Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE SELECTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation.
+Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE SELECTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation, and home/end will move the cursor to the beginning and ending of lines.
 
 ## License
 
