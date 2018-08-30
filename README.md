@@ -24,6 +24,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Mouse support in Xterm-like terminals.
 - Line selection and yanking.
 - Incremental forward search.
+- Undo/redo stack (experimental, enable with `-O history`)
 
 ## Prerequisites
 
