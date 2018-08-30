@@ -4,11 +4,11 @@
 
 Bim is a terminal text editor with syntax highlighting.
 
-Inspired by Vim and featuring similar mode-based editing, Bim was originally written for ToaruOS, but should work on most Unix-like operating systems with minimal modification.
+Inspired by Vim and featuring similar mode-based editing, Bim was originally written for ToaruOS, but it has also been tested in Linux, Sortix, FreeBSD, and macOS.
 
 ## Goals / Purpose
 
-Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS-NIH - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platform is a secondary feature.
+Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS-NIH - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platforms is a secondary feature.
 
 ## Features
 
@@ -58,7 +58,7 @@ When in normal mode:
 | `i`         | Enter INSERT mode                                                                       |
 | `a`         | Enter INSERT mode with the cursor after the current position (for appending characters) |
 | `Pp`        | Paste yanked lines, before or after (respectively)                                      |
-| `%          | Jump to the matching brace/parenthesis                                                  |
+| `%`         | Jump to the matching brace/parenthesis                                                  |
 | `{`         | Jump to previous blank line                                                             |
 | `}`         | Jump to next blank line                                                                 |
 | `$`         | Move the cursor to the end of the line                                                  |
