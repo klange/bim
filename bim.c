@@ -4998,6 +4998,11 @@ void load_bimrc(void) {
 				}
 			}
 		}
+
+		/* enable history (experimental) */
+		if (!strcmp(l,"history")) {
+			global_config.history_enabled = 1;
+		}
 	}
 
 	fclose(bimrc);
