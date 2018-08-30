@@ -47,7 +47,7 @@ When in normal mode:
 | **Key**     | **Action**                                                                              |
 |-------------|-----------------------------------------------------------------------------------------|
 | `:`         | Start entering a command                                                                |
-| `/`         | Start increment search                                                                  |
+| `/`         | Start incremental search                                                                |
 | `n`         | Find next search match                                                                  |
 | `N`         | Find previous search match                                                              |
 | `V`         | Enter LINE SELECTION mode                                                               |
