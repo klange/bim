@@ -3749,8 +3749,6 @@ void search_mode(void) {
 				find_match(prev_line, prev_col, &line, &col, buffer);
 
 				if (line != -1) {
-					env->coffset = 0;
-					env->offset = line - 1;
 					env->col_no = col;
 					env->line_no = line;
 				}
@@ -3779,8 +3777,6 @@ void search_mode(void) {
 			find_match(prev_line, prev_col, &line, &col, buffer);
 
 			if (line != -1) {
-				env->coffset = 0;
-				env->offset = line - 1;
 				env->col_no = col;
 				env->line_no = line;
 			} else {
