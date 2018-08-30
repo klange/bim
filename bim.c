@@ -922,13 +922,6 @@ static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
 static char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
-static int syn_make_iskeywordchar(int c) {
-	if (isalpha(c)) return 1;
-	if (c == '$') return 1;
-	if (c == '(') return 1;
-	return 0;
-}
-
 static char * syn_make_commands[] = {
 	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
 	"include","sinclude","override","export","unexport","private","vpath",
