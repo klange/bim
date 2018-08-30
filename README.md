@@ -20,7 +20,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Multiple editor tabs.
 - Basic Unicode support (sufficient for things like Japanese, but not capable of more complex scripts).
 - Efficient screen redrawing.
-- Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux console, FreeBSD console.
+- Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line selection and yanking.
 - Incremental forward search.
