@@ -23,7 +23,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line selection and yanking.
-- Incremental forward search.
+- Incremental forward search (and backwards find-next).
 - Undo/redo stack (experimental, enable with `-O history`)
 
 ## Prerequisites
@@ -39,6 +39,45 @@ Unicode support is recommended, but not completely required.
 Scrolling is normally done through `^[[1S` and `^[[1T`, but this can be disabled with the `:noscroll` command.
 
 Mouse support with `^[[?1000h` is available. The alternate screen is used if available with `^[[?1049h`.
+
+## Key Bindings
+
+When in normal mode:
+
+| **Keybind** | **Action**                                                                              |
+|-------------|-----------------------------------------------------------------------------------------|
+| `:`         | Start entering a command                                                                |
+| `/`         | Start increment search                                                                  |
+| `V`         | Enter LINE SELECTION mode                                                               |
+| `n`         | Find next search match                                                                  |
+| `N`         | Find previous search match                                                              |
+| `hjkl`      | Vi-style navigation                                                                     |
+| `d`         | Delete the current line                                                                 |
+| Space       | Scroll down a screenful                                                                 |
+| `O`         | Add line before current line, and enter INSERT mode.                                    |
+| `o`         | Add line after current line, and enter INSERT mode.                                     |
+| `i`         | Enter INSERT mode                                                                       |
+| `a`         | Enter INSERT mode with the cursor after the current position (for appending characters) |
+| `Pp`        | Paste yanked lines, before or after (respectively)                                      |
+| `%          | Jump to the matching brace/parenthesis                                                  |
+| `{`         | Jump to previous blank line                                                             |
+| `}`         | Jump to next blank line                                                                 |
+| `$`         | Move the cursor to the end of the line                                                  |
+| `^` or `0`  | Move the cursor to the beginning of the line                                            |
+| `u`         | Undo last block of edits                                                                |
+| Ctrl-`R`    | Redo last undone block of edits                                                         |
+| `R`         | Enter REPLACE mode                                                                      |
+
+In LINE SELECTION mode the following additional commands are available:
+
+| **Keybind** | **Action**                                               |
+|-------------|----------------------------------------------------------|
+| Tab         | Indent selected lines one indentation unit to the right  |
+| Shift-Tab   | Unindent selected lines one indentation unit to the left |
+| `d`         | Delete and yank selected lines                           |
+| `y`         | Yank selected lines                                      |
+
+Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE INSERTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation.
 
 ## License
 
