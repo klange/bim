@@ -3649,6 +3649,36 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, char
 }
 
 /**
+ * Search backwards for matching string.
+ */
+void find_match_backwards(int from_line, int from_col, int * out_line, int * out_col, char * str) {
+	int col = from_col;
+	for (int i = from_line; i >= 1; --i) {
+		line_t * line = env->lines[i-1];
+
+		int j = col - 1;
+		while (j > -1) {
+			int k = j;
+			char * match = str;
+			while (k < line->actual + 1) {
+				if (*match == '\0') {
+					*out_line = i;
+					*out_col = j + 1;
+					return;
+				}
+				/* TODO search for UTF-8 sequences? */
+				if (*match != line->text[k].codepoint) break;
+				match++;
+				k++;
+			}
+			j--;
+		}
+		col = (i > 1) ? (env->lines[i-2]->actual) : -1;
+	}
+
+}
+
+/**
  * Draw the matched search result.
  */
 void draw_search_match(int line, char * buffer, int redraw_buffer) {
@@ -3778,8 +3808,25 @@ void search_next(void) {
 		if (line == -1) return;
 	}
 
-	env->coffset = 0;
-	env->offset = line - 1;
+	env->col_no = col;
+	env->line_no = line;
+	draw_search_match(line, env->search, 0);
+}
+
+/**
+ * Find the previous search result, or loop to the end of the file.
+ */
+void search_prev(void) {
+	if (!env->search) return;
+	int line = -1, col = -1;
+	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
+
+	if (line == -1) {
+		render_error("no match");
+		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, env->search);
+		if (line == -1) return;
+	}
+
 	env->col_no = col;
 	env->line_no = line;
 	draw_search_match(line, env->search, 0);
@@ -4606,6 +4653,9 @@ void line_selection_mode(void) {
 					case 'n':
 						search_next();
 						break;
+					case 'N':
+						search_prev();
+						break;
 					case 'j':
 						cursor_down();
 						break;
@@ -5180,6 +5230,9 @@ int main(int argc, char * argv[]) {
 						break;
 					case 'n':
 						search_next();
+						break;
+					case 'N':
+						search_prev();
 						break;
 					case 'j':
 						cursor_down();
