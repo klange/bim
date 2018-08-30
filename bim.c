@@ -310,6 +310,7 @@ typedef struct _env {
 	line_t ** lines;
 
 	history_t * history;
+	history_t * last_save_history;
 } buffer_t;
 
 /**
@@ -1601,6 +1602,7 @@ void setup_buffer(buffer_t * env) {
 	env->indent      = 1; /* Auto-indent by default */
 	env->history     = malloc(sizeof(struct history));
 	memset(env->history, 0, sizeof(struct history));
+	env->last_save_history = env->history;
 
 	/* Allocate line buffer */
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
@@ -2836,6 +2838,7 @@ void write_file(char * file) {
 
 	/* Mark it no longer modified */
 	env->modified = 0;
+	env->last_save_history = env->history;
 
 	/* If there was no file name set, set one */
 	if (!env->file_name) {
@@ -3920,6 +3923,10 @@ void handle_mouse(void) {
  * Append a character at the current cursor point.
  */
 void insert_char(unsigned int c) {
+	if (!c) {
+		render_error("Inserted nil byte?");
+		return;
+	}
 	char_t _c;
 	_c.codepoint = c;
 	_c.flags = 0;
@@ -4036,6 +4043,11 @@ void undo_history(void) {
 		e = env->history;
 	} while (e->type != HISTORY_BREAK);
 
+	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+
+	env->modified = (env->history != env->last_save_history);
+
 	env->loading = 0;
 
 	for (int i = 0; i < env->line_count; ++i) {
@@ -4046,7 +4058,7 @@ void undo_history(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	place_cursor_actual();
-	redraw_text();
+	redraw_all();
 }
 
 /**
@@ -4136,6 +4148,11 @@ void redo_history(void) {
 		e = e->next;
 	}
 
+	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+
+	env->modified = (env->history != env->last_save_history);
+
 	env->loading = 0;
 
 	for (int i = 0; i < env->line_count; ++i) {
@@ -4146,7 +4163,7 @@ void redo_history(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	place_cursor_actual();
-	redraw_text();
+	redraw_all();
 }
 
 /**
