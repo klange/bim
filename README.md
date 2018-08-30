@@ -44,7 +44,7 @@ Mouse support with `^[[?1000h` is available. The alternate screen is used if ava
 
 When in normal mode:
 
-| **Keybind** | **Action**                                                                              |
+| **Key**     | **Action**                                                                              |
 |-------------|-----------------------------------------------------------------------------------------|
 | `:`         | Start entering a command                                                                |
 | `/`         | Start increment search                                                                  |
@@ -69,14 +69,14 @@ When in normal mode:
 
 In LINE SELECTION mode the following additional commands are available:
 
-| **Keybind** | **Action**                                               |
+| **Key**     | **Action**                                               |
 |-------------|----------------------------------------------------------|
 | Tab         | Indent selected lines one indentation unit to the right  |
 | Shift-Tab   | Unindent selected lines one indentation unit to the left |
 | `d`         | Delete and yank selected lines                           |
 | `y`         | Yank selected lines                                      |
 
-Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE INSERTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation.
+Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE SELECTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation.
 
 ## License
 
