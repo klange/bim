@@ -920,22 +920,6 @@ static int syn_sh_iskeywordchar(int c) {
 
 static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
 
-static int syn_sh_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
-}
-
-static int syn_make_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
-}
-
 static char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
 static int syn_make_iskeywordchar(int c) {
@@ -1039,13 +1023,18 @@ static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_l
 
 static char * syn_bimrc_ext[] = {".bimrc",NULL};
 
-static int syn_bimrc_finish(line_t * line, int * left, int state) {
-	/* No multilines supported */
-	(void)line;
-	(void)left;
-	(void)state;
-	return 0;
+static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (c == '#') {
+		*out_left = (line->actual + 1) - i;
+		return FLAG_COMMENT;
+	}
+
+	return FLAG_NONE;
 }
+
+static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
 
 /**
  * Syntax hilighting definition database
@@ -1061,9 +1050,10 @@ struct syntax_definition {
 } syntaxes[] = {
 	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
 	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
-	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,syn_sh_finish},
-	{"make",syn_make_ext,NULL,NULL,syn_make_extended,syn_make_iskeywordchar,syn_make_finish},
-	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,syn_bimrc_finish},
+	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,NULL},
+	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
+	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
+	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
 	{NULL}
 };
 
