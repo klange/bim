@@ -3971,6 +3971,14 @@ void undo_history(void) {
 	env->loading = 1;
 	history_t * e = env->history;
 
+	if (e->type == HISTORY_SENTINEL) {
+		render_commandline_message("Already at oldest change");
+		return;
+	}
+
+	int count_chars = 0;
+	int count_lines = 0;
+
 	do {
 		if (e->type == HISTORY_SENTINEL) break;
 
@@ -3984,6 +3992,7 @@ void undo_history(void) {
 				);
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				{
@@ -3997,6 +4006,7 @@ void undo_history(void) {
 				}
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
@@ -4010,32 +4020,38 @@ void undo_history(void) {
 				}
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
 				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
 				env->line_no = e->remove_replace_line.lineno + 2;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = remove_line(env->lines, e->add_merge_split_lines.lineno);
 				env->line_no = e->add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
 				env->line_no = e->remove_replace_line.lineno + 1;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno+1);
 				env->line_no = e->add_merge_split_lines.lineno + 2;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno-1, e->add_merge_split_lines.split);
 				env->line_no = e->add_merge_split_lines.lineno;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_BREAK:
 				/* Ignore break */
@@ -4065,6 +4081,9 @@ void undo_history(void) {
 	}
 	place_cursor_actual();
 	redraw_all();
+	render_commandline_message("%d character%s, %d line%s changed",
+			count_chars, (count_chars == 1) ? "" : "s",
+			count_lines, (count_lines == 1) ? "" : "s");
 }
 
 /**
@@ -4075,6 +4094,14 @@ void redo_history(void) {
 
 	env->loading = 1;
 	history_t * e = env->history->next;
+
+	if (!e) {
+		render_commandline_message("Already at newest change");
+		return;
+	}
+
+	int count_chars = 0;
+	int count_lines = 0;
 
 	while (e) {
 		if (e->type == HISTORY_BREAK) {
@@ -4095,6 +4122,7 @@ void redo_history(void) {
 				}
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				/* Delete */
@@ -4105,6 +4133,7 @@ void redo_history(void) {
 				);
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 1;
+				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
@@ -4118,31 +4147,37 @@ void redo_history(void) {
 				}
 				env->line_no = e->insert_delete_replace.lineno + 1;
 				env->col_no  = e->insert_delete_replace.offset + 2;
+				count_chars++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
 				env->line_no = e->remove_replace_line.lineno + 2;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = remove_line(env->lines, e->remove_replace_line.lineno);
 				env->line_no = e->add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.contents);
 				env->line_no = e->remove_replace_line.lineno + 2;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno);
 				env->line_no = e->remove_replace_line.lineno + 1;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno, e->add_merge_split_lines.split);
 				env->line_no = e->remove_replace_line.lineno + 2;
 				env->col_no = 1;
+				count_lines++;
 				break;
 			case HISTORY_BREAK:
 				/* Ignore break */
@@ -4172,6 +4207,9 @@ void redo_history(void) {
 	}
 	place_cursor_actual();
 	redraw_all();
+	render_commandline_message("%d character%s, %d line%s changed",
+			count_chars, (count_chars == 1) ? "" : "s",
+			count_lines, (count_lines == 1) ? "" : "s");
 }
 
 /**
