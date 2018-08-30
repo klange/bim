@@ -485,6 +485,36 @@ void load_colorscheme_solarized_dark(void) {
 	current_theme = "solarized-dark";
 }
 
+/* Custom theme */
+void load_colorscheme_sunsmoke(void) {
+	COLOR_FG        = "2;230;230;230";
+	COLOR_BG        = "2;31;31;31";
+	COLOR_ALT_FG    = "2;122;122;122";
+	COLOR_ALT_BG    = "2;46;43;46";
+	COLOR_NUMBER_FG = "2;150;139;57";
+	COLOR_NUMBER_BG = "2;0;0;0";
+	COLOR_STATUS_FG = "2;230;230;230";
+	COLOR_STATUS_BG = "2;71;64;58";
+	COLOR_TABBAR_BG = "2;71;64;58";
+	COLOR_TAB_BG    = "2;31;31;31";
+	COLOR_KEYWORD   = "2;51;162;230";
+	COLOR_STRING    = "2;72;176;72";
+	COLOR_COMMENT   = "2;158;153;129;3";
+	COLOR_TYPE      = "2;230;206;110";
+	COLOR_PRAGMA    = "2;194;70;54";
+	COLOR_NUMERAL   = "2;230;43;127";
+
+	COLOR_ERROR_FG  = "5;15";
+	COLOR_ERROR_BG  = "5;196";
+	COLOR_SEARCH_FG = "5;234";
+	COLOR_SEARCH_BG = "5;226";
+
+	COLOR_SELECTFG  = "2;0;43;54";
+	COLOR_SELECTBG  = "2;147;161;161";
+
+	current_theme = "sunsmoke";
+}
+
 /* 16-color theme, default */
 void load_colorscheme_ansi(void) {
 	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
@@ -523,6 +553,7 @@ struct theme_def {
 	{"citylights", load_colorscheme_citylights},
 	{"solarized-dark", load_colorscheme_solarized_dark},
 	{"ansi", load_colorscheme_ansi},
+	{"sunsmoke", load_colorscheme_sunsmoke},
 	{NULL, NULL}
 };
 
