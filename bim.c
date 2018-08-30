@@ -183,6 +183,7 @@ struct {
 	int can_mouse;
 	int can_unicode;
 	int can_bright;
+	int history_enabled;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -193,6 +194,7 @@ struct {
 	0, /* yank_count */
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
+	1,
 	1,
 	1,
 	1,
@@ -1233,6 +1235,8 @@ void recursive_history_free(history_t * root) {
  * Mark a point where a complete set of actions has ended.
  */
 void set_history_break(void) {
+	if (!global_config.history_enabled) return;
+
 	if (env->history->type != HISTORY_BREAK) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_BREAK;
@@ -1245,7 +1249,7 @@ void set_history_break(void) {
  */
 line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_INSERT;
 		e->insert_delete_replace.lineno = lineno;
@@ -1288,7 +1292,7 @@ void line_delete(line_t * line, int offset, int lineno) {
 	/* Can't delete character before start of line. */
 	if (offset == 0) return;
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_DELETE;
 		e->insert_delete_replace.lineno = lineno;
@@ -1314,7 +1318,7 @@ void line_delete(line_t * line, int offset, int lineno) {
  */
 void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE;
 		e->insert_delete_replace.lineno = lineno;
@@ -1345,7 +1349,7 @@ line_t ** remove_line(line_t ** lines, int offset) {
 		return lines;
 	}
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REMOVE_LINE;
 		e->remove_replace_line.lineno = offset;
@@ -1376,7 +1380,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	/* Invalid offset? */
 	if (offset > env->line_count) return lines;
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_ADD_LINE;
 		e->add_merge_split_lines.lineno = offset;
@@ -1416,7 +1420,7 @@ line_t ** add_line(line_t ** lines, int offset) {
  */
 void replace_line(line_t ** lines, int offset, line_t * replacement) {
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE_LINE;
 		e->remove_replace_line.lineno = offset;
@@ -1448,7 +1452,7 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* linea is the line immediately before lineb */
 	int linea = lineb - 1;
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_MERGE_LINES;
 		e->add_merge_split_lines.lineno = lineb;
@@ -1500,7 +1504,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 		return add_line(lines, line);
 	}
 
-	if (!env->loading) {
+	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_SPLIT_LINE;
 		e->add_merge_split_lines.lineno = line;
@@ -3962,6 +3966,8 @@ void replace_char(unsigned int c) {
  * Undo a history entry.
  */
 void undo_history(void) {
+	if (!global_config.history_enabled) return;
+
 	env->loading = 1;
 	history_t * e = env->history;
 
@@ -4065,6 +4071,8 @@ void undo_history(void) {
  * Replay a history entry.
  */
 void redo_history(void) {
+	if (!global_config.history_enabled) return;
+
 	env->loading = 1;
 	history_t * e = env->history->next;
 
@@ -5038,6 +5046,7 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nobright"))   global_config.can_bright = 0;
 				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
+				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
