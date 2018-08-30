@@ -52,7 +52,6 @@ When in normal mode:
 | `n`         | Find next search match                                                                  |
 | `N`         | Find previous search match                                                              |
 | `hjkl`      | Vi-style navigation                                                                     |
-| `d`         | Delete the current line                                                                 |
 | Space       | Scroll down a screenful                                                                 |
 | `O`         | Add line before current line, and enter INSERT mode.                                    |
 | `o`         | Add line after current line, and enter INSERT mode.                                     |

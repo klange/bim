@@ -5242,16 +5242,6 @@ int main(int argc, char * argv[]) {
 					case 'l':
 						cursor_right();
 						break;
-					case 'd':
-						remove_line(env->lines, env->line_no-1);
-						env->col_no = 1;
-						if (env->line_no > env->line_count) {
-							env->line_no--;
-						}
-						redraw_text();
-						set_modified();
-						place_cursor_actual();
-						break;
 					case ' ':
 						goto_line(env->line_no + global_config.term_height - 6);
 						break;
