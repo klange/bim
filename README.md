@@ -90,6 +90,35 @@ In LINE SELECTION mode the following additional commands are available:
 | `d`         | Delete and yank selected lines                           |
 | `y`         | Yank selected lines                                      |
 
+## Commands
+
+| **Command**        | **Description**                                                                                |
+|--------------------|------------------------------------------------------------------------------------------------|
+| `:e FILE`          | Open `FILE` in a new tab                                                                       |
+| `:tabnew`          | Create a new empty tab                                                                         |
+| `:w`               | Write the current file                                                                         |
+| `:w FILE`          | Write the current buffer to `FILE`                                                             |
+| `:wq`              | Write the current file and close this buffer                                                   |
+| `:q`               | Close this buffer if it has not been modified                                                  |
+| `:q!`              | Close this buffer even if it has been modified                                                 |
+| `:qa`              | Try to close all buffers                                                                       |
+| `:qa!`             | Quit immediately, ignoring unsaved changes                                                     |
+| `:tabp`            | Switch to previous tab                                                                         |
+| `:tabn`            | Switch to next tab                                                                             |
+| `:indent`          | Enable automatic indentation                                                                   |
+| `:noindent`        | Disable automatic indentation                                                                  |
+| `:noh`             | Clear search string                                                                            |
+| `:theme`           | Print the current selected color scheme                                                        |
+| `:theme THEME`     | Set the color scheme to `THEME` (use tab completion to see available themes)                   |
+| `:noscroll`        | Disable the use of special terminal escapes when scrolling.                                    |
+| `:syntax`          | Print the current syntax highlighting mode (also displayed in the status bar)                  |
+| `:syntax LANGUAGE` | Set the syntax highlighting mode to `LANGUAGE` (use tab completion to see available languages) |
+| `:recalc`          | Recalculate syntax highlighting for the whole buffer                                           |
+| `:tabs`            | Set the tab key and automatic indentation to insert tab characters                             |
+| `:spaces`          | Set the tab key and automatic indentation to insert spaces                                     |
+| `:tabstop`         | Print the current tab stop (how wide one indentation unit is)                                  |
+| `:tabstop TABSTOP` | Set the tab stop width                                                                         |
+| `:clearyank`       | Clear the yank buffer                                                                          |
 
 ## License
 
