@@ -1,6 +1,6 @@
 # Bim - A Bad IMitation of Vi(m)
 
-![screenshot](screenshot.png)
+![screenshot](docs/screenshot.png)
 
 Bim is a terminal text editor with syntax highlighting.
 
@@ -124,9 +124,43 @@ In LINE SELECTION mode the following additional commands are available:
 
 You can use Bim to display files in your terminal with syntax higlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
 
-![screenshot](screenshot_cat.png)
+![screenshot](docs/screenshot_cat.png)
 
 You can pipe text to bim for editing with `bim -`. Note that Bim will wait for end-of-file before launching, so this is not suitable for use as a pager (pager support is planned).
+
+## Themes
+
+Bim includes a handful of color schemes for the interface and syntax highlighting.
+
+### ANSI
+
+The default 16-color theme. Can be configured for use on terminals with or without bright color support. Looks a bit like Irssi.
+
+![ansi](docs/theme_ansi.png)
+
+### Sunsmoke
+
+An original 24-bit color theme with rustic browns and subdued pastel colors.
+
+![sunsmoke](docs/screenshot.png)
+
+### Wombat
+
+A 256-color theme based on the theme of the same name for Vim.
+
+![wombat](docs/theme_wombat.png)
+
+### Solarized Dark
+
+A 24-bit color theme based on the popular color palette.
+
+![solarized-dark](docs/theme_solarized-dark.png)
+
+### City Lights
+
+A 24-bit color theme based on the one for Atom and Sublime, featuring low contrast blues.
+
+![citylights](docs/theme_citylights.png)
 
 ## License
 
