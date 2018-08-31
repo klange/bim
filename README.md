@@ -120,6 +120,14 @@ In LINE SELECTION mode the following additional commands are available:
 | `:tabstop TABSTOP` | Set the tab stop width                                                                         |
 | `:clearyank`       | Clear the yank buffer                                                                          |
 
+## Additional Bim Functionality
+
+You can use Bim to display files in your terminal with syntax higlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
+
+![screenshot](screenshot_cat.png)
+
+You can pipe text to bim for editing with `bim -`. Note that Bim will wait for end-of-file before launching, so this is not suitable for use as a pager (pager support is planned).
+
 ## License
 
 Bim is primarily distributed under the ISC license. In ToaruOS, it is under the NCSA license. The terms are nearly identical from a legal standpoint.
