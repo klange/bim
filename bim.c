@@ -5270,6 +5270,7 @@ int main(int argc, char * argv[]) {
 						goto _insert;
 					case 'P':
 					case 'p':
+						if (env->readonly) goto _readonly;
 						if (global_config.yanks) {
 							for (unsigned int i = 0; i < global_config.yank_count; ++i) {
 								env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
@@ -5283,6 +5284,7 @@ int main(int argc, char * argv[]) {
 							for (int i = 0; i < env->line_count; ++i) {
 								recalculate_syntax(env->lines[i],i);
 							}
+							set_modified();
 							redraw_all();
 						}
 						break;
