@@ -27,7 +27,6 @@
  * easily portable to other Unix-like environments).
  *
  * Future goals:
- * - History stack
  * - Character selection
  */
 #define _XOPEN_SOURCE 500
