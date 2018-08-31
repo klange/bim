@@ -163,7 +163,7 @@ A 24-bit color theme based on the one for Atom and Sublime, featuring low contra
 
 ## License
 
-Bim is primarily distributed under the ISC license. In ToaruOS, it is under the NCSA license. The terms are nearly identical from a legal standpoint.
+Bim is released under the terms of the ISC license, which is a simple BSD-style license. See [LICENSE](LICENSE) for details.
 
 ## Development
 

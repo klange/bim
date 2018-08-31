@@ -1,10 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
- * This file is part of ToaruOS and is released under the terms
- * of the NCSA / University of Illinois License - see LICENSE.md
- * Copyright (C) 2012-2018 K. Lange
  *
- * Alternatively, this source file is also released under the
- * following terms:
+ * Copyright (C) 2012-2018 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,8 +19,8 @@
  * Bim is inspired by vim, and its name is short for "Bad IMitation".
  *
  * Bim supports syntax highlighting, extensive editing, line selection
- * and copy-paste, and can be built for ToaruOS and Linux (and should be
- * easily portable to other Unix-like environments).
+ * and copy-paste, undo/redo stack, forward and backward search, and can
+ * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
  *
  * Future goals:
  * - Character selection
