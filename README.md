@@ -42,6 +42,19 @@ Mouse support with `^[[?1000h` is available. The alternate screen is used if ava
 
 ## Key Bindings
 
+In normal, INSERT, LINE SELECTION, and REPLACE modes:
+
+| **Key**    | **Action**                                      |
+|------------|-------------------------------------------------|
+| Arrows     | Move the cursor                                 |
+| Page Up    | Scroll up one screenful                         |
+| Page Down  | Scroll down one screenful                       |
+| Home       | Move cursor to start of line                    |
+| End        | Move cursor to end of line (past end in INSERT) |
+| Ctrl-Left  | Move to start of previous word                  |
+| Ctrl-Right | Move to start of next word                      |
+| Escape     | Return to normal mode                           |
+
 When in normal mode:
 
 | **Key**     | **Action**                                                                              |
@@ -77,7 +90,6 @@ In LINE SELECTION mode the following additional commands are available:
 | `d`         | Delete and yank selected lines                           |
 | `y`         | Yank selected lines                                      |
 
-Hitting escape will generally exit non-normal modes. In normal, INSERT, LINE SELECTION, and REPLACE modes, arrow keys and page up / page down may also be used for navigation, and home/end will move the cursor to the beginning and ending of lines.
 
 ## License
 
