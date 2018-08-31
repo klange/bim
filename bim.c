@@ -4530,8 +4530,8 @@ void yank_lines(int start, int end) {
 			} \
 			break; \
 		} \
-		if ((env->line_no < start_line && (line) < env->line_no) || \
-			(env->line_no > start_line && (line) > env->line_no) || \
+		if ((env->line_no < start_line  && ((line) < env->line_no || (line) > start_line)) || \
+			(env->line_no > start_line  && ((line) > env->line_no || (line) < start_line)) || \
 			(env->line_no == start_line && (line) != start_line)) { \
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
