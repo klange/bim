@@ -184,6 +184,7 @@ struct {
 	int can_unicode;
 	int can_bright;
 	int history_enabled;
+	int can_title;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -201,6 +202,7 @@ struct {
 	1,
 	1,
 	0,
+	1,
 };
 
 void redraw_line(int j, int x);
@@ -2343,6 +2345,8 @@ void redraw_all(void) {
  * Update the terminal title bar
  */
 void update_title(void) {
+	if (!global_config.can_title) return;
+
 	char cwd[1024] = {'/',0};
 	getcwd(cwd, 1024);
 
@@ -3243,8 +3247,6 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
-	} else if (!strcmp(argv[0], "noscroll")) {
-		global_config.can_scroll = 0;
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
@@ -4953,7 +4955,7 @@ static void show_usage(char * argv[]) {
 			"       %s [options] -\n"
 			"\n"
 			" -R     " _S "open initial buffer read-only" _E
-			" -O     " _S "set various display options:" _E
+			" -O     " _S "set various options:" _E
 			"        noscroll    " _S "disable terminal scrolling" _E
 			"        noaltscreen " _S "disable alternate screen buffer" _E
 			"        nomouse     " _S "disable mouse support" _E
@@ -4961,6 +4963,8 @@ static void show_usage(char * argv[]) {
 			"        nobright    " _S "disable bright next" _E
 			"        nohideshow  " _S "disable togglging cursor visibility" _E
 			"        nosyntax    " _S "disable syntax highlighting on load" _E
+			"        notitle     " _S "disable title-setting escapes" _E
+			"        history     " _S "enable experimental undo/redo" _E
 			" -c,-C  " _S "print file to stdout with syntax hilighting" _E
 			"        " _S "-C includes line numbers, -c does not" _E
 			" -u     " _S "override bimrc file" _E
@@ -5071,6 +5075,10 @@ void detect_weird_terminals(void) {
 		global_config.can_unicode = 0;
 		global_config.can_bright = 0;
 	}
+	if (term && !strcmp(term,"sortix")) {
+		/* sortix will spew title escapes to the screen, no good */
+		global_config.can_title = 0;
+	}
 
 }
 
@@ -5139,6 +5147,7 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
 				else if (!strcmp(optarg,"history"))    global_config.history_enabled = 1;
+				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;

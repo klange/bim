@@ -36,7 +36,7 @@ Unicode support is recommended, but not completely required.
 
 256-color and 24-bit color are optional. The default theme uses only the standard 16 colors.
 
-Scrolling is normally done through `^[[1S` and `^[[1T`, but this can be disabled with the `:noscroll` command.
+Scrolling is normally done through `^[[1S` and `^[[1T`, but this can be disabled with the `-O noscroll` option.
 
 Mouse support with `^[[?1000h` is available. The alternate screen is used if available with `^[[?1049h`.
 
@@ -110,7 +110,6 @@ In LINE SELECTION mode the following additional commands are available:
 | `:noh`             | Clear search string                                                                            |
 | `:theme`           | Print the current selected color scheme                                                        |
 | `:theme THEME`     | Set the color scheme to `THEME` (use tab completion to see available themes)                   |
-| `:noscroll`        | Disable the use of special terminal escapes when scrolling.                                    |
 | `:syntax`          | Print the current syntax highlighting mode (also displayed in the status bar)                  |
 | `:syntax LANGUAGE` | Set the syntax highlighting mode to `LANGUAGE` (use tab completion to see available languages) |
 | `:recalc`          | Recalculate syntax highlighting for the whole buffer                                           |
