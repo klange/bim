@@ -1241,7 +1241,7 @@ void recursive_history_free(history_t * root) {
 void set_history_break(void) {
 	if (!global_config.history_enabled) return;
 
-	if (env->history->type != HISTORY_BREAK) {
+	if (env->history->type != HISTORY_BREAK && env->history->type != HISTORY_SENTINEL) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_BREAK;
 		HIST_APPEND(e);
