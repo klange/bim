@@ -2535,6 +2535,7 @@ void SIGCONT_handler(int sig) {
 	(void)sig;
 	set_alternate_screen();
 	set_unbuffered();
+	mouse_enable();
 	redraw_all();
 	signal(SIGCONT, SIGCONT_handler);
 	signal(SIGTSTP, SIGTSTP_handler);
