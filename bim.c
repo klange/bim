@@ -4040,6 +4040,7 @@ void undo_history(void) {
 	history_t * e = env->history;
 
 	if (e->type == HISTORY_SENTINEL) {
+		env->loading = 0;
 		render_commandline_message("Already at oldest change");
 		return;
 	}
@@ -4164,6 +4165,7 @@ void redo_history(void) {
 	history_t * e = env->history->next;
 
 	if (!e) {
+		env->loading = 0;
 		render_commandline_message("Already at newest change");
 		return;
 	}
