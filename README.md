@@ -22,7 +22,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Efficient screen redrawing.
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
-- Line selection and yanking.
+- Line selection and yanking; character selection
 - Incremental forward search (and backwards find-next).
 - Undo/redo stack (experimental, enable with `-O history`)
 
@@ -42,7 +42,7 @@ Mouse support with `^[[?1000h` is available. The alternate screen is used if ava
 
 ## Key Bindings
 
-In normal, INSERT, LINE SELECTION, and REPLACE modes:
+In normal, INSERT, LINE SELECTION, CHAR SELECTION, and REPLACE modes:
 
 | **Key**    | **Action**                                      |
 |------------|-------------------------------------------------|
@@ -63,6 +63,7 @@ When in normal mode:
 | `/`         | Start incremental search                                                                |
 | `n`         | Find next search match                                                                  |
 | `N`         | Find previous search match                                                              |
+| `v`         | Enter CHAR SELECTION mode                                                               |
 | `V`         | Enter LINE SELECTION mode                                                               |
 | `R`         | Enter REPLACE mode                                                                      |
 | `i`         | Enter INSERT mode                                                                       |
@@ -89,6 +90,8 @@ In LINE SELECTION mode the following additional commands are available:
 | Shift-Tab   | Unindent selected lines one indentation unit to the left |
 | `d`         | Delete and yank selected lines                           |
 | `y`         | Yank selected lines                                      |
+
+(CHAR SELECTION mode is currently limited to just `d` for deleting selected characters; yanking will be added eventually.)
 
 ## Commands
 
