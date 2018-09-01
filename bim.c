@@ -4860,7 +4860,6 @@ void char_selection_mode(void) {
 	int start_line = env->line_no;
 	int start_col  = env->col_no;
 	int prev_line  = start_line;
-	int prev_col   = start_col;
 
 	env->mode = MODE_CHAR_SELECTION;
 	redraw_commandline();
