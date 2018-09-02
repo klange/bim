@@ -195,7 +195,7 @@ struct {
 	1,
 	1,
 	1,
-	0,
+	1,
 	1,
 };
 
@@ -5507,7 +5507,6 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
 				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
-				else if (!strcmp(optarg,"history"))    global_config.history_enabled = 1;
 				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);

@@ -24,7 +24,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Mouse support in Xterm-like terminals.
 - Line and character selection, with yanking (paste buffer)
 - Incremental forward search (and backwards find-next).
-- Undo/redo stack (experimental, enable with `-O history`)
+- Undo/redo stack
 
 ## Prerequisites
 
@@ -166,6 +166,13 @@ A 24-bit color theme based on the popular color palette.
 A 24-bit color theme based on the one for Atom and Sublime, featuring low contrast blues.
 
 ![citylights](docs/theme_citylights.png)
+
+## Config File
+
+You can set the default theme in `~/.bimrc`:
+
+    # example bimrc
+    theme=sunsmoke
 
 ## License
 
