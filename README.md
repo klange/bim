@@ -22,7 +22,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Efficient screen redrawing.
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
-- Line selection and yanking; character selection
+- Line and character selection, with yanking (paste buffer)
 - Incremental forward search (and backwards find-next).
 - Undo/redo stack (experimental, enable with `-O history`)
 
@@ -82,16 +82,19 @@ When in normal mode:
 | Ctrl-`R`    | Redo last undone block of edits                                                         |
 | Ctrl-`L`    | Repaint the screen                                                                      |
 
-In LINE SELECTION mode the following additional commands are available:
+In LINE SELECTION and CHAR SELECTION modes the following additional commands are available:
+
+| **Key**     | **Action**                                               |
+|-------------|----------------------------------------------------------|
+| `d`         | Delete and yank selected lines                           |
+| `y`         | Yank selected lines                                      |
+
+In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 
 | **Key**     | **Action**                                               |
 |-------------|----------------------------------------------------------|
 | Tab         | Indent selected lines one indentation unit to the right  |
 | Shift-Tab   | Unindent selected lines one indentation unit to the left |
-| `d`         | Delete and yank selected lines                           |
-| `y`         | Yank selected lines                                      |
-
-(CHAR SELECTION mode is currently limited to just `d` for deleting selected characters; yanking will be added eventually.)
 
 ## Commands
 
