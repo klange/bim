@@ -3207,6 +3207,7 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "noh")) {
 		if (env->search) {
 			free(env->search);
+			env->search = NULL;
 			redraw_text();
 		}
 	} else if (!strcmp(argv[0], "help")) {
