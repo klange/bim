@@ -13,7 +13,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 ## Features
 
 - Vim-like modal interactions.
-- Arrow-key and traditional vi hjkl navigation.
+- Arrow-key and traditional vi `hjkl` navigation.
 - Syntax highlighting (currently for C, Python, and Makefiles).
 - Themes, including 256-color and 24-bit color support.
 - Indentation adjustment.
@@ -71,7 +71,7 @@ When in normal mode:
 | `O`         | Add line before current line, and enter INSERT mode.                                    |
 | `o`         | Add line after current line, and enter INSERT mode.                                     |
 | `hjkl`      | Vi-style navigation                                                                     |
-| Space       | Scroll down a screenful                                                                 |
+| Space       | Scroll down one screen                                                                  |
 | `%`         | Jump to the matching brace/parenthesis                                                  |
 | `{`         | Jump to previous blank line                                                             |
 | `}`         | Jump to next blank line                                                                 |
@@ -86,8 +86,8 @@ In LINE SELECTION and CHAR SELECTION modes the following additional commands are
 
 | **Key**     | **Action**                                               |
 |-------------|----------------------------------------------------------|
-| `d`         | Delete and yank selected lines                           |
-| `y`         | Yank selected lines                                      |
+| `d`         | Delete and yank selected text                            |
+| `y`         | Yank selected text                                       |
 
 In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 
@@ -127,7 +127,7 @@ In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 
 ## Additional Bim Functionality
 
-You can use Bim to display files in your terminal with syntax higlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
+You can use Bim to display files in your terminal with syntax highlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
 
 ![screenshot](docs/screenshot_cat.png)
 
