@@ -127,7 +127,7 @@ In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 
 ## Additional Bim Functionality
 
-You can use Bim to display files in your terminal with syntax higlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
+You can use Bim to display files in your terminal with syntax highlighting with `bim -c` (no line numbers) and `bim -C` (with line numbers).
 
 ![screenshot](docs/screenshot_cat.png)
 
