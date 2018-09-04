@@ -3989,8 +3989,8 @@ void handle_mouse(void) {
 		for (int i = 0; i < env->lines[line_no-1]->actual; ++i) {
 			char_t * c = &env->lines[line_no-1]->text[i];
 			_x += c->display_width;
-			if (_x > x) {
-				col_no = i;
+			if (_x > x-1) {
+				col_no = i+1;
 				break;
 			}
 		}
