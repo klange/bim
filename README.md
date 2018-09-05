@@ -61,6 +61,7 @@ When in normal mode:
 |-------------|-----------------------------------------------------------------------------------------|
 | `:`         | Start entering a command                                                                |
 | `/`         | Start incremental search                                                                |
+| `?`         | Start backwards incremental search                                                      |
 | `n`         | Find next search match                                                                  |
 | `N`         | Find previous search match                                                              |
 | `v`         | Enter CHAR SELECTION mode                                                               |
