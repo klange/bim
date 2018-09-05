@@ -4175,6 +4175,7 @@ void undo_history(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	place_cursor_actual();
+	update_title();
 	redraw_all();
 	render_commandline_message("%d character%s, %d line%s changed",
 			count_chars, (count_chars == 1) ? "" : "s",
@@ -4302,6 +4303,7 @@ void redo_history(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	place_cursor_actual();
+	update_title();
 	redraw_all();
 	render_commandline_message("%d character%s, %d line%s changed",
 			count_chars, (count_chars == 1) ? "" : "s",
