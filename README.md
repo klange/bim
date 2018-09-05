@@ -23,7 +23,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line and character selection, with yanking (paste buffer)
-- Incremental forward search (and backwards find-next).
+- Incremental forward and backward search.
 - Undo/redo stack
 
 ## Prerequisites
