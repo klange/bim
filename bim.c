@@ -2859,6 +2859,7 @@ void write_file(char * file) {
 	/* Mark it no longer modified */
 	env->modified = 0;
 	env->last_save_history = env->history;
+	update_title();
 
 	/* If there was no file name set, set one */
 	if (!env->file_name) {
@@ -3165,6 +3166,7 @@ void process_command(char * cmd) {
 		env = buffer_new();
 		setup_buffer(env);
 		redraw_all();
+		update_title();
 	} else if (!strcmp(argv[0], "w")) {
 		/* w: write file */
 		if (argc > 1) {
@@ -3195,9 +3197,11 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "tabp")) {
 		/* Next tab */
 		previous_tab();
+		update_title();
 	} else if (!strcmp(argv[0], "tabn")) {
 		/* Previous tab */
 		next_tab();
+		update_title();
 	} else if (!strcmp(argv[0], "indent")) {
 		env->indent = 1;
 		redraw_statusbar();
