@@ -3847,7 +3847,6 @@ void search_prev(void) {
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
 
 	if (line == -1) {
-		render_error("no match");
 		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, env->search);
 		if (line == -1) return;
 	}
