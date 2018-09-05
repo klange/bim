@@ -2859,7 +2859,6 @@ void write_file(char * file) {
 	/* Mark it no longer modified */
 	env->modified = 0;
 	env->last_save_history = env->history;
-	update_title();
 
 	/* If there was no file name set, set one */
 	if (!env->file_name) {
@@ -2867,6 +2866,7 @@ void write_file(char * file) {
 		memcpy(env->file_name, file, strlen(file) + 1);
 	}
 
+	update_title();
 	redraw_all();
 }
 
