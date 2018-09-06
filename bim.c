@@ -178,6 +178,8 @@ struct {
 	int can_bright;
 	int history_enabled;
 	int can_title;
+
+	int cursor_padding;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -197,6 +199,7 @@ struct {
 	1,
 	1,
 	1,
+	4, /* cursor padding */
 };
 
 void redraw_line(int j, int x);
@@ -987,6 +990,7 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 
 static char * syn_bimrc_keywords[] = {
 	"theme",
+	"padding",
 	NULL,
 };
 
@@ -2464,13 +2468,13 @@ void place_cursor_actual(void) {
 
 	int needs_redraw = 0;
 
-	while (y < 2) {
+	while (y < 2 + global_config.cursor_padding && env->offset > 0) {
 		y++;
 		env->offset--;
 		needs_redraw = 1;
 	}
 
-	while (y > global_config.term_height - global_config.bottom_size) {
+	while (y > global_config.term_height - global_config.bottom_size - global_config.cursor_padding) {
 		y--;
 		env->offset++;
 		needs_redraw = 1;
@@ -2927,7 +2931,7 @@ void cursor_down(void) {
 		}
 
 		/* If we've scrolled past the bottom of the screen, scroll the screen */
-		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
@@ -2996,7 +3000,8 @@ void cursor_up(void) {
 			redraw = 1;
 		}
 
-		if (env->line_no <= env->offset) {
+		int e = (env->offset == 0) ? env->offset : env->offset + global_config.cursor_padding;
+		if (env->line_no <= e) {
 			env->offset -= 1;
 
 			/* Tell terminal to scroll */
@@ -3330,6 +3335,13 @@ void process_command(char * cmd) {
 			global_config.yank_count = 0;
 			redraw_statusbar();
 		}
+	} else if (!strcmp(argv[0], "padding")) {
+		if (argc < 2) {
+			render_status_message("padding=%d", global_config.cursor_padding);
+		} else {
+			global_config.cursor_padding = atoi(argv[1]);
+			place_cursor_actual();
+		}
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -3407,6 +3419,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("clearyank");
 		add_candidate("indent");
 		add_candidate("noindent");
+		add_candidate("padding");
 		goto _accept_candidate;
 	}
 
@@ -5437,6 +5450,11 @@ void load_bimrc(void) {
 		/* enable history (experimental) */
 		if (!strcmp(l,"history")) {
 			global_config.history_enabled = 1;
+		}
+		
+		/* padding= */
+		if (!strcmp(l,"padding") && value) {
+			global_config.cursor_padding = atoi(value);
 		}
 	}
 
