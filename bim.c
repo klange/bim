@@ -2081,6 +2081,11 @@ void render_line(line_t * line, int width, int offset) {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("[U+%06x]", c.codepoint);
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (c.codepoint == ' ' && i == line->actual - 1) {
+				/* Special case: space at end of line */
+				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				printf("·");
+				set_colors(COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
 				char tmp[7]; /* Max six bytes, use 7 to ensure last is always nil */
