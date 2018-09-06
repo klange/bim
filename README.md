@@ -172,8 +172,10 @@ A 24-bit color theme based on the one for Atom and Sublime, featuring low contra
 
 You can set the default theme in `~/.bimrc`:
 
-    # example bimrc
+    # set a color theme, sunsmoke is a 24-bit theme
     theme=sunsmoke
+    # set a scroll offset so the cursor isn't at the bottom or top of the screen
+    padding=4
 
 ## License
 
