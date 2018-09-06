@@ -16,29 +16,31 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Arrow-key and traditional vi `hjkl` navigation.
 - Syntax highlighting (currently for C, Python, and Makefiles).
 - Themes, including 256-color and 24-bit color support.
-- Indentation adjustment.
+- Indentation adjustment and naïve automatic indentation.
 - Multiple editor tabs.
 - Basic Unicode support (sufficient for things like Japanese, but not capable of more complex scripts).
 - Efficient screen redrawing.
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
-- Line and character selection, with yanking (paste buffer)
+- Line and character selection, with yanking (paste buffer).
 - Incremental forward and backward search.
-- Undo/redo stack
+- Undo/redo stack.
 
 ## Prerequisites
 
-Bim has no external dependencies beyond a functioning C library and sufficient escape code support in the hosting terminal.
+Bim has no external dependencies beyond a functioning C library and sufficient escape code support in the hosting terminal. Your C compiler must support C99; if it does not default to C99 mode, supply the appropriate `CFLAGS` settings when running `make`. Recent GCC, Clang, and TCC all default to C99 or later, but older GCCs default to `gnu89`.
 
 ### Terminal Support
 
-Unicode support is recommended, but not completely required.
+Unicode support is recommended, but not completely required. Most terminals support the handful of characters used in the default setup regardless, but use `-O nounicode` if you experience issues with the rendering of tabs.
 
-256-color and 24-bit color are optional. The default theme uses only the standard 16 colors.
+256-color and 24-bit color are optional. The default theme uses only the standard 16 colors. If your terminal only supports 8 colors, you can also supply `-O nobright` to disable bright colors.
 
-Scrolling is normally done through `^[[1S` and `^[[1T`, but this can be disabled with the `-O noscroll` option.
+Scrolling is normally done through `^[[1S` and `^[[1T`. If your terminal doesn't support these escapes, or has trouble scrolling, supply `-O noscroll` to have the screen refresh when scrolling. This may be slow.
 
-Mouse support with `^[[?1000h` is available. The alternate screen is used if available with `^[[?1049h`.
+Mouse support with `^[[?1000h` is available; if this escape sequence causes issues in your terminal, use `-O nomouse`.
+
+The alternate screen is used if available with `^[[?1049h`. This can be disabled with `-O noaltscreen`.
 
 ## Key Bindings
 
