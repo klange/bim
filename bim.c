@@ -2209,6 +2209,7 @@ void redraw_line(int j, int x) {
  */
 void draw_excess_line(int j) {
 	place_cursor(1,2 + j);
+	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
 	clear_to_end();
