@@ -78,20 +78,24 @@ const char * COLOR_PRAGMA    = "@17";
 const char * COLOR_NUMERAL   = "@17";
 const char * COLOR_SELECTFG  = "@0";
 const char * COLOR_SELECTBG  = "@17";
+const char * COLOR_RED       = "@1";
+const char * COLOR_GREEN     = "@2";
 const char * current_theme = "none";
 
 /**
  * Syntax highlighting flags.
  */
-#define FLAG_NONE     0
-#define FLAG_KEYWORD  1
-#define FLAG_STRING   2
-#define FLAG_COMMENT  3
-#define FLAG_TYPE     4
-#define FLAG_PRAGMA   5
-#define FLAG_NUMERAL  6
-#define FLAG_SELECT   7
-#define FLAG_STRING2  8
+#define FLAG_NONE      0
+#define FLAG_KEYWORD   1
+#define FLAG_STRING    2
+#define FLAG_COMMENT   3
+#define FLAG_TYPE      4
+#define FLAG_PRAGMA    5
+#define FLAG_NUMERAL   6
+#define FLAG_SELECT    7
+#define FLAG_STRING2   8
+#define FLAG_DIFFPLUS  9
+#define FLAG_DIFFMINUS 10
 
 #define FLAG_CONTINUES (1 << 6)
 
@@ -114,6 +118,10 @@ const char * flag_to_color(int _flag) {
 			return COLOR_NUMERAL;
 		case FLAG_PRAGMA:
 			return COLOR_PRAGMA;
+		case FLAG_DIFFPLUS:
+			return COLOR_GREEN;
+		case FLAG_DIFFMINUS:
+			return COLOR_RED;
 		case FLAG_SELECT:
 			return COLOR_FG;
 		default:
@@ -407,6 +415,9 @@ void load_colorscheme_wombat(void) {
 	COLOR_SELECTFG  = "5;235";
 	COLOR_SELECTBG  = "5;230";
 
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
 	current_theme = "wombat";
 }
 
@@ -436,6 +447,9 @@ void load_colorscheme_citylights(void) {
 
 	COLOR_SELECTFG  = "2;29;37;44";
 	COLOR_SELECTBG  = "2;151;178;198";
+
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
 
 	current_theme = "citylights";
 }
@@ -467,6 +481,9 @@ void load_colorscheme_solarized_dark(void) {
 	COLOR_SELECTFG  = "2;0;43;54";
 	COLOR_SELECTBG  = "2;147;161;161";
 
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
 	current_theme = "solarized-dark";
 }
 
@@ -497,6 +514,9 @@ void load_colorscheme_sunsmoke(void) {
 	COLOR_SELECTFG  = "2;0;43;54";
 	COLOR_SELECTBG  = "2;147;161;161";
 
+	COLOR_RED       = "2;222;53;53";
+	COLOR_GREEN     = "2;55;167;0";
+
 	current_theme = "sunsmoke";
 }
 
@@ -526,6 +546,9 @@ void load_colorscheme_ansi(void) {
 
 	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
 	COLOR_SELECTFG  = "@0";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
 
 	current_theme = "ansi";
 }
@@ -1025,6 +1048,30 @@ static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * o
 
 static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
 
+static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_left) {
+	(void)last;
+
+	if (i == 0) {
+		if (c == '+') {
+			*out_left = (line->actual + 1);
+			return FLAG_DIFFPLUS;
+		} else if (c == '-') {
+			*out_left = (line->actual + 1);
+			return FLAG_DIFFMINUS;
+		} else if (c == '@') {
+			*out_left = (line->actual + 1);
+			return FLAG_TYPE;
+		} else if (c != ' ') {
+			*out_left = (line->actual + 1);
+			return FLAG_KEYWORD;
+		}
+	}
+
+	return FLAG_NONE;
+}
+
+static char * syn_diff_ext[] = {".diff",".patch",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1043,6 +1090,7 @@ struct syntax_definition {
 	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
 	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
 	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
+	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{NULL}
 };
 
