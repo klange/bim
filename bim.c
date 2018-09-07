@@ -45,6 +45,9 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
+#define BIM_VERSION   "1.0.0"
+#define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\n'
 #define BACKSPACE_KEY 0x08
@@ -3243,7 +3246,7 @@ void process_command(char * cmd) {
 		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
 		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
 		render_commandline_message("\n");
-		render_commandline_message(" Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>\n");
+		render_commandline_message(" %s\n", BIM_COPYRIGHT);
 		render_commandline_message("\n");
 		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
 		redraw_tabbar();
@@ -5651,7 +5654,7 @@ void init_terminal(void) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?c:C:u:RO:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:C:u:RO:-:")) != -1) {
 		switch (opt) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
@@ -5688,6 +5691,22 @@ int main(int argc, char * argv[]) {
 				else {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
+				}
+				break;
+			case '-':
+				if (!strcmp(optarg,"version")) {
+					fprintf(stderr, "bim %s %s\n", BIM_VERSION, BIM_COPYRIGHT);
+					fprintf(stderr, " Available syntax highlighters:");
+					for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+						fprintf(stderr, " %s", s->name);
+					}
+					fprintf(stderr, "\n");
+					fprintf(stderr, " Available color themes:");
+					for (struct theme_def * d = themes; d->name; ++d) {
+						fprintf(stderr, " %s", d->name);
+					}
+					fprintf(stderr, "\n");
+					return 0;
 				}
 				break;
 			case '?':
