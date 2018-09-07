@@ -4417,6 +4417,9 @@ void word_right(void) {
 	return;
 }
 
+/**
+ * Handle shared escape keys (mostly navigation)
+ */
 int handle_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -4527,6 +4530,79 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 
 	*timeout = 0;
 	return 0;
+}
+
+/**
+ * Standard navigation shared by normal, line, and char selection.
+ */
+void handle_navigation(int c) {
+	switch (c) {
+		case ':': /* Switch to command mode */
+			command_mode();
+			break;
+		case '/': /* Switch to search mode */
+			search_mode(1);
+			break;
+		case '?': /* Switch to search mode */
+			search_mode(0);
+			break;
+		case 'n': /* Jump to next search result */
+			search_next();
+			break;
+		case 'N': /* Jump backwards to previous search result */
+			search_prev();
+			break;
+		case 'j': /* Move cursor down */
+			cursor_down();
+			break;
+		case 'k': /* Move cursor up */
+			cursor_up();
+			break;
+		case 'h': /* Move cursor left */
+			cursor_left();
+			break;
+		case 'l': /* Move cursor right*/
+			cursor_right();
+			break;
+		case ' ': /* Jump forward several lines */
+			goto_line(env->line_no + global_config.term_height - 6);
+			break;
+		case '%': /* Jump to matching brace/bracket */
+			if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) {
+				/* These modes need to recalculate syntax as find_matching_brace uses it to find appropriate match */
+				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_syntax(env->lines[i],i);
+				}
+			}
+			find_matching_paren();
+			redraw_statusbar();
+			break;
+		case '{': /* Jump to previous blank line */
+			env->col_no = 1;
+			if (env->line_no == 1) break;
+			do {
+				env->line_no--;
+				if (env->lines[env->line_no-1]->actual == 0) break;
+			} while (env->line_no > 1);
+			redraw_statusbar();
+			break;
+		case '}': /* Jump to next blank line */
+			env->col_no = 1;
+			if (env->line_no == env->line_count) break;
+			do {
+				env->line_no++;
+				if (env->lines[env->line_no-1]->actual == 0) break;
+			} while (env->line_no < env->line_count);
+			redraw_statusbar();
+			break;
+		case '$': /* Move cursor to end of line */
+			cursor_end();
+			break;
+		case '^':
+		case '0': /* Move cursor to beginning of line */
+			cursor_home();
+			break;
+	}
 }
 
 /**
@@ -4733,42 +4809,12 @@ void line_selection_mode(void) {
 					case BACKSPACE_KEY:
 						cursor_left();
 						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
 						adjust_indent(start_line, 1);
 						break;
 					case 'V':
 						goto _leave_select_line;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
 					case 'y':
 						yank_lines(start_line, env->line_no);
 						goto _leave_select_line;
@@ -4793,40 +4839,8 @@ void line_selection_mode(void) {
 						}
 						set_modified();
 						goto _leave_select_line;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case '%':
-						for (int i = 0; i < env->line_count; ++i) {
-							recalculate_syntax(env->lines[i],i);
-						}
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
+					default:
+						handle_navigation(c);
 						break;
 				}
 			} else {
@@ -4975,38 +4989,8 @@ void char_selection_mode(void) {
 					case BACKSPACE_KEY:
 						cursor_left();
 						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
 					case 'v':
 						goto _leave_select_char;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
 					case 'y':
 						{
 							int end_line = env->line_no;
@@ -5079,40 +5063,8 @@ void char_selection_mode(void) {
 						}
 						set_modified();
 						goto _leave_select_char;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-					case '%':
-						for (int i = 0; i < env->line_count; ++i) {
-							recalculate_syntax(env->lines[i],i);
-						}
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
+					default:
+						handle_navigation(c);
 						break;
 				}
 			} else {
@@ -5610,44 +5562,11 @@ int main(int argc, char * argv[]) {
 							cursor_left();
 						}
 						break;
-					case ':':
-						/* Switch to command mode */
-						command_mode();
-						break;
-					case '/':
-						/* Switch to search mode */
-						search_mode(1);
-						break;
-					case '?':
-						/* Switch to search mode */
-						search_mode(0);
-						break;
 					case 'V':
 						line_selection_mode();
 						break;
 					case 'v':
 						char_selection_mode();
-						break;
-					case 'n':
-						search_next();
-						break;
-					case 'N':
-						search_prev();
-						break;
-					case 'j':
-						cursor_down();
-						break;
-					case 'k':
-						cursor_up();
-						break;
-					case 'h':
-						cursor_left();
-						break;
-					case 'l':
-						cursor_right();
-						break;
-					case ' ':
-						goto_line(env->line_no + global_config.term_height - 6);
 						break;
 					case 'O':
 						{
@@ -5732,35 +5651,6 @@ int main(int argc, char * argv[]) {
 							redraw_all();
 						}
 						break;
-					case '%':
-						find_matching_paren();
-						redraw_statusbar();
-						break;
-					case '{':
-						env->col_no = 1;
-						if (env->line_no == 1) break;
-						do {
-							env->line_no--;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no > 1);
-						redraw_statusbar();
-						break;
-					case '}':
-						env->col_no = 1;
-						if (env->line_no == env->line_count) break;
-						do {
-							env->line_no++;
-							if (env->lines[env->line_no-1]->actual == 0) break;
-						} while (env->line_no < env->line_count);
-						redraw_statusbar();
-						break;
-					case '$':
-						cursor_end();
-						break;
-					case '^':
-					case '0':
-						cursor_home();
-						break;
 					case 'u':
 						undo_history();
 						break;
@@ -5787,6 +5677,9 @@ _readonly:
 						break;
 					case 12:
 						redraw_all();
+						break;
+					default:
+						handle_navigation(c);
 						break;
 				}
 			} else {
