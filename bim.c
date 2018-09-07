@@ -91,26 +91,22 @@ const char * current_theme = "none";
 #define FLAG_PRAGMA   5
 #define FLAG_NUMERAL  6
 #define FLAG_SELECT   7
+#define FLAG_STRING2  8
 
-#define FLAG_NORM_MAX 15
-
-#define FLAG_COMMENT_ML 16
-#define FLAG_STRING_ML1 17
-#define FLAG_STRING_ML2 18
+#define FLAG_CONTINUES (1 << 6)
 
 /**
  * Convert syntax hilighting flag to color code
  */
-const char * flag_to_color(int flag) {
+const char * flag_to_color(int _flag) {
+	int flag = _flag & 0x3F;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
 		case FLAG_STRING:
-		case FLAG_STRING_ML1:
-		case FLAG_STRING_ML2:
+		case FLAG_STRING2: /* allows python to differentiate " and ' */
 			return COLOR_STRING;
 		case FLAG_COMMENT:
-		case FLAG_COMMENT_ML:
 			return COLOR_COMMENT;
 		case FLAG_TYPE:
 			return COLOR_TYPE;
@@ -132,8 +128,8 @@ const char * flag_to_color(int flag) {
  * which represent single codepoints in the file.
  */
 typedef struct {
-	uint32_t display_width:5;
-	uint32_t flags:6;
+	uint32_t display_width:4;
+	uint32_t flags:7;
 	uint32_t codepoint:21;
 } __attribute__((packed)) char_t;
 
@@ -576,6 +572,9 @@ static char * syn_c_types[] = {
 static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
+		if (line->text[line->actual-1].codepoint == '\\') {
+			return FLAG_PRAGMA | FLAG_CONTINUES;
+		}
 		return FLAG_PRAGMA;
 	}
 
@@ -629,7 +628,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 			}
 			/* TODO multiline - update next */
 			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT_ML;
+			return FLAG_COMMENT | FLAG_CONTINUES;
 		}
 	}
 
@@ -668,7 +667,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
 
 static int syn_c_finish(line_t * line, int * left, int state) {
-	if (state == FLAG_COMMENT_ML) {
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
 		int last = 0;
 		for (int i = 0; i < line->actual; ++i) {
 			if (line->text[i].codepoint == '/' && last == '*') {
@@ -677,7 +676,14 @@ static int syn_c_finish(line_t * line, int * left, int state) {
 			}
 			last = line->text[i].codepoint;
 		}
-		return FLAG_COMMENT_ML;
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	if (state == (FLAG_PRAGMA | FLAG_CONTINUES)) {
+		*left = line->actual + 1;
+		if (line->text[line->actual-1].codepoint == '\\') {
+			return FLAG_PRAGMA | FLAG_CONTINUES;
+		}
+		return FLAG_PRAGMA;
 	}
 	return 0;
 }
@@ -763,7 +769,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 					return FLAG_STRING;
 				}
 			}
-			return FLAG_STRING_ML1;
+			return FLAG_STRING | FLAG_CONTINUES;
 		}
 
 		int last = 0;
@@ -793,7 +799,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 					return FLAG_STRING;
 				}
 			}
-			return FLAG_STRING_ML2;
+			return FLAG_STRING2 | FLAG_CONTINUES;
 		}
 
 		int last = 0;
@@ -817,7 +823,7 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 
 static int syn_py_finish(line_t * line, int * left, int state) {
 	/* TODO support multiline quotes */
-	if (state == FLAG_STRING_ML1) {
+	if (state == (FLAG_STRING | FLAG_CONTINUES)) {
 		for (int j = 0; j < line->actual - 2; ++j) {
 			if (line->text[j].codepoint == '\'' &&
 				line->text[j+1].codepoint == '\'' &&
@@ -826,18 +832,18 @@ static int syn_py_finish(line_t * line, int * left, int state) {
 				return FLAG_STRING;
 			}
 		}
-		return FLAG_STRING_ML1;
+		return FLAG_STRING | FLAG_CONTINUES;
 	}
-	if (state == FLAG_STRING_ML2) {
+	if (state == (FLAG_STRING2 | FLAG_CONTINUES)) {
 		for (int j = 0; j < line->actual - 2; ++j) {
 			if (line->text[j].codepoint == '"' &&
 				line->text[j+1].codepoint == '"' &&
 				line->text[j+2].codepoint == '"') {
 				*left = (j+3);
-				return FLAG_STRING;
+				return FLAG_STRING2;
 			}
 		}
-		return FLAG_STRING_ML2;
+		return FLAG_STRING2 | FLAG_CONTINUES;
 	}
 	return 0;
 }
@@ -1078,7 +1084,7 @@ void recalculate_syntax(line_t * line, int offset) {
 		 */
 		state = env->syntax->finishml(line,&left,state);
 
-		if (state > FLAG_NORM_MAX) {
+		if (state & FLAG_CONTINUES) {
 			/* The finish check said that this multiline state continues. */
 			for (int i = 0; i < line->actual; i++) {
 				/* Set the entire line to draw with this state */
@@ -1115,7 +1121,7 @@ void recalculate_syntax(line_t * line, int offset) {
 			int s = env->syntax->extended(line,i,c,last,&left);
 			if (s) {
 				state = s;
-				if (state > FLAG_NORM_MAX) {
+				if (state & FLAG_CONTINUES) {
 					/* A multiline state was returned. Fill the rest of the line */
 					for (; i < line->actual; i++) {
 						line->text[i].flags = state;
