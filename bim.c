@@ -22,12 +22,8 @@
  * and copy-paste, undo/redo stack, forward and backward search, and can
  * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
  */
-#define _XOPEN_SOURCE 500
-#define _DARWIN_C_SOURCE 1
-#define _BSD_SOURCE
+#define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
-#define _SORTIX_SOURCE
-#define __BSD_VISIBLE 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
