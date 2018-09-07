@@ -5570,7 +5570,7 @@ static void show_usage(char * argv[]) {
 			"bim - Text editor\n"
 			"\n"
 			"usage: %s [options] [file]\n"
-			"       %s [options] -\n"
+			"       %s [options] -- -\n"
 			"\n"
 			" -R     " _S "open initial buffer read-only" _E
 			" -O     " _S "set various options:" _E
