@@ -2019,7 +2019,8 @@ void render_line(line_t * line, int width, int offset) {
 
 				/* End the line with a > to show it overflows */
 				printf(">");
-				break;
+				set_colors(COLOR_FG, COLOR_BG);
+				return;
 			}
 
 			/* Syntax hilighting */
@@ -2111,6 +2112,13 @@ void render_line(line_t * line, int width, int offset) {
 			i++;
 		}
 	}
+
+	if (env->mode == MODE_CHAR_SELECTION) {
+		set_colors(COLOR_FG, COLOR_BG);
+	}
+
+	/* Clear the rest of the line */
+	clear_to_end();
 }
 
 /**
@@ -2165,13 +2173,6 @@ void redraw_line(int j, int x) {
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
 	render_line(env->lines[x], global_config.term_width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
-
-	if (env->mode == MODE_CHAR_SELECTION) {
-		set_colors(COLOR_FG, COLOR_BG);
-	}
-
-	/* Clear the rest of the line */
-	clear_to_end();
 }
 
 /**
@@ -5665,7 +5666,6 @@ int main(int argc, char * argv[]) {
 						draw_line_number(i);
 					}
 					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
-					clear_to_end();
 					reset();
 					fprintf(stdout, "\n");
 				}
