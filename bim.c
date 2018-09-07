@@ -415,8 +415,8 @@ void load_colorscheme_wombat(void) {
 	COLOR_SELECTFG  = "5;235";
 	COLOR_SELECTBG  = "5;230";
 
-	COLOR_RED       = "2;222;53;53";
-	COLOR_GREEN     = "2;55;167;0";
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
 
 	current_theme = "wombat";
 }
