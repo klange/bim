@@ -103,7 +103,8 @@ In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 
 | **Command**        | **Description**                                                                                |
 |--------------------|------------------------------------------------------------------------------------------------|
-| `:e FILE`          | Open `FILE` in a new tab                                                                       |
+| `:e FILE`          | Open `FILE` in a new tab (for some compatibility with vim)                                     |
+| `:tabnew FILE`     | Open `FILE` in a new tab                                                                       |
 | `:tabnew`          | Create a new empty tab                                                                         |
 | `:w`               | Write the current file                                                                         |
 | `:w FILE`          | Write the current buffer to `FILE`                                                             |
