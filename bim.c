@@ -5026,6 +5026,9 @@ void line_selection_mode(void) {
 						if (env->line_no > env->line_count) {
 							env->line_no = env->line_count;
 						}
+						if (env->col_no > env->lines[env->line_no-1]->actual) {
+							env->col_no = env->lines[env->line_no-1]->actual;
+						}
 						set_modified();
 						goto _leave_select_line;
 					default:
