@@ -5369,9 +5369,9 @@ void insert_mode(void) {
 							/* Put the cursor back into the text field */
 							place_cursor_actual();
 							/* Get next character */
-							while ((c = bim_getch()) == -1);
+							while ((cin = bim_getch()) == -1);
 							/* Insert literal */
-							insert_char(c);
+							insert_char(cin);
 							/* Redraw INSERT */
 							redraw_commandline();
 							/* Draw text */
