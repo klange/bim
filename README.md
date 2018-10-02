@@ -28,7 +28,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 
 ## Prerequisites
 
-Bim has no external dependencies beyond a functioning C library and sufficient escape code support in the hosting terminal. Your C compiler must support C99; if it does not default to C99 mode, supply the appropriate `CFLAGS` settings when running `make`. Recent GCC, Clang, and TCC all default to C99 or later, but older GCCs default to `gnu89`.
+Bim has no external dependencies beyond a functioning C library, C99 compiler, and sufficient escape code support in the hosting terminal.
 
 ### Terminal Support
 
