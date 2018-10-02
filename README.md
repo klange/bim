@@ -99,6 +99,13 @@ In LINE SELECTION mode, indentation can be adjusted over multiple lines:
 | Tab         | Indent selected lines one indentation unit to the right  |
 | Shift-Tab   | Unindent selected lines one indentation unit to the left |
 
+In INSERT mode, the following additional commands are available:
+
+| **Key**     | **Action**               |
+|-------------|--------------------------|
+| `^V`        | Insert literal character |
+| `^W`        | Delete previous word     |
+
 ## Commands
 
 | **Command**        | **Description**                                                                                |
