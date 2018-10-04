@@ -593,6 +593,13 @@ static char * syn_c_types[] = {
 	NULL
 };
 
+static char * syn_c_special[] = {
+	"NULL",
+	"stdint","stdout","stderr",
+	"STDIN_FILENO","STDOUT_FILENO","STDERR_FILENO",
+	NULL
+};
+
 static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
 	if (i == 0 && c == '#') {
 		*out_left = line->actual+1;
@@ -601,15 +608,17 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 		}
 		return FLAG_PRAGMA;
 	}
-
-	if ((!last || !syn_c_iskeywordchar(last)) && (i < line->actual - 3) &&
-		line->text[i].codepoint == 'N' &&
-		line->text[i+1].codepoint == 'U' &&
-		line->text[i+2].codepoint == 'L' &&
-		line->text[i+3].codepoint == 'L' &&
-		(i == line->actual - 4 || !syn_c_iskeywordchar(line->text[i+4].codepoint))) {
-		*out_left = 3;
-		return FLAG_NUMERAL;
+	
+	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
+		int j = i;
+		for (int s = 0; syn_c_special[s]; ++s) {
+			int d = 0;
+			while (j + d < line->actual && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
+			if (syn_c_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
+				*out_left = d-1;
+				return FLAG_NUMERAL;
+			}
+		}
 	}
 
 	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
