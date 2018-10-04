@@ -589,7 +589,7 @@ static char * syn_c_types[] = {
 	"static","int","char","short","float","double","void","unsigned","volatile","const",
 	"register","long","inline","restrict","enum","auto","extern","bool","complex",
 	"uint8_t","uint16_t","uint32_t","uint64_t",
-	"int8_t","int16_t","int32_t","int64_t",
+	"int8_t","int16_t","int32_t","int64_t","FILE",
 	NULL
 };
 
