@@ -595,7 +595,7 @@ static char * syn_c_types[] = {
 
 static char * syn_c_special[] = {
 	"NULL",
-	"stdint","stdout","stderr",
+	"stdin","stdout","stderr",
 	"STDIN_FILENO","STDOUT_FILENO","STDERR_FILENO",
 	NULL
 };
