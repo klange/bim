@@ -1709,7 +1709,7 @@ void add_indent(int new_line, int old_line) {
 				char_t c;
 				c.codepoint = '\t';
 				c.display_width = env->tabstop;
-				env->lines[new_line] = line_insert(env->lines[new_line], c, 0, env->lines[new_line]->actual);
+				env->lines[new_line] = line_insert(env->lines[new_line], c, env->lines[new_line]->actual-1, new_line);
 				env->col_no++;
 				changed = 1;
 			} else {
@@ -1718,7 +1718,7 @@ void add_indent(int new_line, int old_line) {
 					c.codepoint = ' ';
 					c.display_width = 1;
 					c.flags = FLAG_SELECT;
-					env->lines[new_line] = line_insert(env->lines[new_line], c, 0, env->lines[new_line]->actual);
+					env->lines[new_line] = line_insert(env->lines[new_line], c, env->lines[new_line]->actual-1, new_line);
 					env->col_no++;
 				}
 				changed = 1;
