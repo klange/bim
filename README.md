@@ -8,7 +8,7 @@ Inspired by Vim and featuring similar mode-based editing, Bim was originally wri
 
 ## Goals / Purpose
 
-Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS-NIH - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platforms is a secondary feature.
+Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platforms is a secondary feature.
 
 ## Features
 
@@ -193,4 +193,4 @@ Bim is released under the terms of the ISC license, which is a simple BSD-style 
 
 ## Development
 
-Bim is still primarily developed alongside ToaruOS-NIH. This repository is a mirror with fake history going back to the start of that project. Pull requests merged here will be patched into [ToaruOS-NIH](https://git.toaruos.org/klange/toaru-nih).
+Bim is still primarily developed alongside ToaruOS. This repository is a mirror with fake history going back to the start of that project. Pull requests merged here will be patched into [ToaruOS](https://git.toaruos.org/klange/toaruos).
