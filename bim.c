@@ -3978,6 +3978,12 @@ void search_mode(int direction) {
 				/* Cancel search */
 				env->line_no = prev_line;
 				env->col_no  = prev_col;
+				/* Unhighlight search matches */
+				for (int i = 0; i < env->line_count; ++i) {
+					for (int j = 0; j < env->lines[i]->actual; ++j) {
+						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
+					}
+				}
 				redraw_all();
 				break;
 			} else if (c == ENTER_KEY) {
