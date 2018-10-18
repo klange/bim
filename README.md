@@ -14,7 +14,7 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 
 - Vim-like modal interactions.
 - Arrow-key and traditional vi `hjkl` navigation.
-- Syntax highlighting (currently for C, Python, and Makefiles).
+- Syntax highlighting (currently for C/C++, Python, and Makefiles).
 - Themes, including 256-color and 24-bit color support.
 - Indentation adjustment and naïve automatic indentation.
 - Multiple editor tabs.
@@ -23,8 +23,9 @@ Bim does not seek to improve or replace vim, or any other text editor. Its goal 
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line and character selection, with yanking (paste buffer).
-- Incremental forward and backward search.
+- Incremental forward and backward search with match highlighting.
 - Undo/redo stack.
+- Highlight matching parens/braces.
 
 ## Prerequisites
 
@@ -135,6 +136,10 @@ In INSERT mode, the following additional commands are available:
 | `:tabstop`         | Print the current tab stop (how wide one indentation unit is)                                  |
 | `:tabstop TABSTOP` | Set the tab stop width                                                                         |
 | `:clearyank`       | Clear the yank buffer                                                                          |
+| `:padding`         | Print the current cursor vertical padding (space between cursor and screen edge)               |
+| `:padding PADDING` | Set the cursor vertical padding                                                                |
+| `:hlparen`         | Print the status of the matching paren/brace highlighting setting                              |
+| `:hlparen VALUE`   | Enable (1) or disable (0) highlighting of matching parenthesis and braces                      |
 
 ## Additional Bim Functionality
 
