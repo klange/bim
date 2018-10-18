@@ -3616,6 +3616,10 @@ void process_command(char * cmd) {
 			render_status_message("hlparen=%d", global_config.highlight_parens);
 		} else {
 			global_config.highlight_parens = atoi(argv[1]);
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_text();
 			place_cursor_actual();
 		}
 	} else if (isdigit(*argv[0])) {
