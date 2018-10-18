@@ -5064,6 +5064,7 @@ void handle_navigation(int c) {
 				if (paren_line != -1) {
 					env->line_no = paren_line;
 					env->col_no = paren_col;
+					set_preferred_column();
 					place_cursor_actual();
 					redraw_statusbar();
 				}
