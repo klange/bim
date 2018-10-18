@@ -8,7 +8,9 @@ Inspired by Vim and featuring similar mode-based editing, Bim was originally wri
 
 ## Goals / Purpose
 
-Bim does not seek to improve or replace vim, or any other text editor. Its goal is to provide ToaruOS - a hobby operating system built completely from scratch - with a featureful editor. The ability to build and run Bim on other platforms is a secondary feature.
+Bim is intended as the included text editor in ToaruOS, a hobby operating system built from scratch.
+
+Bim aims to be lightweight and featureful with no external dependencies, providing a modern editing experience in a single fully-encapsulated binary.
 
 ## Features
 
