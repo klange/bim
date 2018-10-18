@@ -41,8 +41,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.0.4"
-#define BIM_COPYRIGHT "Copyright 2013-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_VERSION   "1.0.5"
+#define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\n'
