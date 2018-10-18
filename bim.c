@@ -2685,7 +2685,7 @@ void highlight_matching_paren(void) {
 			env->lines[i]->text[j].flags &= (~FLAG_SELECT);
 		}
 		if (redraw) {
-			if ((i) - env->offset > 1 &&
+			if ((i) - env->offset > -1 &&
 				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
 				redraw_line((i) - env->offset, i);
 			}
