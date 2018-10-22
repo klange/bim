@@ -411,7 +411,7 @@ void load_colorscheme_wombat(void) {
 	COLOR_KEYWORD   = "5;117";
 	COLOR_STRING    = "5;113";
 	COLOR_COMMENT   = "5;102;3";
-	COLOR_TYPE      = "5;185";
+	COLOR_TYPE      = "5;186";
 	COLOR_PRAGMA    = "5;173";
 	COLOR_NUMERAL   = COLOR_PRAGMA;
 
