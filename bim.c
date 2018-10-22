@@ -3190,6 +3190,10 @@ void cursor_down(void) {
 			}
 		}
 
+		if (env->mode == MODE_INSERT && _x <= env->preferred_column) {
+			env->col_no = env->lines[env->line_no-1]->actual + 1;
+		}
+
 		/*
 		 * If the horizontal cursor position exceeds the width the new line,
 		 * then move the cursor left to the extent of the new line.
@@ -3269,6 +3273,10 @@ void cursor_up(void) {
 			if (_x > env->preferred_column) {
 				break;
 			}
+		}
+
+		if (env->mode == MODE_INSERT && _x <= env->preferred_column) {
+			env->col_no = env->lines[env->line_no-1]->actual + 1;
 		}
 
 		/*
