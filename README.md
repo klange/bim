@@ -25,7 +25,7 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line and character selection, with yanking (paste buffer).
-- Incremental forward and backward search with match highlighting.
+- Incremental forward and backward search with match highlighting and smart case sensitivity.
 - Undo/redo stack.
 - Highlight matching parens/braces.
 
@@ -142,6 +142,8 @@ In INSERT mode, the following additional commands are available:
 | `:padding PADDING` | Set the cursor vertical padding                                                                |
 | `:hlparen`         | Print the status of the matching paren/brace highlighting setting                              |
 | `:hlparen VALUE`   | Enable (1) or disable (0) highlighting of matching parenthesis and braces                      |
+| `:smartcase`       | Print the status of the smartcase setting                                                      |
+| `:smartcase VALUE` | Enable (1) or disable (0) smart case sensitivty when searching                                 |
 
 ## Additional Bim Functionality
 
