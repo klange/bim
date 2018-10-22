@@ -2309,7 +2309,7 @@ void render_line(line_t * line, int width, int offset) {
 
 	if (!global_config.can_bce) {
 		/* Paint the rest of the line */
-		for (; j < global_config.term_width; ++j) {
+		for (; j < width; ++j) {
 			printf(" ");
 		}
 	}
