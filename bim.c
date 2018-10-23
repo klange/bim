@@ -4291,6 +4291,7 @@ void search_mode(int direction) {
  */
 void search_next(void) {
 	if (!env->search) return;
+	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
 	find_match(env->line_no, env->col_no+1, &line, &col, env->search);
 
@@ -4310,6 +4311,7 @@ void search_next(void) {
  */
 void search_prev(void) {
 	if (!env->search) return;
+	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
 
