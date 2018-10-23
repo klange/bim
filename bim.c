@@ -1450,7 +1450,11 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	/* If there is not enough space... */
 	if (line->actual == line->available) {
 		/* Expand the line buffer */
-		line->available *= 2;
+		if (line->available == 0) {
+			line->available = 8;
+		} else {
+			line->available *= 2;
+		}
 		line = realloc(line, sizeof(line_t) + sizeof(char_t) * line->available);
 	}
 
