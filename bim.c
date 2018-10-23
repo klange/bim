@@ -415,7 +415,7 @@ void load_colorscheme_wombat(void) {
 	COLOR_KEYWORD   = "5;117";
 	COLOR_STRING    = "5;113";
 	COLOR_COMMENT   = global_config.can_italic ? "5;102;3" : "5;102";
-	COLOR_TYPE      = "5;221";
+	COLOR_TYPE      = "5;186";
 	COLOR_PRAGMA    = "5;173";
 	COLOR_NUMERAL   = COLOR_PRAGMA;
 
