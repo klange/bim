@@ -2113,6 +2113,18 @@ void unset_alternate_screen(void) {
 	}
 }
 
+char * file_basename(char * file) {
+	char * c = strrchr(file, '/');
+	if (!c) return file;
+	return (c+1);
+}
+
+int draw_tab_name(buffer_t * _env, char * out) {
+	return sprintf(out, "%s %.40s ",
+		_env->modified ? " +" : "",
+		_env->file_name ? file_basename(_env->file_name) : "[No Name]");
+}
+
 /**
  * Redaw the tabbar, with a tab for each buffer.
  *
@@ -2128,6 +2140,7 @@ void redraw_tabbar(void) {
 	paint_line(COLOR_TABBAR_BG);
 
 	/* For each buffer... */
+	int offset = 0;
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 
@@ -2143,17 +2156,16 @@ void redraw_tabbar(void) {
 			set_underline();
 		}
 
-		/* If this buffer is modified, indicate that with a prepended + */
-		if (_env->modified) {
-			printf(" +");
+		char title[64];
+		int size = draw_tab_name(_env, title);
+
+		if (offset + size >= global_config.term_width) {
+			printf("%*s", global_config.term_width - (offset + size) - 1, title);
+		} else {
+			printf("%s", title);
 		}
 
-		/* Print the filename */
-		if (_env->file_name) {
-			printf(" %s ", _env->file_name);
-		} else {
-			printf(" [No Name] ");
-		}
+		offset += size;
 	}
 
 	/* Reset bold/underline */
@@ -4401,15 +4413,9 @@ void handle_mouse(void) {
 			int _x = 0;
 			for (int i = 0; i < buffers_len; i++) {
 				buffer_t * _env = buffers[i];
-				if (_env->modified) {
-					_x += 2;
-				}
-				if (_env->file_name) {
-					_x += 2 + strlen(_env->file_name);
-				} else {
-					_x += strlen(" [No Name] ");
-				}
-				if (_x > x) {
+				char tmp[64];
+				_x += draw_tab_name(_env, tmp);
+				if (_x >= x) {
 					env = buffers[i];
 					redraw_all();
 					return;
