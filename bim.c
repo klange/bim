@@ -1652,7 +1652,11 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	/* If there isn't enough space in linea hold both... */
 	while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
 		/* ... allocate more space until it fits */
-		lines[linea]->available *= 2;
+		if (lines[linea]->available == 0) {
+			lines[linea]->available = 8;
+		} else {
+			lines[linea]->available *= 2;
+		}
 		/* XXX why not just do this once after calculating appropriate size */
 		lines[linea] = realloc(lines[linea], sizeof(line_t) + sizeof(char_t) * lines[linea]->available);
 	}
