@@ -1785,6 +1785,19 @@ void add_indent(int new_line, int old_line) {
 				changed = 1;
 			}
 		}
+		int was_whitespace = 1;
+		for (int i = 0; i < env->lines[old_line]->actual; ++i) {
+			if (env->lines[old_line]->text[i].codepoint != ' ' &&
+				env->lines[old_line]->text[i].codepoint != '\t') {
+				was_whitespace = 0;
+				break;
+			}
+		}
+		if (was_whitespace) {
+			while (env->lines[old_line]->actual) {
+				line_delete(env->lines[old_line], env->lines[old_line]->actual, old_line);
+			}
+		}
 		if (changed) {
 			recalculate_syntax(env->lines[new_line],new_line);
 		}
