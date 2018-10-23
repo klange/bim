@@ -2160,7 +2160,10 @@ void redraw_tabbar(void) {
 		int size = draw_tab_name(_env, title);
 
 		if (offset + size >= global_config.term_width) {
-			printf("%*s", global_config.term_width - (offset + size) - 1, title);
+			if (global_config.term_width - offset - 1 > 0) {
+				printf("%*s", global_config.term_width - offset - 1, title);
+			}
+			break;
 		} else {
 			printf("%s", title);
 		}
