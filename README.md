@@ -169,6 +169,12 @@ An original 24-bit color theme with rustic browns and subdued pastel colors.
 
 ![sunsmoke](docs/screenshot.png)
 
+### Sunsmoke-256
+
+A 256-color version of Sunsmoke for use in terminals that do not support 24-bit color.
+
+![sunsmoke256](docs/theme_sunsmoke256.png)
+
 ### Wombat
 
 A 256-color theme based on the theme of the same name for Vim.
