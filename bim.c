@@ -629,7 +629,7 @@ int syn_c_iskeywordchar(int c) {
 static char * syn_c_keywords[] = {
 	"while","if","for","continue","return","break","switch","case","sizeof",
 	"struct","union","typedef","do","default","else","goto",
-	"alignas","alignof","offsetof",
+	"alignas","alignof","offsetof","asm","__asm__"
 	/* C++ stuff */
 	"public","private","class","using","namespace","virtual","override","protected",
 	NULL
@@ -640,6 +640,7 @@ static char * syn_c_types[] = {
 	"register","long","inline","restrict","enum","auto","extern","bool","complex",
 	"uint8_t","uint16_t","uint32_t","uint64_t",
 	"int8_t","int16_t","int32_t","int64_t","FILE",
+	"ssize_t","size_t","uintptr_t","intptr_t","__volatile__",
 	NULL
 };
 
