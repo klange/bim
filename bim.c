@@ -631,7 +631,7 @@ static char * syn_c_keywords[] = {
 	"struct","union","typedef","do","default","else","goto",
 	"alignas","alignof","offsetof",
 	/* C++ stuff */
-	"public","private","class","using","namespace","virtual","override",
+	"public","private","class","using","namespace","virtual","override","protected",
 	NULL
 };
 
