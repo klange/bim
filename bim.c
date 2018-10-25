@@ -41,7 +41,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#define BIM_VERSION   "1.1.0"
+#define BIM_VERSION   "1.1.1"
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -631,7 +631,7 @@ static char * syn_c_keywords[] = {
 	"struct","union","typedef","do","default","else","goto",
 	"alignas","alignof","offsetof",
 	/* C++ stuff */
-	"public","private","class","using","namespace","virtual",
+	"public","private","class","using","namespace","virtual","override",
 	NULL
 };
 
@@ -3012,6 +3012,17 @@ struct syntax_definition * match_syntax(char * file) {
 }
 
 /**
+ * Check if a string is all numbers.
+ */
+int is_all_numbers(const char * c) {
+	while (*c) {
+		if (!isdigit(*c)) return 0;
+		c++;
+	}
+	return 1;
+}
+
+/**
  * Create a new buffer from a file.
  */
 void open_file(char * file) {
@@ -3021,6 +3032,7 @@ void open_file(char * file) {
 	setup_buffer(env);
 
 	FILE * f;
+	int init_line = 1;
 
 	if (!strcmp(file,"-")) {
 		/**
@@ -3030,6 +3042,12 @@ void open_file(char * file) {
 		global_config.tty_in = STDERR_FILENO;
 		env->modified = 1;
 	} else {
+		char * l = strrchr(file, ':');
+		if (l && is_all_numbers(l+1)) {
+			*l = '\0';
+			l++;
+			init_line = atoi(l);
+		}
 		f = fopen(file, "r");
 		env->file_name = strdup(file);
 	}
@@ -3089,6 +3107,8 @@ void open_file(char * file) {
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_tabs(env->lines[i]);
 	}
+
+	goto_line(init_line);
 
 	fclose(f);
 }
@@ -3549,7 +3569,6 @@ void process_command(char * cmd) {
 			/* This actually opens a new tab */
 			open_file(argv[1]);
 			update_title();
-			goto_line(0);
 		} else {
 			/* TODO: Reopen file? */
 			render_error("Expected a file to open...");
@@ -3558,7 +3577,6 @@ void process_command(char * cmd) {
 		if (argc > 1) {
 			open_file(argv[1]);
 			update_title();
-			goto_line(0);
 		} else {
 			env = buffer_new();
 			setup_buffer(env);
@@ -6264,7 +6282,6 @@ int main(int argc, char * argv[]) {
 	if (argc > optind) {
 		open_file(argv[optind]);
 		update_title();
-		goto_line(0);
 		if (global_config.initial_file_is_read_only) {
 			env->readonly = 1;
 		}
