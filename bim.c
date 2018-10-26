@@ -45,7 +45,8 @@
 #define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
-#define ENTER_KEY     '\n'
+#define ENTER_KEY     '\r'
+#define LINE_FEED     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
 
@@ -1860,7 +1861,8 @@ void get_initial_termios(void) {
 
 void set_unbuffered(void) {
 	struct termios new = old;
-	new.c_lflag &= (~ICANON & ~ECHO);
+	new.c_iflag &= (~ICRNL);
+	new.c_lflag &= (~ICANON) & (~ECHO);
 	new.c_cc[VINTR] = 0;
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
@@ -3526,6 +3528,7 @@ void leave_insert(void) {
  */
 void process_command(char * cmd) {
 	/* Special case ! to run shell commands without parsing tokens */
+	int c;
 	if (*cmd == '!') {
 		/* Reset and draw some line feeds */
 		reset();
@@ -3541,7 +3544,7 @@ void process_command(char * cmd) {
 		set_unbuffered();
 		printf("\n\nPress ENTER to continue.");
 		fflush(stdout);
-		while (bim_getch() != ENTER_KEY);
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 
 		/* Redraw the screen */
 		redraw_all();
@@ -4037,7 +4040,7 @@ void command_mode(void) {
 		if (c == '\033') {
 			/* Escape, cancel command */
 			break;
-		} else if (c == ENTER_KEY) {
+		} else if (c == ENTER_KEY || c == LINE_FEED) {
 			/* Enter, run command */
 			process_command(buffer);
 			break;
@@ -4236,7 +4239,7 @@ void search_mode(int direction) {
 				}
 				redraw_all();
 				break;
-			} else if (c == ENTER_KEY) {
+			} else if (c == ENTER_KEY || c == LINE_FEED) {
 				/* Exit search */
 				if (env->search) {
 					free(env->search);
@@ -5723,6 +5726,7 @@ void insert_mode(void) {
 						delete_at_cursor();
 						break;
 					case ENTER_KEY:
+					case LINE_FEED:
 						insert_line_feed();
 						redraw |= 2;
 						break;
@@ -5823,6 +5827,7 @@ void replace_mode(void) {
 						}
 						break;
 					case ENTER_KEY:
+					case LINE_FEED:
 						insert_line_feed();
 						redraw_text();
 						set_modified();
