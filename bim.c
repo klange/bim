@@ -152,7 +152,7 @@ typedef struct {
 	int available;
 	int actual;
 	int istate;
-	char_t   text[0];
+	char_t   text[];
 } line_t;
 
 /**
@@ -285,7 +285,7 @@ typedef struct history {
 			int lineno;
 			int split;
 		} add_merge_split_lines;
-	};
+	} contents;
 } history_t;
 
 /**
@@ -297,12 +297,12 @@ typedef struct history {
  * line buffers.
  */
 typedef struct _env {
-	short  loading:1;
-	short  tabs:1;
-	short  modified:1;
-	short  readonly:1;
-	short  indent:1;
-	short  highlighting_paren:1;
+	unsigned short loading:1;
+	unsigned short tabs:1;
+	unsigned short modified:1;
+	unsigned short readonly:1;
+	unsigned short indent:1;
+	unsigned short highlighting_paren:1;
 
 	short  mode;
 	short  tabstop;
@@ -1516,10 +1516,10 @@ void recursive_history_free(history_t * root) {
 
 	switch (n->type) {
 		case HISTORY_REPLACE_LINE:
-			free(n->remove_replace_line.contents);
+			free(n->contents.remove_replace_line.contents);
 			/* fall-through */
 		case HISTORY_REMOVE_LINE:
-			free(n->remove_replace_line.old_contents);
+			free(n->contents.remove_replace_line.old_contents);
 			break;
 		default:
 			/* Nothing extra to free */
@@ -1561,9 +1561,9 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_INSERT;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.codepoint = c.codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.codepoint = c.codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1608,9 +1608,9 @@ void line_delete(line_t * line, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_DELETE;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.old_codepoint = line->text[offset-1].codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.old_codepoint = line->text[offset-1].codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1634,10 +1634,10 @@ void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE;
-		e->insert_delete_replace.lineno = lineno;
-		e->insert_delete_replace.offset = offset;
-		e->insert_delete_replace.codepoint = _c.codepoint;
-		e->insert_delete_replace.old_codepoint = line->text[offset].codepoint;
+		e->contents.insert_delete_replace.lineno = lineno;
+		e->contents.insert_delete_replace.offset = offset;
+		e->contents.insert_delete_replace.codepoint = _c.codepoint;
+		e->contents.insert_delete_replace.old_codepoint = line->text[offset].codepoint;
 		HIST_APPEND(e);
 	}
 
@@ -1665,9 +1665,9 @@ line_t ** remove_line(line_t ** lines, int offset) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REMOVE_LINE;
-		e->remove_replace_line.lineno = offset;
-		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		e->contents.remove_replace_line.lineno = offset;
+		e->contents.remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->contents.remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
 		HIST_APPEND(e);
 	}
 
@@ -1696,7 +1696,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_ADD_LINE;
-		e->add_merge_split_lines.lineno = offset;
+		e->contents.add_merge_split_lines.lineno = offset;
 		HIST_APPEND(e);
 	}
 
@@ -1736,11 +1736,11 @@ void replace_line(line_t ** lines, int offset, line_t * replacement) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE_LINE;
-		e->remove_replace_line.lineno = offset;
-		e->remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		memcpy(e->remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
-		e->remove_replace_line.contents = malloc(sizeof(line_t) + sizeof(char_t) * replacement->available);
-		memcpy(e->remove_replace_line.contents, replacement, sizeof(line_t) + sizeof(char_t) * replacement->available);
+		e->contents.remove_replace_line.lineno = offset;
+		e->contents.remove_replace_line.old_contents = malloc(sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		memcpy(e->contents.remove_replace_line.old_contents, lines[offset], sizeof(line_t) + sizeof(char_t) * lines[offset]->available);
+		e->contents.remove_replace_line.contents = malloc(sizeof(line_t) + sizeof(char_t) * replacement->available);
+		memcpy(e->contents.remove_replace_line.contents, replacement, sizeof(line_t) + sizeof(char_t) * replacement->available);
 		HIST_APPEND(e);
 	}
 
@@ -1768,8 +1768,8 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_MERGE_LINES;
-		e->add_merge_split_lines.lineno = lineb;
-		e->add_merge_split_lines.split = env->lines[linea]->actual;
+		e->contents.add_merge_split_lines.lineno = lineb;
+		e->contents.add_merge_split_lines.split = env->lines[linea]->actual;
 		HIST_APPEND(e);
 	}
 
@@ -1823,8 +1823,8 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_SPLIT_LINE;
-		e->add_merge_split_lines.lineno = line;
-		e->add_merge_split_lines.split  = split;
+		e->contents.add_merge_split_lines.lineno = line;
+		e->contents.add_merge_split_lines.split  = split;
 		HIST_APPEND(e);
 	}
 
@@ -4690,70 +4690,70 @@ void undo_history(void) {
 			case HISTORY_INSERT:
 				/* Delete */
 				line_delete(
-						env->lines[e->insert_delete_replace.lineno],
-						e->insert_delete_replace.offset+1,
-						e->insert_delete_replace.lineno
+						env->lines[e->contents.insert_delete_replace.lineno],
+						e->contents.insert_delete_replace.offset+1,
+						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				{
-					char_t _c = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
-					env->lines[e->insert_delete_replace.lineno] = line_insert(
-							env->lines[e->insert_delete_replace.lineno],
+					char_t _c = {codepoint_width(e->contents.insert_delete_replace.old_codepoint),0,e->contents.insert_delete_replace.old_codepoint};
+					env->lines[e->contents.insert_delete_replace.lineno] = line_insert(
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_c,
-							e->insert_delete_replace.offset-1,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset-1,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
-					char_t _o = {codepoint_width(e->insert_delete_replace.old_codepoint),0,e->insert_delete_replace.old_codepoint};
+					char_t _o = {codepoint_width(e->contents.insert_delete_replace.old_codepoint),0,e->contents.insert_delete_replace.old_codepoint};
 					line_replace(
-							env->lines[e->insert_delete_replace.lineno],
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_o,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REMOVE_LINE:
-				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_ADD_LINE:
-				env->lines = remove_line(env->lines, e->add_merge_split_lines.lineno);
-				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->lines = remove_line(env->lines, e->contents.add_merge_split_lines.lineno);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.old_contents);
-				env->line_no = e->remove_replace_line.lineno + 1;
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
-				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno+1);
-				env->line_no = e->add_merge_split_lines.lineno + 2;
+				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno+1);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
-				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno-1, e->add_merge_split_lines.split);
-				env->line_no = e->add_merge_split_lines.lineno;
+				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno-1, e->contents.add_merge_split_lines.split);
+				env->line_no = e->contents.add_merge_split_lines.lineno;
 				env->col_no = 1;
 				count_lines++;
 				break;
@@ -4818,70 +4818,70 @@ void redo_history(void) {
 		switch (e->type) {
 			case HISTORY_INSERT:
 				{
-					char_t _c = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
-					env->lines[e->insert_delete_replace.lineno] = line_insert(
-							env->lines[e->insert_delete_replace.lineno],
+					char_t _c = {codepoint_width(e->contents.insert_delete_replace.codepoint),0,e->contents.insert_delete_replace.codepoint};
+					env->lines[e->contents.insert_delete_replace.lineno] = line_insert(
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_c,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
 				/* Delete */
 				line_delete(
-						env->lines[e->insert_delete_replace.lineno],
-						e->insert_delete_replace.offset,
-						e->insert_delete_replace.lineno
+						env->lines[e->contents.insert_delete_replace.lineno],
+						e->contents.insert_delete_replace.offset,
+						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 1;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
 				{
-					char_t _o = {codepoint_width(e->insert_delete_replace.codepoint),0,e->insert_delete_replace.codepoint};
+					char_t _o = {codepoint_width(e->contents.insert_delete_replace.codepoint),0,e->contents.insert_delete_replace.codepoint};
 					line_replace(
-							env->lines[e->insert_delete_replace.lineno],
+							env->lines[e->contents.insert_delete_replace.lineno],
 							_o,
-							e->insert_delete_replace.offset,
-							e->insert_delete_replace.lineno
+							e->contents.insert_delete_replace.offset,
+							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->insert_delete_replace.lineno + 1;
-				env->col_no  = e->insert_delete_replace.offset + 2;
+				env->line_no = e->contents.insert_delete_replace.lineno + 1;
+				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_ADD_LINE:
-				env->lines = add_line(env->lines, e->remove_replace_line.lineno);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REMOVE_LINE:
-				env->lines = remove_line(env->lines, e->remove_replace_line.lineno);
-				env->line_no = e->add_merge_split_lines.lineno + 1;
+				env->lines = remove_line(env->lines, e->contents.remove_replace_line.lineno);
+				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
-				replace_line(env->lines, e->remove_replace_line.lineno, e->remove_replace_line.contents);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.contents);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
-				env->lines = merge_lines(env->lines, e->add_merge_split_lines.lineno);
-				env->line_no = e->remove_replace_line.lineno + 1;
+				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno);
+				env->line_no = e->contents.remove_replace_line.lineno + 1;
 				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
-				env->lines = split_line(env->lines, e->add_merge_split_lines.lineno, e->add_merge_split_lines.split);
-				env->line_no = e->remove_replace_line.lineno + 2;
+				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno, e->contents.add_merge_split_lines.split);
+				env->line_no = e->contents.remove_replace_line.lineno + 2;
 				env->col_no = 1;
 				count_lines++;
 				break;
