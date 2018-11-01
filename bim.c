@@ -1207,6 +1207,120 @@ static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_le
 
 static char * syn_diff_ext[] = {".diff",".patch",NULL};
 
+
+
+static char * syn_rust_keywords[] = {
+	"as","break","const","continue","crate","else","enum","extern",
+	"false","fn","for","if","impl","in","let","loop","match","mod",
+	"move","mut","pub","ref","return","Self","self","static","struct",
+	"super","trait","true","type","unsafe","use","where","while",
+	NULL,
+};
+
+static char * syn_rust_types[] = {
+	"bool","char","str",
+	"i8","i16","i32","i64",
+	"u8","u16","u32","u64",
+	"isize","usize",
+	"f32","f64",
+	NULL,
+};
+
+static int syn_rust_extended(line_t * line, int i, int c, int last, int * out_left) {
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	if (c == '/') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		/* TODO: We can't support Rust's nested comments with this... */
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
+			int last = 0;
+			for (int j = i + 2; j < line->actual; ++j) {
+				int c = line->text[j].codepoint;
+				if (c == '/' && last == '*') {
+					*out_left = j - i;
+					return FLAG_COMMENT;
+				}
+				last = c;
+			}
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT | FLAG_CONTINUES;
+		}
+	}
+
+	if (c == '\'') {
+		if (i < line->actual - 3 && line->text[i+1].codepoint == '\\' &&
+			line->text[i+3].codepoint == '\'') {
+			*out_left = 3;
+			return FLAG_NUMERAL;
+		}
+		if (i < line->actual - 2 && line->text[i+2].codepoint == '\'') {
+			*out_left = 2;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	if (c == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_rust_finish(line_t * line, int * left, int state) {
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
+		int last = 0;
+		for (int i = 0; i < line->actual; ++i) {
+			if (line->text[i].codepoint == '/' && last == '*') {
+				*left = i+2;
+				return FLAG_COMMENT;
+			}
+			last = line->text[i].codepoint;
+		}
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	return 0;
+}
+
+
+static char * syn_rust_ext[] = {".rs",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1227,6 +1341,7 @@ struct syntax_definition {
 	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
 	{"gitrebase",syn_gitrebase_ext,NULL,NULL,syn_gitrebase_extended,NULL,NULL},
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
+	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
 	{NULL}
 };
 
