@@ -189,6 +189,7 @@ struct {
 	int highlight_parens;
 	int smart_case;
 	int can_24bit;
+	int can_256color;
 	int can_italic;
 
 	int go_to_line;
@@ -216,6 +217,7 @@ struct {
 	1, /* highlight parens/braces when cursor moves */
 	1, /* smart case */
 	1, /* can use 24-bit color */
+	1, /* can use 265 colors */
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
 };
@@ -404,8 +406,42 @@ buffer_t * buffer_close(buffer_t * buf) {
  * Themes
  */
 
+/* 16-color theme, default */
+void load_colorscheme_ansi(void) {
+	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
+	COLOR_BG        = global_config.can_bright ? "@9"  : "@0";
+	COLOR_ALT_FG    = global_config.can_bright ? "@10" : "@5";
+	COLOR_ALT_BG    = "@9";
+	COLOR_NUMBER_FG = "@3";
+	COLOR_NUMBER_BG = "@9";
+	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
+	COLOR_STATUS_BG = "@4";
+	COLOR_TABBAR_BG = "@4";
+	COLOR_TAB_BG    = "@4";
+	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";
+	COLOR_STRING    = "@2";
+	COLOR_COMMENT   = global_config.can_bright ? "@10" : "@5";
+	COLOR_TYPE      = "@3";
+	COLOR_PRAGMA    = "@1";
+	COLOR_NUMERAL   = "@1";
+
+	COLOR_ERROR_FG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_ERROR_BG  = "@1";
+	COLOR_SEARCH_FG = "@0";
+	COLOR_SEARCH_BG = global_config.can_bright ? "@13" : "@3";
+
+	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
+	COLOR_SELECTFG  = "@0";
+
+	COLOR_RED       = "@1";
+	COLOR_GREEN     = "@2";
+
+	current_theme = "ansi";
+}
+
 /* Based on the wombat256 theme for vim */
 void load_colorscheme_wombat(void) {
+	if (!global_config.can_256color) return;
 	COLOR_FG        = "5;230";
 	COLOR_BG        = "5;235";
 	COLOR_ALT_FG    = "5;244";
@@ -507,6 +543,7 @@ void load_colorscheme_solarized_dark(void) {
 
 
 void load_colorscheme_sunsmoke256(void) {
+	if (!global_config.can_256color) return;
 	COLOR_FG        = "5;188";
 	COLOR_BG        = "5;234";
 	COLOR_ALT_FG    = "5;244";
@@ -572,39 +609,6 @@ void load_colorscheme_sunsmoke(void) {
 	COLOR_GREEN     = "2;55;167;0";
 
 	current_theme = "sunsmoke";
-}
-
-/* 16-color theme, default */
-void load_colorscheme_ansi(void) {
-	COLOR_FG        = global_config.can_bright ? "@17" : "@7";
-	COLOR_BG        = global_config.can_bright ? "@9"  : "@0";
-	COLOR_ALT_FG    = global_config.can_bright ? "@10" : "@5";
-	COLOR_ALT_BG    = "@9";
-	COLOR_NUMBER_FG = "@3";
-	COLOR_NUMBER_BG = "@9";
-	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
-	COLOR_STATUS_BG = "@4";
-	COLOR_TABBAR_BG = "@4";
-	COLOR_TAB_BG    = "@4";
-	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";
-	COLOR_STRING    = "@2";
-	COLOR_COMMENT   = global_config.can_bright ? "@10" : "@5";
-	COLOR_TYPE      = "@3";
-	COLOR_PRAGMA    = "@1";
-	COLOR_NUMERAL   = "@1";
-
-	COLOR_ERROR_FG  = global_config.can_bright ? "@17" : "@7";
-	COLOR_ERROR_BG  = "@1";
-	COLOR_SEARCH_FG = "@0";
-	COLOR_SEARCH_BG = global_config.can_bright ? "@13" : "@3";
-
-	COLOR_SELECTBG  = global_config.can_bright ? "@17" : "@7";
-	COLOR_SELECTFG  = "@0";
-
-	COLOR_RED       = "@1";
-	COLOR_GREEN     = "@2";
-
-	current_theme = "ansi";
 }
 
 struct theme_def {
@@ -5426,14 +5430,14 @@ void adjust_indent(int start_line, int direction) {
 				char_t c;
 				c.codepoint = '\t';
 				c.display_width = env->tabstop;
-				c.flags |= FLAG_SELECT;
+				c.flags = FLAG_SELECT;
 				env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 			} else {
 				for (int j = 0; j < env->tabstop; ++j) {
 					char_t c;
 					c.codepoint = ' ';
 					c.display_width = 1;
-					c.flags |= FLAG_SELECT;
+					c.flags = FLAG_SELECT;
 					env->lines[start_point + i] = line_insert(env->lines[start_point + i], c, 0, start_point + i);
 				}
 			}
@@ -6340,6 +6344,11 @@ void detect_weird_terminals(void) {
 		/* unfortunately */
 		global_config.can_24bit = 0;
 		global_config.can_italic = 0;
+	}
+	if (term && strstr(term,"toaru-vga") == term) {
+		global_config.can_altscreen = 0;
+		global_config.can_24bit = 0; /* Also not strictly true */
+		global_config.can_256color = 0; /* Not strictly true */
 	}
 
 }
