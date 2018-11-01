@@ -4086,7 +4086,7 @@ _accept_candidate:
 		*cstart = '\0';
 	} else {
 		/* Print candidates in status bar */
-		char tmp[global_config.term_width+1];
+		char * tmp = malloc(global_config.term_width+1);
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
@@ -4102,6 +4102,7 @@ _accept_candidate:
 			offset += strlen(candidates[i]);
 		}
 		render_status_message("%s", tmp);
+		free(tmp);
 
 		/* Complete to longest common substring */
 		char * cstart = (buffer) + (start - buf);

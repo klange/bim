@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS=-g -std=c99
+CFLAGS=-g -std=c99 -Wvla
 
 prefix=/usr/local
 exec_prefix=$(prefix)
