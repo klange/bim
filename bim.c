@@ -4280,7 +4280,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 /**
  * Draw the matched search result.
  */
-void draw_search_match(int __line, uint32_t * buffer, int redraw_buffer) {
+void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	for (int i = 0; i < env->line_count; ++i) {
 		for (int j = 0; j < env->lines[i]->actual; ++j) {
 			env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
@@ -4387,7 +4387,7 @@ void search_mode(int direction) {
 						set_preferred_column();
 					}
 
-					draw_search_match(line, buffer, direction);
+					draw_search_match(buffer, direction);
 
 				} else {
 					/* If backspaced through entire search term, cancel search */
@@ -4428,7 +4428,7 @@ void search_mode(int direction) {
 					set_preferred_column();
 					env->line_no = prev_line;
 				}
-				draw_search_match(line, buffer, direction);
+				draw_search_match(buffer, direction);
 			}
 			show_cursor();
 		} else if (state == UTF8_REJECT) {
@@ -4454,7 +4454,7 @@ void search_next(void) {
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(line, env->search, -1);
+	draw_search_match(env->search, -1);
 }
 
 /**
@@ -4474,7 +4474,7 @@ void search_prev(void) {
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(line, env->search, -1);
+	draw_search_match(env->search, -1);
 }
 
 /**
