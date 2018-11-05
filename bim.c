@@ -4974,11 +4974,11 @@ void word_right(void) {
 
 	do {
 		col_no++;
-		if (col_no >= env->lines[line_no-1]->actual + 1) {
+		if (col_no > env->lines[line_no-1]->actual) {
 			line_no++;
-			if (line_no >= env->line_count) {
-				env->col_no = env->lines[env->line_count-1]->actual;
+			if (line_no > env->line_count) {
 				env->line_no = env->line_count;
+				env->col_no  = env->lines[env->line_no-1]->actual;
 				set_preferred_column();
 				redraw_statusbar();
 				place_cursor_actual();
@@ -4991,7 +4991,7 @@ void word_right(void) {
 
 	do {
 		col_no++;
-		if (col_no >= env->lines[line_no-1]->actual + 1) {
+		while (col_no > env->lines[line_no-1]->actual) {
 			line_no++;
 			if (line_no >= env->line_count) {
 				env->col_no = env->lines[env->line_count-1]->actual;
@@ -5002,7 +5002,6 @@ void word_right(void) {
 				return;
 			}
 			col_no = 1;
-			break;
 		}
 	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
 
