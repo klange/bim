@@ -4945,13 +4945,9 @@ void word_left(void) {
 
 	do {
 		col_no--;
-		while (col_no == 0) {
-			line_no--;
-			if (line_no == 0) {
-				goto_line(1);
-				return;
-			}
-			col_no = env->lines[line_no-1]->actual;
+		if (col_no == 0) {
+			col_no = 1;
+			break;
 		}
 		if (col_no == 1) {
 			env->col_no = 1;
