@@ -4939,7 +4939,8 @@ void word_left(void) {
 				set_preferred_column();
 				return;
 			}
-			col_no = env->lines[line_no-1]->actual + 1;
+			col_no = env->lines[line_no-1]->actual;
+			if (col_no == 0) break;
 		}
 	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
 
