@@ -1,6 +1,6 @@
 /* vim: tabstop=4 shiftwidth=4 noexpandtab
  *
- * Copyright (C) 2012-2018 K. Lange
+ * Copyright (C) 2012-2019 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -42,7 +42,7 @@
 #include <sys/stat.h>
 
 #define BIM_VERSION   "1.1.7"
-#define BIM_COPYRIGHT "Copyright 2012-2018 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
 #define ENTER_KEY     '\r'
