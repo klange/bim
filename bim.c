@@ -5346,6 +5346,12 @@ int handle_escape(int * this_buf, int * timeout, int c) {
  */
 void handle_navigation(int c) {
 	switch (c) {
+		case 2: /* ctrl-b = page up */
+			goto_line(env->line_no - (global_config.term_height - 6));
+			break;
+		case 6: /* ctrl-f = page down */
+			goto_line(env->line_no + global_config.term_height - 6);
+			break;
 		case ':': /* Switch to command mode */
 			command_mode();
 			break;
