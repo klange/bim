@@ -142,6 +142,8 @@ In INSERT mode, the following additional commands are available:
 | `:padding PADDING` | Set the cursor vertical padding                                                                |
 | `:hlparen`         | Print the status of the matching paren/brace highlighting setting                              |
 | `:hlparen VALUE`   | Enable (1) or disable (0) highlighting of matching parenthesis and braces                      |
+| `:hlcurrent`       | Print the status of the hilight-current-line setting                                           |
+| `:hlcurrent VALUE` | Enable (1) or disable (0) hilight of the current line                                          |
 | `:smartcase`       | Print the status of the smartcase setting                                                      |
 | `:smartcase VALUE` | Enable (1) or disable (0) smart case sensitivty when searching                                 |
 
