@@ -1376,7 +1376,7 @@ static char * syn_java_keywords[] = {
 	"assert","break","case","catch","class","continue",
 	"default","do","else","enum","exports","extends","finally",
 	"for","if","implements","instanceof","interface","module","native",
-	"new","requires","return",
+	"new","requires","return","throws",
 	"strictfp","super","switch","synchronized","this","throw","try","while",
 	NULL
 };
