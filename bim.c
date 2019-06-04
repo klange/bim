@@ -670,7 +670,7 @@ static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left)
 		}
 		return FLAG_PRAGMA;
 	}
-	
+
 	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
 		int j = i;
 		for (int s = 0; syn_c_special[s]; ++s) {
@@ -1371,6 +1371,139 @@ static int syn_conf_extended(line_t * line, int i, int c, int last, int * out_le
 
 static char * syn_conf_ext[] = {".conf",NULL};
 
+
+static char * syn_java_keywords[] = {
+	"assert","break","case","catch","class","continue",
+	"default","do","else","enum","exports","extends","finally",
+	"for","if","implements","instanceof","interface","module","native",
+	"new","requires","return",
+	"strictfp","super","switch","synchronized","this","throw","try","while",
+	NULL
+};
+
+static char * syn_java_types[] = {
+	"var","boolean","void","short","long","int","double","float","enum","char",
+	"private","protected","public","static","final","transient","volatile","abstract",
+	NULL
+};
+
+static char * syn_java_special[] = {
+	"true","false","import","package","null",
+	NULL
+};
+
+static int syn_java_extended(line_t * line, int i, int c, int last, int * out_left) {
+	/* Basic numbers */
+	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
+		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
+			int j = 2;
+			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		} else {
+			int j = 1;
+			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
+				j++;
+			}
+			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
+				return FLAG_NONE;
+			}
+			*out_left = j - 1;
+			return FLAG_NUMERAL;
+		}
+	}
+
+	/* @Stuff */
+	if (c == '@') {
+		for (int j = i+1; j < line->actual + 1; ++j) {
+			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
+				*out_left = j - i - 1;
+				return FLAG_PRAGMA;
+			}
+			*out_left = (line->actual + 1) - i;
+			return FLAG_PRAGMA;
+		}
+	}
+	
+
+	/* Special matches */
+	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
+		int j = i;
+		for (int s = 0; syn_java_special[s]; ++s) {
+			int d = 0;
+			while (j + d < line->actual - 1 && line->text[j+d].codepoint == syn_java_special[s][d]) d++;
+			if (syn_java_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
+				*out_left = d-1;
+				return FLAG_NUMERAL;
+			}
+		}
+	}
+
+	/* Comments, both // and */
+	if (c == '/') {
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT;
+		}
+
+		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
+			int last = 0;
+			for (int j = i + 2; j < line->actual; ++j) {
+				int c = line->text[j].codepoint;
+				if (c == '/' && last == '*') {
+					*out_left = j - i;
+					return FLAG_COMMENT;
+				}
+				last = c;
+			}
+			/* TODO multiline - update next */
+			*out_left = (line->actual + 1) - i;
+			return FLAG_COMMENT | FLAG_CONTINUES;
+		}
+	}
+
+	/* Simple strings */
+	if (c == '"') {
+		int last = 0;
+		for (int j = i+1; j < line->actual; ++j) {
+			int c = line->text[j].codepoint;
+			if (last != '\\' && c == '"') {
+				*out_left = j - i;
+				return FLAG_STRING;
+			}
+			if (last == '\\' && c == '\\') {
+				last = 0;
+			}
+			last = c;
+		}
+		*out_left = (line->actual + 1) - i; /* unterminated string */
+		return FLAG_STRING;
+	}
+
+	return 0;
+}
+
+static int syn_java_finish(line_t * line, int * left, int state) {
+	/* Close normal multiline comment */
+	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
+		int last = 0;
+		for (int i = 0; i < line->actual; ++i) {
+			if (line->text[i].codepoint == '/' && last == '*') {
+				*left = i+2;
+				return FLAG_COMMENT;
+			}
+			last = line->text[i].codepoint;
+		}
+		return FLAG_COMMENT | FLAG_CONTINUES;
+	}
+	return 0;
+}
+
+static char * syn_java_ext[] = {".java",NULL};
+
 /**
  * Syntax hilighting definition database
  */
@@ -1393,6 +1526,7 @@ struct syntax_definition {
 	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
 	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
 	{"conf",syn_conf_ext,NULL,NULL,syn_conf_extended,NULL,NULL},
+	{"java",syn_java_ext,syn_java_keywords,syn_java_types,syn_java_extended,syn_c_iskeywordchar,syn_java_finish},
 	{NULL}
 };
 
