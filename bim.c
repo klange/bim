@@ -326,12 +326,18 @@ typedef struct _env {
 
 	history_t * history;
 	history_t * last_save_history;
+
+	int width;
+	int left;
 } buffer_t;
 
 /**
  * Pointer to current active buffer
  */
 buffer_t * env;
+
+buffer_t * left_buffer;
+buffer_t * right_buffer;
 
 /**
  * Editor modes (like in vim)
@@ -357,6 +363,16 @@ buffer_t * buffer_new(void) {
 		/* If we are out of buffer space, expand the buffers vector */
 		buffers_avail *= 2;
 		buffers = realloc(buffers, sizeof(buffer_t *) * buffers_avail);
+	}
+
+	/* TODO: Support having split buffers with more than two buffers open */
+	if (left_buffer) {
+		left_buffer->left = 0;
+		left_buffer->width = global_config.term_width;
+		right_buffer->left = 0;
+		right_buffer->width = global_config.term_width;
+		left_buffer = NULL;
+		right_buffer = NULL;
 	}
 
 	/* Allocate a new buffer */
@@ -2702,15 +2718,14 @@ void render_line(line_t * line, int width, int offset) {
 		}
 	}
 
-	if (!global_config.can_bce) {
+	if (env->width == global_config.term_width && global_config.can_bce) {
+		clear_to_end();
+	} else {
 		/* Paint the rest of the line */
 		for (; j < width; ++j) {
 			printf(" ");
 		}
 	}
-
-	/* Clear the rest of the line */
-	clear_to_end();
 }
 
 /**
@@ -2773,7 +2788,7 @@ void redraw_line(int j, int x) {
 	hide_cursor();
 
 	/* Move cursor to upper left most cell of this line */
-	place_cursor(1,2 + j);
+	place_cursor(1 + env->left,2 + j);
 
 	/* Draw a gutter on the left.
 	 * TODO: The gutter can be used to show single-character
@@ -2790,18 +2805,25 @@ void redraw_line(int j, int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], global_config.term_width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
 }
 
 /**
  * Draw a ~ line where there is no buffer text.
  */
 void draw_excess_line(int j) {
-	place_cursor(1,2 + j);
+	place_cursor(1+env->left,2 + j);
 	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
-	clear_to_end();
+	if (env->width == global_config.term_width && global_config.can_bce) {
+		clear_to_end();
+	} else {
+		/* Paint the rest of the line */
+		for (int x = 1; x < env->width; ++x) {
+			printf(" ");
+		}
+	}
 }
 
 /**
@@ -2825,6 +2847,16 @@ void redraw_text(void) {
 	for (; j < l; ++j) {
 		draw_excess_line(j);
 	}
+}
+
+void redraw_alt_buffer(buffer_t * buf) {
+	/* Swap out active buffer */
+	buffer_t * tmp = env;
+	env = buf;
+	/* Redraw text */
+	redraw_text();
+	/* Return original active buffer */
+	env = tmp;
 }
 
 /**
@@ -2976,6 +3008,9 @@ void render_commandline_message(char * message, ...) {
 void redraw_all(void) {
 	redraw_tabbar();
 	redraw_text();
+	if (left_buffer) {
+		redraw_alt_buffer(left_buffer == env ? right_buffer : left_buffer);
+	}
 	redraw_statusbar();
 	redraw_commandline();
 }
@@ -3167,9 +3202,9 @@ void place_cursor_actual(void) {
 	}
 
 	/* If the cursor has gone off screen to the right... */
-	if (x > global_config.term_width - 1) {
+	if (x > env->width - 1) {
 		/* Adjust the offset appropriately to scroll horizontally */
-		int diff = x - (global_config.term_width - 1);
+		int diff = x - (env->width - 1);
 		env->coffset += diff;
 		x -= diff;
 		redraw_text();
@@ -3187,7 +3222,7 @@ void place_cursor_actual(void) {
 	recalculate_current_line();
 
 	/* Move the actual terminal cursor */
-	place_cursor(x,y);
+	place_cursor(x+env->left,y);
 
 	/* Show the cursor */
 	show_cursor();
@@ -3201,6 +3236,15 @@ void update_screen_size(void) {
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	global_config.term_width = w.ws_col;
 	global_config.term_height = w.ws_row;
+	if (env) {
+		if (left_buffer) {
+			left_buffer->width = w.ws_col / 2;
+			right_buffer->width = w.ws_col - left_buffer->width;
+			right_buffer->left = left_buffer->width;
+		} else if (env != left_buffer && env != right_buffer) {
+			env->width = w.ws_col;
+		}
+	}
 }
 
 /**
@@ -3370,6 +3414,8 @@ int is_all_numbers(const char * c) {
  */
 void open_file(char * file) {
 	env = buffer_new();
+	env->width = global_config.term_width;
+	env->left = 0;
 	env->loading = 1;
 
 	setup_buffer(env);
@@ -3613,6 +3659,17 @@ void close_buffer(void) {
 		/* ?? Failed to close buffer */
 		render_error("lolwat");
 	}
+	if (left_buffer && env == left_buffer) {
+		left_buffer = NULL;
+		right_buffer->left = 0;
+		right_buffer->width = global_config.term_width;
+		right_buffer = NULL;
+	} else if (left_buffer && env == right_buffer) {
+		right_buffer = NULL;
+		left_buffer->left = 0;
+		left_buffer->width = global_config.term_width;
+		left_buffer = NULL;
+	}
 	/* No more buffers, exit */
 	if (!new_env) {
 		quit();
@@ -3687,7 +3744,7 @@ void cursor_down(void) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
-			if (global_config.can_scroll) {
+			if (global_config.can_scroll && !left_buffer) {
 				shift_up();
 
 				/* A new line appears on screen at the bottom, draw it */
@@ -3772,7 +3829,7 @@ void cursor_up(void) {
 			env->offset -= 1;
 
 			/* Tell terminal to scroll */
-			if (global_config.can_scroll) {
+			if (global_config.can_scroll && !left_buffer) {
 				shift_down();
 
 				/*
@@ -4048,6 +4105,21 @@ void process_command(char * cmd) {
 				redraw_all();
 				return;
 			}
+		}
+	} else if (!strcmp(argv[0], "split")) {
+		if (buffers_len != 2) {
+			render_error("can only split with two buffers (sorry)");
+		} else {
+			left_buffer = buffers[0];
+			right_buffer = buffers[1];
+
+			left_buffer->left = 0;
+			left_buffer->width = global_config.term_width / 2;
+			right_buffer->left = left_buffer->width;
+			right_buffer->width = global_config.term_width - left_buffer->width;
+
+			redraw_alt_buffer(left_buffer);
+			redraw_alt_buffer(right_buffer);
 		}
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
@@ -4847,6 +4919,18 @@ void handle_mouse(void) {
 				}
 			}
 			return;
+		}
+
+		if (x < env->left && env == right_buffer) {
+			env = left_buffer;
+			redraw_all();
+		} else if (x > env->width && env == left_buffer) {
+			env = right_buffer;
+			redraw_all();
+		}
+
+		if (env->left) {
+			x -= env->left;
 		}
 
 		/* Figure out y coordinate */
