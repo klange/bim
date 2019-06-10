@@ -4309,6 +4309,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("hlcurrent");
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
+		add_candidate("split");
 		goto _accept_candidate;
 	}
 
