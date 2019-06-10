@@ -826,9 +826,9 @@ static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left
 				*out_left = j - i - 1;
 				return FLAG_PRAGMA;
 			}
-			*out_left = (line->actual + 1) - i;
-			return FLAG_PRAGMA;
 		}
+		*out_left = (line->actual + 1) - i;
+		return FLAG_PRAGMA;
 	}
 
 	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
@@ -1423,9 +1423,9 @@ static int syn_java_extended(line_t * line, int i, int c, int last, int * out_le
 				*out_left = j - i - 1;
 				return FLAG_PRAGMA;
 			}
-			*out_left = (line->actual + 1) - i;
-			return FLAG_PRAGMA;
 		}
+		*out_left = (line->actual + 1) - i;
+		return FLAG_PRAGMA;
 	}
 	
 
