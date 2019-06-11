@@ -4926,11 +4926,14 @@ void handle_mouse(void) {
 			return;
 		}
 
-		if (x < env->left && env == right_buffer) {
-			env = left_buffer;
-			redraw_all();
-		} else if (x > env->width && env == left_buffer) {
-			env = right_buffer;
+		if (env->mode == MODE_NORMAL || env->mode == MODE_INSERT) {
+			int current_mode = env->mode;
+			if (x < env->left && env == right_buffer) {
+				env = left_buffer;
+			} else if (x > env->width && env == left_buffer) {
+				env = right_buffer;
+			}
+			env->mode = current_mode;
 			redraw_all();
 		}
 
