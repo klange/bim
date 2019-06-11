@@ -195,6 +195,7 @@ struct {
 
 	int go_to_line;
 	int hilight_current_line;
+	int split_percent;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -223,6 +224,7 @@ struct {
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
+	50, /* split percentage */
 };
 
 void redraw_line(int j, int x);
@@ -1153,6 +1155,7 @@ static int syn_make_extended(line_t * line, int i, int c, int last, int * out_le
 static char * syn_bimrc_keywords[] = {
 	"theme",
 	"padding",
+	"splitperecent",
 	NULL,
 };
 
@@ -3238,9 +3241,9 @@ void update_screen_size(void) {
 	global_config.term_height = w.ws_row;
 	if (env) {
 		if (left_buffer) {
-			left_buffer->width = w.ws_col / 2;
-			right_buffer->width = w.ws_col - left_buffer->width;
+			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
 			right_buffer->left = left_buffer->width;
+			right_buffer->width = global_config.term_width - left_buffer->width;
 		} else if (env != left_buffer && env != right_buffer) {
 			env->width = w.ws_col;
 		}
@@ -4106,6 +4109,21 @@ void process_command(char * cmd) {
 				return;
 			}
 		}
+	} else if (!strcmp(argv[0], "splitpercent")) {
+		if (argc < 2) {
+			render_status_message("splitpercent=%d", global_config.split_percent);
+			return;
+		} else {
+			global_config.split_percent = atoi(argv[1]);
+			if (left_buffer) {
+				/* TODO: update_split_sizes? */
+				left_buffer->left = 0;
+				left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+				right_buffer->left = left_buffer->width;
+				right_buffer->width = global_config.term_width - left_buffer->width;
+				redraw_all();
+			}
+		}
 	} else if (!strcmp(argv[0], "split")) {
 		if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
 			render_error("(splits are experimental and only work with two buffers; sorry!)");
@@ -4118,7 +4136,7 @@ void process_command(char * cmd) {
 			right_buffer = buffers[1];
 
 			left_buffer->left = 0;
-			left_buffer->width = global_config.term_width / 2;
+			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
 			right_buffer->left = left_buffer->width;
 			right_buffer->width = global_config.term_width - left_buffer->width;
 
@@ -4314,6 +4332,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
 		add_candidate("split");
+		add_candidate("splitpercent");
 		goto _accept_candidate;
 	}
 
@@ -6658,6 +6677,10 @@ void load_bimrc(void) {
 		/* Disable hilighting of current line */
 		if (!strcmp(l,"hlcurrent") && value) {
 			global_config.hilight_current_line = atoi(value);
+		}
+
+		if (!strcmp(l,"splitpercent") && value) {
+			global_config.split_percent = atoi(value);
 		}
 	}
 
