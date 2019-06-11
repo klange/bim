@@ -3231,6 +3231,14 @@ void place_cursor_actual(void) {
 	show_cursor();
 }
 
+void update_split_size(void) {
+	if (!left_buffer) return;
+	left_buffer->left = 0;
+	left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+	right_buffer->left = left_buffer->width;
+	right_buffer->width = global_config.term_width - left_buffer->width;
+}
+
 /**
  * Update screen size
  */
@@ -3241,9 +3249,7 @@ void update_screen_size(void) {
 	global_config.term_height = w.ws_row;
 	if (env) {
 		if (left_buffer) {
-			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
-			right_buffer->left = left_buffer->width;
-			right_buffer->width = global_config.term_width - left_buffer->width;
+			update_split_size();
 		} else if (env != left_buffer && env != right_buffer) {
 			env->width = w.ws_col;
 		}
@@ -4116,11 +4122,7 @@ void process_command(char * cmd) {
 		} else {
 			global_config.split_percent = atoi(argv[1]);
 			if (left_buffer) {
-				/* TODO: update_split_sizes? */
-				left_buffer->left = 0;
-				left_buffer->width = global_config.term_width * global_config.split_percent / 100;
-				right_buffer->left = left_buffer->width;
-				right_buffer->width = global_config.term_width - left_buffer->width;
+				update_split_size();
 				redraw_all();
 			}
 		}
@@ -4135,10 +4137,7 @@ void process_command(char * cmd) {
 			left_buffer = buffers[0];
 			right_buffer = buffers[1];
 
-			left_buffer->left = 0;
-			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
-			right_buffer->left = left_buffer->width;
-			right_buffer->width = global_config.term_width - left_buffer->width;
+			update_split_size();
 
 			redraw_alt_buffer(left_buffer);
 			redraw_alt_buffer(right_buffer);
@@ -5565,6 +5564,10 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'C': // right
 				if (this_buf[*timeout-1] == '5') {
 					word_right();
+				} else if (this_buf[*timeout-1] == '3') {
+					global_config.split_percent += 1;
+					update_split_size();
+					redraw_all();
 				} else {
 					cursor_right();
 				}
@@ -5572,6 +5575,10 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 			case 'D': // left
 				if (this_buf[*timeout-1] == '5') {
 					word_left();
+				} else if (this_buf[*timeout-1] == '3') {
+					global_config.split_percent -= 1;
+					update_split_size();
+					redraw_all();
 				} else {
 					cursor_left();
 				}
