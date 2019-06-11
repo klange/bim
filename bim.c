@@ -4107,9 +4107,13 @@ void process_command(char * cmd) {
 			}
 		}
 	} else if (!strcmp(argv[0], "split")) {
-		if (buffers_len != 2) {
-			render_error("can only split with two buffers (sorry)");
+		if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
+			render_error("(splits are experimental and only work with two buffers; sorry!)");
+			return;
 		} else {
+			if (argc == 2) {
+				open_file(argv[1]);
+			}
 			left_buffer = buffers[0];
 			right_buffer = buffers[1];
 
@@ -4330,7 +4334,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew"))) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
