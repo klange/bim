@@ -2723,7 +2723,7 @@ void render_line(line_t * line, int width, int offset) {
 		}
 	}
 
-	if (env->width == global_config.term_width && global_config.can_bce) {
+	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
@@ -2821,7 +2821,7 @@ void draw_excess_line(int j) {
 	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
-	if (env->width == global_config.term_width && global_config.can_bce) {
+	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
