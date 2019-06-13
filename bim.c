@@ -2854,7 +2854,35 @@ void redraw_text(void) {
 	}
 }
 
+static int view_left_offset = 0;
+static int view_right_offset = 0;
+
 void redraw_alt_buffer(buffer_t * buf) {
+	if (left_buffer == right_buffer) {
+		/* draw the opposite view */
+		int left, width, offset;
+		left = env->left;
+		width = env->width;
+		offset = env->offset;
+		if (left == 0) {
+			/* Draw the right side */
+
+			env->left = width;
+			env->width = global_config.term_width - width;
+			env->offset = view_right_offset;
+			view_left_offset = offset;
+		} else {
+			env->left = 0;
+			env->width = global_config.term_width * global_config.split_percent / 100;
+			env->offset = view_left_offset;
+			view_right_offset = offset;
+		}
+		redraw_text();
+
+		env->left = left;
+		env->width = width;
+		env->offset = offset;
+	}
 	/* Swap out active buffer */
 	buffer_t * tmp = env;
 	env = buf;
@@ -4129,7 +4157,12 @@ void process_command(char * cmd) {
 			}
 		}
 	} else if (!strcmp(argv[0], "split")) {
-		if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
+		if (argc < 2 && buffers_len == 1) {
+			left_buffer = buffers[0];
+			right_buffer = buffers[0];
+			update_split_size();
+			redraw_all();
+		} else if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
 			render_error("(splits are experimental and only work with two buffers; sorry!)");
 			return;
 		} else {
@@ -4949,8 +4982,18 @@ void handle_mouse(void) {
 		if (env->mode == MODE_NORMAL || env->mode == MODE_INSERT) {
 			int current_mode = env->mode;
 			if (x < env->left && env == right_buffer) {
+				if (env->left != 0) {
+					env->width = env->left;
+					env->left = 0;
+					env->offset = view_left_offset;
+				}
 				env = left_buffer;
 			} else if (x > env->width && env == left_buffer) {
+				if (env->left == 0) {
+					env->left = env->width;
+					env->width = global_config.term_width - env->width;
+					env->offset = view_right_offset;
+				}
 				env = right_buffer;
 			}
 			env->mode = current_mode;
