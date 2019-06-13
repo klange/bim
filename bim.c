@@ -3263,6 +3263,15 @@ void place_cursor_actual(void) {
 
 void update_split_size(void) {
 	if (!left_buffer) return;
+	if (left_buffer == right_buffer) {
+		if (left_buffer->left == 0) {
+			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+		} else {
+			right_buffer->left = global_config.term_width * global_config.split_percent / 100;
+			right_buffer->width = global_config.term_width - right_buffer->left;
+		}
+		return;
+	}
 	left_buffer->left = 0;
 	left_buffer->width = global_config.term_width * global_config.split_percent / 100;
 	right_buffer->left = left_buffer->width;
