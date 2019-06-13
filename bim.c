@@ -4946,6 +4946,26 @@ _match_found:
 	*out_col  = col;
 }
 
+void use_left_buffer(void) {
+	if (left_buffer == right_buffer && env->left != 0) {
+		view_right_offset = env->offset;
+		env->width = env->left;
+		env->left = 0;
+		env->offset = view_left_offset;
+	}
+	env = left_buffer;
+}
+
+void use_right_buffer(void) {
+	if (left_buffer == right_buffer && env->left == 0) {
+		view_left_offset = env->offset;
+		env->left = env->width;
+		env->width = global_config.term_width - env->width;
+		env->offset = view_right_offset;
+	}
+	env = right_buffer;
+}
+
 /**
  * Handle mouse event
  */
@@ -4991,21 +5011,9 @@ void handle_mouse(void) {
 		if (env->mode == MODE_NORMAL || env->mode == MODE_INSERT) {
 			int current_mode = env->mode;
 			if (x < env->left && env == right_buffer) {
-				if (env->left != 0) {
-					view_right_offset = env->offset;
-					env->width = env->left;
-					env->left = 0;
-					env->offset = view_left_offset;
-				}
-				env = left_buffer;
+				use_left_buffer();
 			} else if (x > env->width && env == left_buffer) {
-				if (env->left == 0) {
-					view_left_offset = env->offset;
-					env->left = env->width;
-					env->width = global_config.term_width - env->width;
-					env->offset = view_right_offset;
-				}
-				env = right_buffer;
+				use_right_buffer();
 			}
 			env->mode = current_mode;
 			redraw_all();
@@ -5624,6 +5632,9 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 					global_config.split_percent += 1;
 					update_split_size();
 					redraw_all();
+				} else if (this_buf[*timeout-1] == '4') {
+					use_right_buffer();
+					redraw_all();
 				} else {
 					cursor_right();
 				}
@@ -5634,6 +5645,9 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				} else if (this_buf[*timeout-1] == '3') {
 					global_config.split_percent -= 1;
 					update_split_size();
+					redraw_all();
+				} else if (this_buf[*timeout-1] == '4') {
+					use_left_buffer();
 					redraw_all();
 				} else {
 					cursor_left();
