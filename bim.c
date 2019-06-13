@@ -3048,6 +3048,13 @@ void redraw_all(void) {
 	redraw_commandline();
 }
 
+void redraw_most(void) {
+	redraw_tabbar();
+	redraw_text();
+	redraw_statusbar();
+	redraw_commandline();
+}
+
 /**
  * Update the terminal title bar
  */
@@ -3347,7 +3354,7 @@ void goto_line(int line) {
 	env->offset = line - 1;
 	env->line_no = line;
 	env->col_no  = 1;
-	redraw_all();
+	redraw_most();
 }
 
 
@@ -3802,15 +3809,13 @@ void cursor_down(void) {
 				} else {
 					draw_excess_line(l - 1);
 				}
-
-				/* Redraw elements that were moved by scrolling */
-				redraw_tabbar();
-				redraw_statusbar();
-				redraw_commandline();
-				place_cursor_actual();
 			} else {
-				redraw_all();
+				redraw_text();
 			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
@@ -3885,15 +3890,13 @@ void cursor_up(void) {
 				 * so we can just call redraw_line here
 				 */
 				redraw_line(0,env->offset);
-
-				/* Redraw elements that were moved by scrolling */
-				redraw_tabbar();
-				redraw_statusbar();
-				redraw_commandline();
-				place_cursor_actual();
 			} else {
-				redraw_all();
+				redraw_text();
 			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 			return;
 		} else if (redraw) {
 			/* Otherwise, if we need to redraw because of coffset change, do that */
