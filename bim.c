@@ -4983,6 +4983,7 @@ void handle_mouse(void) {
 			int current_mode = env->mode;
 			if (x < env->left && env == right_buffer) {
 				if (env->left != 0) {
+					view_right_offset = env->offset;
 					env->width = env->left;
 					env->left = 0;
 					env->offset = view_left_offset;
@@ -4990,6 +4991,7 @@ void handle_mouse(void) {
 				env = left_buffer;
 			} else if (x > env->width && env == left_buffer) {
 				if (env->left == 0) {
+					view_left_offset = env->offset;
 					env->left = env->width;
 					env->width = global_config.term_width - env->width;
 					env->offset = view_right_offset;
