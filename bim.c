@@ -380,6 +380,8 @@ buffer_t * buffer_new(void) {
 	/* Allocate a new buffer */
 	buffers[buffers_len] = malloc(sizeof(buffer_t));
 	memset(buffers[buffers_len], 0x00, sizeof(buffer_t));
+	buffers[buffers_len]->left = 0;
+	buffers[buffers_len]->width = global_config.term_width;
 	buffers_len++;
 
 	return buffers[buffers_len-1];
