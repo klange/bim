@@ -1548,7 +1548,7 @@ struct syntax_definition {
 	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
 	{"conf",syn_conf_ext,NULL,NULL,syn_conf_extended,NULL,NULL},
 	{"java",syn_java_ext,syn_java_keywords,syn_java_types,syn_java_extended,syn_c_iskeywordchar,syn_java_finish},
-	{NULL}
+	{NULL,NULL,NULL,NULL,NULL,NULL,NULL}
 };
 
 /**
