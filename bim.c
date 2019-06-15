@@ -196,6 +196,9 @@ struct {
 	int go_to_line;
 	int hilight_current_line;
 	int split_percent;
+
+	int shift_scrolling;
+	int scroll_amount;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -225,6 +228,8 @@ struct {
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
 	50, /* split percentage */
+	1, /* shift scrolling (shifts view rather than moving cursor) */
+	5, /* how many lines to scroll on mouse wheel */
 };
 
 void redraw_line(int j, int x);
@@ -1160,6 +1165,8 @@ static char * syn_bimrc_keywords[] = {
 	"theme",
 	"padding",
 	"splitperecent",
+	"scrollamount",
+	"shiftscrolling",
 	NULL,
 };
 
@@ -5070,14 +5077,36 @@ void handle_mouse(void) {
 
 	if (buttons == 64) {
 		/* Scroll up */
-		for (int i = 0; i < 5; ++i) {
-			cursor_up();
+		if (global_config.shift_scrolling) {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				if (env->offset > 0) env->offset--;
+				if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+					cursor_up();
+				}
+			}
+
+			redraw_most();
+		} else {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				cursor_up();
+			}
 		}
 		return;
 	} else if (buttons == 65) {
 		/* Scroll down */
-		for (int i = 0; i < 5; ++i) {
-			cursor_down();
+		if (global_config.shift_scrolling) {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				if (env->offset < env->line_count-1) env->offset++;
+				int e = (env->offset == 0) ? env->offset : env->offset + global_config.cursor_padding;
+				if (env->line_no <= e) {
+					cursor_down();
+				}
+			}
+			redraw_most();
+		} else {
+			for (int i = 0; i < global_config.scroll_amount; ++i) {
+				cursor_down();
+			}
 		}
 		return;
 	} else if (buttons == 3) {
@@ -6864,6 +6893,14 @@ void load_bimrc(void) {
 
 		if (!strcmp(l,"splitpercent") && value) {
 			global_config.split_percent = atoi(value);
+		}
+
+		if (!strcmp(l,"shiftscrolling")) {
+			global_config.shift_scrolling = (value ? atoi(value) : 1);
+		}
+
+		if (!strcmp(l,"scrollamount") && value) {
+			global_config.scroll_amount = atoi(value);
 		}
 	}
 
