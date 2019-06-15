@@ -6586,6 +6586,18 @@ void normal_mode(void) {
 							for (int i = 0; i < env->line_count; ++i) {
 								recalculate_syntax(env->lines[i],i);
 							}
+							if (c == 'p') {
+								if (global_config.yank_is_full_lines) {
+									env->line_no += 1;
+								} else {
+									if (global_config.yank_count == 1) {
+										env->col_no = env->col_no + global_config.yanks[0]->actual;
+									} else {
+										env->line_no = env->line_no + global_config.yank_count - 1;
+										env->col_no = global_config.yanks[global_config.yank_count-1]->actual;
+									}
+								}
+							}
 							set_history_break();
 							set_modified();
 							redraw_all();
