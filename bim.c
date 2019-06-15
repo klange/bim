@@ -3024,7 +3024,10 @@ void redraw_commandline(void) {
 		unset_bold();
 	} else if (env->mode == MODE_LINE_SELECTION) {
 		set_bold();
-		printf("-- LINE SELECTION -- ");
+		printf("-- LINE SELECTION -- (%d:%d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line
+		);
 		clear_to_end();
 		unset_bold();
 	} else if (env->mode == MODE_REPLACE) {
@@ -6122,6 +6125,7 @@ void line_selection_mode(void) {
 				}
 				prev_line = env->line_no;
 			}
+			redraw_commandline();
 			place_cursor_actual();
 			continue;
 _readonly:
