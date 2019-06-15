@@ -331,6 +331,8 @@ typedef struct _env {
 
 	int width;
 	int left;
+
+	int start_line;
 } buffer_t;
 
 /**
@@ -2369,10 +2371,26 @@ void set_bold(void) {
 }
 
 /**
+ * Disable bold
+ */
+void unset_bold(void) {
+	printf("\033[22m");
+	fflush(stdout);
+}
+
+/**
  * Enable underlined text display
  */
 void set_underline(void) {
 	printf("\033[4m");
+	fflush(stdout);
+}
+
+/**
+ * Disable underlined text display
+ */
+void unset_underline(void) {
+	printf("\033[24m");
 	fflush(stdout);
 }
 
@@ -2548,7 +2566,7 @@ int log_base_10(unsigned int v) {
  * width: width of the text display region (term width - line number width)
  * offset: how many cells into the line to start rendering at
  */
-void render_line(line_t * line, int width, int offset) {
+void render_line(line_t * line, int width, int offset, int line_no) {
 	int i = 0; /* Offset in char_t line data entries */
 	int j = 0; /* Offset in terminal cells */
 
@@ -2721,6 +2739,16 @@ void render_line(line_t * line, int width, int offset) {
 		} else {
 			set_colors(COLOR_FG, COLOR_BG);
 		}
+	} else {
+		if (!line->actual) {
+			if (env->line_no == line_no ||
+				(env->start_line > env->line_no && 
+					(line_no >= env->line_no && line_no <= env->start_line)) ||
+				(env->start_line < env->line_no &&
+					(line_no >= env->start_line && line_no <= env->line_no))) {
+				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+			}
+		}
 	}
 
 	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
@@ -2810,7 +2838,8 @@ void redraw_line(int j, int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0);
+	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0, x+1);
+
 }
 
 /**
@@ -2985,20 +3014,20 @@ void redraw_commandline(void) {
 		set_bold();
 		printf("-- INSERT --");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else if (env->mode == MODE_LINE_SELECTION) {
 		set_bold();
-		printf("-- LINE SELECTION --");
+		printf("-- LINE SELECTION -- ");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else if (env->mode == MODE_REPLACE) {
 		set_bold();
 		printf("-- REPLACE --");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else if (env->mode == MODE_CHAR_SELECTION) {
 		set_bold();
-		printf("-- CHAR SELECTION --");
+		printf("-- CHAR SELECTION -- ");
 		clear_to_end();
 		reset();
 	} else {
@@ -5880,16 +5909,16 @@ void handle_navigation(int c) {
  */
 #define _redraw_line(line, force_start_line) \
 	do { \
-		if (!(force_start_line) && (line) == start_line) break; \
+		if (!(force_start_line) && (line) == env->start_line) break; \
 		if ((line) > env->line_count + 1) { \
 			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
 				draw_excess_line((line) - env->offset - 1); \
 			} \
 			break; \
 		} \
-		if ((env->line_no < start_line  && ((line) < env->line_no || (line) > start_line)) || \
-			(env->line_no > start_line  && ((line) > env->line_no || (line) < start_line)) || \
-			(env->line_no == start_line && (line) != start_line)) { \
+		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
+			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
+			(env->line_no == env->start_line && (line) != env->start_line)) { \
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
@@ -5963,8 +5992,8 @@ void adjust_indent(int start_line, int direction) {
  * Equivalent to visual line in vim; selects lines of texts.
  */
 void line_selection_mode(void) {
-	int start_line = env->line_no;
-	int prev_line  = start_line;
+	env->start_line = env->line_no;
+	int prev_line  = env->start_line;
 
 	env->mode = MODE_LINE_SELECTION;
 	redraw_commandline();
@@ -6000,25 +6029,25 @@ void line_selection_mode(void) {
 						break;
 					case '\t':
 						if (env->readonly) goto _readonly;
-						adjust_indent(start_line, 1);
+						adjust_indent(env->start_line, 1);
 						break;
 					case 'V':
 						goto _leave_select_line;
 					case 'y':
-						yank_lines(start_line, env->line_no);
+						yank_lines(env->start_line, env->line_no);
 						goto _leave_select_line;
 					case 'D':
 					case 'd':
 						if (env->readonly) goto _readonly;
-						yank_lines(start_line, env->line_no);
-						if (start_line <= env->line_no) {
-							int lines_to_delete = env->line_no - start_line + 1;
+						yank_lines(env->start_line, env->line_no);
+						if (env->start_line <= env->line_no) {
+							int lines_to_delete = env->line_no - env->start_line + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, start_line-1);
+								remove_line(env->lines, env->start_line-1);
 							}
-							env->line_no = start_line;
+							env->line_no = env->start_line;
 						} else {
-							int lines_to_delete = start_line - env->line_no + 1;
+							int lines_to_delete = env->start_line - env->line_no + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
 								remove_line(env->lines, env->line_no-1);
 							}
@@ -6044,7 +6073,7 @@ void line_selection_mode(void) {
 					case 'Z':
 						/* Unindent */
 						if (env->readonly) goto _readonly;
-						adjust_indent(start_line, -1);
+						adjust_indent(env->start_line, -1);
 						break;
 				}
 			}
@@ -6925,7 +6954,7 @@ int main(int argc, char * argv[]) {
 					if (opt == 'C') {
 						draw_line_number(i);
 					}
-					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0);
+					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0, i + 1);
 					reset();
 					fprintf(stdout, "\n");
 				}
