@@ -71,6 +71,7 @@ When in normal mode:
 | `N`         | Find previous search match                                                              |
 | `v`         | Enter CHAR SELECTION mode                                                               |
 | `V`         | Enter LINE SELECTION mode                                                               |
+| Ctrl-`V`    | Enter COL SELECTION mode                                                                |
 | `R`         | Enter REPLACE mode                                                                      |
 | `i`         | Enter INSERT mode                                                                       |
 | `a`         | Enter INSERT mode with the cursor after the current position (for appending characters) |
@@ -109,6 +110,12 @@ In INSERT mode, the following additional commands are available:
 | `^V`        | Insert literal character |
 | `^W`        | Delete previous word     |
 
+In COL SELECTION mode, you can enter COL INSERT mode to insert characters on multiple lines simultaneously:
+
+| **Key**    | **Action**                |
+|------------|---------------------------|
+| `I`        | Enter COL INSERT mode     |
+
 ## Commands
 
 | **Command**        | **Description**                                                                                |
@@ -142,10 +149,12 @@ In INSERT mode, the following additional commands are available:
 | `:padding PADDING` | Set the cursor vertical padding                                                                |
 | `:hlparen`         | Print the status of the matching paren/brace highlighting setting                              |
 | `:hlparen VALUE`   | Enable (1) or disable (0) highlighting of matching parenthesis and braces                      |
-| `:hlcurrent`       | Print the status of the highlight-current-line setting                                           |
-| `:hlcurrent VALUE` | Enable (1) or disable (0) highlight of the current line                                          |
+| `:hlcurrent`       | Print the status of the highlight-current-line setting                                         |
+| `:hlcurrent VALUE` | Enable (1) or disable (0) highlight of the current line                                        |
 | `:smartcase`       | Print the status of the smartcase setting                                                      |
 | `:smartcase VALUE` | Enable (1) or disable (0) smart case sensitivty when searching                                 |
+| `:split`           | Split either the current buffer or the first two tabs into a vertical viewing mode             |
+| `:split file`      | Open a new file next to the current buffer                                                     |
 
 ## Additional Bim Functionality
 
