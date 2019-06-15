@@ -4549,6 +4549,7 @@ void command_mode(void) {
 	int c;
 	char buffer[1024] = {0};
 	int  buffer_len = 0;
+	int _redraw_on_byte = 0;
 
 	redraw_commandline();
 	printf(":");
@@ -4573,8 +4574,13 @@ void command_mode(void) {
 		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 			/* Backspace, delete last character in command buffer */
 			if (buffer_len > 0) {
-				buffer_len -= 1;
-				buffer[buffer_len] = '\0';
+				do {
+					buffer_len--;
+					if ((buffer[buffer_len] & 0xC0) != 0x80) {
+						buffer[buffer_len] = '\0';
+						break;
+					}
+				} while (1);
 				redraw_commandline();
 				printf(":%s", buffer);
 			} else {
@@ -4586,7 +4592,24 @@ void command_mode(void) {
 			/* Regular character */
 			buffer[buffer_len] = c;
 			buffer_len++;
-			printf("%c", c);
+			if ((c & 0xC0) == 0xC0) {
+				/* This is the start of a UTF-8 character; how many bytes do we need? */
+				int i = 1;
+				int j = c;
+				while (j & 0x20) {
+					i += 1;
+					j <<= 1;
+				}
+				_redraw_on_byte = i;
+			} else if ((c & 0xC0) == 0x80 && _redraw_on_byte) {
+				_redraw_on_byte--;
+				if (_redraw_on_byte == 0) {
+					redraw_commandline();
+					printf(":%s", buffer);
+				}
+			} else {
+				printf("%c", c);
+			}
 		}
 		show_cursor();
 	}
