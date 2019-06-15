@@ -3521,6 +3521,9 @@ void open_file(char * file) {
 			env->syntax = match_syntax(file);
 		}
 		env->loading = 0;
+		if (global_config.go_to_line) {
+			goto_line(init_line);
+		}
 		return;
 	}
 
