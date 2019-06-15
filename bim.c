@@ -6534,7 +6534,7 @@ void col_insert_mode(void) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
-						if (env->sel_col > 1) {
+						if (env->sel_col > 0) {
 							int prev_width = 0;
 							for (int i = env->line_no; i <= env->start_line; i++) {
 								line_t * line = env->lines[i - 1];
@@ -6542,7 +6542,8 @@ void col_insert_mode(void) {
 								int _x = 0;
 								int col = 1;
 
-								for (int j = 0; j < line->actual; ++j) {
+								int j = 0;
+								for (; j < line->actual; ++j) {
 									char_t * c = &line->text[j];
 									_x += c->display_width;
 									col = j+1;
@@ -6550,7 +6551,10 @@ void col_insert_mode(void) {
 									if (_x > env->sel_col) break;
 								}
 
-								if (_x > env->sel_col) {
+								if ((_x == env->sel_col && j == line->actual)) {
+									line_delete(line, line->actual, i - 1);
+									set_modified();
+								} else if (_x > env->sel_col) {
 									line_delete(line, col - 1, i - 1);
 									set_modified();
 								}
@@ -6588,11 +6592,17 @@ void col_insert_mode(void) {
 								int _x = 0;
 								int col = 1;
 
-								for (int j = 0; j < line->actual; ++j) {
+								int j = 0;
+								for (; j < line->actual; ++j) {
 									char_t * c = &line->text[j];
 									_x += c->display_width;
 									col = j+1;
 									if (_x > env->sel_col) break;
+								}
+
+								if ((_x == env->sel_col && j == line->actual)) {
+									_x = env->sel_col + 1;
+									col = line->actual + 1;
 								}
 
 								if (_x > env->sel_col) {
@@ -6654,6 +6664,12 @@ void col_selection_mode(void) {
 						break;
 					case 'I':
 						if (env->readonly) goto _readonly;
+						col_insert_mode();
+						goto _leave_select_col;
+					case 'a':
+						if (env->readonly) goto _readonly;
+						env->sel_col += 1;
+						redraw_text();
 						col_insert_mode();
 						goto _leave_select_col;
 					default:
