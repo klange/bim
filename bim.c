@@ -4517,6 +4517,42 @@ _accept_candidate:
 		/* End of longest common substring */
 _reject:
 		*cstart = '\0';
+		/* Just make sure the buffer doesn't end on an incomplete multibyte sequence */
+		if (start > buf) { /* Start point needs to be something other than first byte */
+			char * tmp = cstart - 1;
+			if ((*tmp & 0xC0) == 0x80) {
+				/* Count back until we find the start byte and make sure we have the right number */
+				int count = 1;
+				int x = 0;
+				while (tmp >= start) {
+					x++;
+					tmp--;
+					if ((*tmp & 0xC0) == 0x80) {
+						count++;
+					} else if ((*tmp & 0xC0) == 0xC0) {
+						/* How many should we have? */
+						int i = 1;
+						int j = *tmp;
+						while (j & 0x20) {
+							i += 1;
+							j <<= 1;
+						}
+						if (count != i) {
+							*tmp = '\0';
+							break;
+						}
+						break;
+					} else {
+						/* This isn't right, we had a bad multibyte sequence? Or someone is typing Latin-1. */
+						tmp++;
+						*tmp = '\0';
+						break;
+					}
+				}
+			} else if ((*tmp & 0xC0) == 0xC0) {
+				*tmp = '\0';
+			}
+		}
 	}
 
 	/* Free candidates */
