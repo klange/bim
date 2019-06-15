@@ -4111,12 +4111,20 @@ void process_command(char * cmd) {
 		return;
 	}
 
-	/* Tokenize argument string on spaces */
-	char *p, *argv[512], *last;
+	/* Arguments aren't really tokenized, but the first command before a space is extracted */
+	char *argv[512]; /* If a specific command wants to tokenize further, it can do that later. */
 	int argc = 0;
-	for ((p = strtok_r(cmd, " ", &last)); p;
-			(p = strtok_r(NULL, " ", &last)), argc++) {
-		if (argc < 511) argv[argc] = p;
+	argv[0] = cmd;
+	if (*cmd) argc++;
+
+	/* Collect up until first space for argv[0] */
+	for (char * c = cmd; *c; ++c) {
+		if (*c == ' ') {
+			*c = '\0';
+			argc++;
+			argv[1] = c+1;
+			break;
+		}
 	}
 	argv[argc] = NULL;
 
@@ -4132,7 +4140,17 @@ void process_command(char * cmd) {
 		argv[0]++;
 	}
 
-	if (argv[0][0] == 's' && argv[0][1] == '/') {
+	if (!strcmp(argv[0], "e")) {
+		/* e: edit file */
+		if (argc > 1) {
+			/* This actually opens a new tab */
+			open_file(argv[1]);
+			update_title();
+		} else {
+			/* TODO: Reopen file? */
+			render_error("Expected a file to open...");
+		}
+	} else if (!strcmp(argv[0], "s")) {
 		/* Substitution */
 		int range_top, range_bot;
 		if (env->mode == MODE_LINE_SELECTION) {
@@ -4152,16 +4170,6 @@ void process_command(char * cmd) {
 		for (int line = range_top; line <= range_bot; ++line) {
 
 
-		}
-	} else if (!strcmp(argv[0], "e")) {
-		/* e: edit file */
-		if (argc > 1) {
-			/* This actually opens a new tab */
-			open_file(argv[1]);
-			update_title();
-		} else {
-			/* TODO: Reopen file? */
-			render_error("Expected a file to open...");
 		}
 	} else if (!strcmp(argv[0], "tabnew")) {
 		if (argc > 1) {
