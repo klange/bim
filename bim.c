@@ -338,6 +338,7 @@ typedef struct _env {
 	int left;
 
 	int start_line;
+	int sel_col;
 } buffer_t;
 
 /**
@@ -356,6 +357,8 @@ buffer_t * right_buffer;
 #define MODE_LINE_SELECTION 2
 #define MODE_REPLACE 3
 #define MODE_CHAR_SELECTION 4
+#define MODE_COL_SELECTION 5
+#define MODE_COL_INSERT 6
 
 /**
  * Available buffers
@@ -2662,8 +2665,17 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				}
 			}
 
+			if ((env->mode == MODE_COL_SELECTION || env->mode == MODE_COL_INSERT) &&
+				line_no >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
+				line_no <= ((env->start_line < env->line_no) ? env->line_no : env->start_line) &&
+				((j == env->sel_col) ||
+				(j < env->sel_col && j + c.display_width > env->sel_col))) {
+				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+				was_selecting = 1;
+			}
+
 #define _set_colors(fg,bg) \
-	if (!(c.flags & FLAG_SELECT)) { \
+	if (!(c.flags & FLAG_SELECT) && !(was_selecting)) { \
 		set_colors(fg,(line->is_current && bg == COLOR_BG) ? COLOR_ALT_BG : bg); \
 	}
 
@@ -2758,11 +2770,27 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		}
 	}
 
+	if ((env->mode == MODE_COL_SELECTION  || env->mode == MODE_COL_INSERT) &&
+		line_no >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
+		line_no <= ((env->start_line < env->line_no) ? env->line_no : env->start_line) &&
+		j <= env->sel_col &&
+		env->sel_col < width) {
+		set_colors(COLOR_FG, COLOR_BG);
+		while (j < env->sel_col) {
+			printf(" ");
+			j++;
+		}
+		set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+		printf(" ");
+		j++;
+		set_colors(COLOR_FG, COLOR_BG);
+	}
+
 	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
-		for (; j < width; ++j) {
+		for (; j - offset < width; ++j) {
 			printf(" ");
 		}
 	}
@@ -3027,6 +3055,24 @@ void redraw_commandline(void) {
 		printf("-- LINE SELECTION -- (%d:%d)",
 			(env->start_line < env->line_no) ? env->start_line : env->line_no,
 			(env->start_line < env->line_no) ? env->line_no : env->start_line
+		);
+		clear_to_end();
+		unset_bold();
+	} else if (env->mode == MODE_COL_SELECTION) {
+		set_bold();
+		printf("-- COL SELECTION -- (%d:%d %d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line,
+			(env->sel_col)
+		);
+		clear_to_end();
+		unset_bold();
+	} else if (env->mode == MODE_COL_INSERT) {
+		set_bold();
+		printf("-- COL INSERT -- (%d:%d %d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line,
+			(env->sel_col)
 		);
 		clear_to_end();
 		unset_bold();
@@ -6163,6 +6209,235 @@ _leave_select_line:
 	redraw_all();
 }
 
+#define _redraw_line_col(line, force_start_line) \
+	do {\
+		if (!(force_start_line) && (line) == env->start_line) break; \
+		if ((line) > env->line_count + 1) { \
+			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
+				draw_excess_line((line) - env->offset - 1); \
+			} \
+			break; \
+		} \
+		if ((line) - env->offset + 1 > 1 && \
+			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
+			redraw_line((line) - env->offset - 1, (line)-1); \
+		} \
+	} while (0)
+
+
+void col_insert_mode(void) {
+	if (env->start_line < env->line_no) {
+		/* swap */
+		int tmp = env->line_no;
+		env->line_no = env->start_line;
+		env->start_line = tmp;
+	}
+
+	/* Set column to preferred_column */
+	env->mode = MODE_COL_INSERT;
+	redraw_commandline();
+	place_cursor_actual();
+
+	int cin;
+	uint32_t c;
+
+	int timeout = 0;
+	int this_buf[20];
+	uint32_t istate = 0;
+	int redraw = 0;
+	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
+		if (cin == -1) {
+			if (redraw) {
+				if (redraw & 2) {
+					redraw_text();
+				} else {
+					redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+				}
+				redraw_statusbar();
+				place_cursor_actual();
+				redraw = 0;
+			}
+			if (timeout && this_buf[timeout-1] == '\033') {
+				return;
+			}
+			timeout = 0;
+			continue;
+		}
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (env->sel_col > 1) {
+							int prev_width = 0;
+							for (int i = env->line_no; i <= env->start_line; i++) {
+								line_t * line = env->lines[i - 1];
+
+								int _x = 0;
+								int col = 1;
+
+								for (int j = 0; j < line->actual; ++j) {
+									char_t * c = &line->text[j];
+									_x += c->display_width;
+									col = j+1;
+									prev_width = c->display_width;
+									if (_x > env->sel_col) break;
+								}
+
+								if (_x > env->sel_col) {
+									line_delete(line, col - 1, i - 1);
+									set_modified();
+								}
+							}
+
+							env->sel_col -= prev_width;
+							redraw_text();
+							
+						}
+						break;
+					case ENTER_KEY:
+					case LINE_FEED:
+						/* do nothing in these cases */
+						break;
+					case 23: /* ^W */
+						break;
+					case 22: /* ^V */
+						render_commandline_message("^V");
+						while ((cin = bim_getch()) == -1);
+						c = cin;
+						redraw_commandline();
+						/* fallthrough */
+					default:
+						/* Okay, this is going to duplicate a lot of insert_char */
+						if (c) {
+							char_t _c;
+							_c.codepoint = c;
+							_c.flags = 0;
+							_c.display_width = codepoint_width(c);
+
+							/* For each line */
+							for (int i = env->line_no; i <= env->start_line; i++) {
+								line_t * line = env->lines[i - 1];
+
+								int _x = 0;
+								int col = 1;
+
+								for (int j = 0; j < line->actual; ++j) {
+									char_t * c = &line->text[j];
+									_x += c->display_width;
+									col = j+1;
+									if (_x > env->sel_col) break;
+								}
+
+								if (_x > env->sel_col) {
+									line_t * nline = line_insert(line, _c, col - 1, i - 1);
+									if (line != nline) {
+										env->lines[i - 1] = nline;
+									}
+									set_modified();
+								}
+							}
+
+							env->sel_col += _c.display_width;
+							redraw_text();
+
+						}
+				}
+			} else {
+				/* Don't handle escapes */
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+}
+
+/**
+ * COL SELECTION mode
+ *
+ * Limited selection mode for doing inserts on multiple lines.
+ * Experimental. Based on how I usually use vim's VISUAL BLOCK mode.
+ */
+void col_selection_mode(void) {
+	env->start_line = env->line_no;
+	env->sel_col = env->preferred_column;
+	int prev_line = env->start_line;
+
+	env->mode = MODE_COL_SELECTION;
+	redraw_commandline();
+
+	int c;
+	int timeout = 0;
+	int this_buf[20];
+
+	while ((c = bim_getch())) {
+		if (c == -1) {
+			if (timeout && this_buf[timeout-1] == '\033') {
+				goto _leave_select_col;
+			}
+			timeout = 0;
+			continue;
+		} else {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case 'I':
+						if (env->readonly) goto _readonly;
+						col_insert_mode();
+						goto _leave_select_col;
+					default:
+						handle_navigation(c);
+						break;
+				}
+			} else {
+				switch (handle_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						goto _leave_select_col;
+					/* Doesn't support anything else. */
+				}
+			}
+		}
+
+		_redraw_line_col(env->line_no, 0);
+		/* Properly mark everything in the span we just moved through */
+		if (prev_line < env->line_no) {
+			for (int i = prev_line; i < env->line_no; ++i) {
+				_redraw_line_col(i,0);
+			}
+			prev_line = env->line_no;
+		} else if (prev_line > env->line_no) {
+			for (int i = env->line_no + 1; i <= prev_line; ++i) {
+				_redraw_line_col(i,0);
+			}
+			prev_line = env->line_no;
+		}
+
+		/* prev_line... */
+		redraw_commandline();
+		place_cursor_actual();
+		continue;
+_readonly:
+		render_error("Buffer is read-only.");
+	}
+
+_leave_select_col:
+	set_history_break();
+	env->mode = MODE_NORMAL;
+	redraw_all();
+}
+
 /**
  * Determine if a column + line number are within range of the
  * current character selection specified by start_line, etc.
@@ -6650,6 +6925,9 @@ void normal_mode(void) {
 						break;
 					case 'v': /* Enter CHAR SELECTION mode */
 						char_selection_mode();
+						break;
+					case 22: /* ctrl-v, enter COL SELECTION mode */
+						col_selection_mode();
 						break;
 					case 'O': /* Append line before and enter INSERT mode */
 						{
