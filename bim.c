@@ -4079,7 +4079,28 @@ void process_command(char * cmd) {
 		return;
 	}
 
-	if (!strcmp(argv[0], "e")) {
+	int all_lines = 0;
+
+	if (argv[0][0] == '%') {
+		all_lines = 1;
+		argv[0]++;
+	}
+
+	if (argv[0][0] == 's' && argv[0][1] == '/') {
+		/* Substitution */
+		int range_top, range_bot;
+		if (env->mode == MODE_LINE_SELECTION) {
+			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+		} else if (all_lines) {
+			range_top = 1;
+			range_bot = env->line_count;
+		} else {
+			range_top = env->line_no;
+			range_bot = env->line_no;
+		}
+		render_status_message("should perform replacement from lines %d to %d", range_top, range_bot);
+	} else if (!strcmp(argv[0], "e")) {
 		/* e: edit file */
 		if (argc > 1) {
 			/* This actually opens a new tab */
