@@ -4146,6 +4146,13 @@ void process_command(char * cmd) {
 			range_bot = env->line_no;
 		}
 		render_status_message("should perform replacement from lines %d to %d", range_top, range_bot);
+
+		/* Determine replacement parameters */
+
+		for (int line = range_top; line <= range_bot; ++line) {
+
+
+		}
 	} else if (!strcmp(argv[0], "e")) {
 		/* e: edit file */
 		if (argc > 1) {
@@ -4675,6 +4682,55 @@ done:
 	free(buf);
 }
 
+int handle_command_escape(int * this_buf, int * timeout, int c) {
+	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 1;
+	}
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
+		*timeout = 0;
+		bim_unget(c);
+		return 1;
+	}
+	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
+		*timeout = 1;
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+			(isdigit(c) || c == ';')) {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+		int out = 0;
+		switch (c) {
+			case 'M':
+				out = 2;
+				break;
+
+			case 'A': // up
+			case 'B': // down
+			case 'C': // right
+			case 'D': // left
+			case 'H': // home
+			case 'F': // end
+				out = c;
+				break;
+		}
+		*timeout = 0;
+		return out;
+	}
+
+	*timeout = 0;
+	return 0;
+
+}
+
+
 /**
  * Command mode
  *
@@ -4693,67 +4749,123 @@ void command_mode(void) {
 	int  buffer_len = 0;
 	int _redraw_on_byte = 0;
 
+	int timeout = 0;
+	int this_buf[20];
+
 	redraw_commandline();
 	printf(":");
 	show_cursor();
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
-			/* Time out */
+			if (timeout && this_buf[timeout-1] == '\033') {
+				return;
+			}
+			timeout = 0;
 			continue;
-		}
-		if (c == '\033') {
-			/* Escape, cancel command */
-			break;
-		} else if (c == ENTER_KEY || c == LINE_FEED) {
-			/* Enter, run command */
-			process_command(buffer);
-			break;
-		} else if (c == '\t') {
-			/* Handle tab completion */
-			command_tab_complete(buffer);
-			buffer_len = strlen(buffer);
-		} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
-			/* Backspace, delete last character in command buffer */
-			if (buffer_len > 0) {
-				do {
-					buffer_len--;
-					if ((buffer[buffer_len] & 0xC0) != 0x80) {
-						buffer[buffer_len] = '\0';
-						break;
-					}
-				} while (1);
-				redraw_commandline();
-				printf(":%s", buffer);
-			} else {
-				/* If backspaced through entire command, cancel command mode */
-				redraw_commandline();
-				break;
-			}
 		} else {
-			/* Regular character */
-			buffer[buffer_len] = c;
-			buffer_len++;
-			if ((c & 0xC0) == 0xC0) {
-				/* This is the start of a UTF-8 character; how many bytes do we need? */
-				int i = 1;
-				int j = c;
-				while (j & 0x20) {
-					i += 1;
-					j <<= 1;
-				}
-				_redraw_on_byte = i;
-			} else if ((c & 0xC0) == 0x80 && _redraw_on_byte) {
-				_redraw_on_byte--;
-				if (_redraw_on_byte == 0) {
-					redraw_commandline();
-					printf(":%s", buffer);
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						/* Escape, cancel command */
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case ENTER_KEY:
+					case LINE_FEED:
+						/* Enter, run command */
+						process_command(buffer);
+						return;
+					case '\t':
+						/* Handle tab completion */
+						command_tab_complete(buffer);
+						buffer_len = strlen(buffer);
+						break;
+					case BACKSPACE_KEY:
+					case DELETE_KEY:
+						/* Backspace, delete last character in command buffer */
+						if (buffer_len > 0) {
+							do {
+								buffer_len--;
+								if ((buffer[buffer_len] & 0xC0) != 0x80) {
+									buffer[buffer_len] = '\0';
+									break;
+								}
+							} while (1);
+							goto _redraw_buffer;
+						} else {
+							/* If backspaced through entire command, cancel command mode */
+							redraw_commandline();
+							return;
+						}
+						break;
+					case 23:
+						while (buffer_len >0 &&
+								(buffer[buffer_len-1] == ' ' ||
+								 buffer[buffer_len-1] == '/')) {
+							buffer_len--;
+							buffer[buffer_len] = '\0';
+						}
+						while (buffer_len > 0 &&
+								buffer[buffer_len-1] != ' ' &&
+								buffer[buffer_len-1] != '/') {
+							buffer_len--;
+							buffer[buffer_len] = '\0';
+						}
+						goto _redraw_buffer;
+					default:
+						/* Regular character */
+						buffer[buffer_len] = c;
+						buffer_len++;
+						if ((c & 0xC0) == 0xC0) {
+							/* This is the start of a UTF-8 character; how many bytes do we need? */
+							int i = 1;
+							int j = c;
+							while (j & 0x20) {
+								i += 1;
+								j <<= 1;
+							}
+							_redraw_on_byte = i;
+						} else if ((c & 0xC0) == 0x80 && _redraw_on_byte) {
+							_redraw_on_byte--;
+							if (_redraw_on_byte == 0) {
+								goto _redraw_buffer;
+							}
+						} else {
+							printf("%c", c);
+						}
+						break;
 				}
 			} else {
-				printf("%c", c);
+				switch (handle_command_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						return;
+					case 'A':
+						render_status_message("history up");
+						goto _redraw_buffer;
+					case 'B':
+						render_status_message("history down");
+						goto _redraw_buffer;
+					case 'C':
+					case 'D':
+					case 'H':
+					case 'F':
+						render_status_message("line editing not supported in command mode (sorry)");
+						goto _redraw_buffer;
+				}
 			}
+
+			show_cursor();
+			continue;
+
+_redraw_buffer:
+			redraw_commandline();
+			printf(":%s", buffer);
+			show_cursor();
 		}
-		show_cursor();
 	}
 }
 
