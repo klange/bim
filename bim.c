@@ -4081,6 +4081,54 @@ void leave_insert(void) {
 	redraw_commandline();
 }
 
+int search_matches(uint32_t a, uint32_t b, int mode) {
+	if (mode == 0) {
+		return a == b;
+	} else if (mode == 1) {
+		return tolower(a) == tolower(b);
+	}
+	return 0;
+}
+
+void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col) {
+	line_t * line = env->lines[line_no-1];
+	int j = col;
+	while (j < line->actual + 1) {
+		int k = j;
+		uint32_t * match = needle;
+		while (k < line->actual + 1) {
+			if (*match == '\0') {
+				/* Perform replacement */
+				for (uint32_t * n = needle; *n; ++n) {
+					line_delete(line, j+1, line_no-1);
+				}
+				int t = 0;
+				for (uint32_t * r = replacement; *r; ++r) {
+					char_t _c;
+					_c.codepoint = *r;
+					_c.flags = 0;
+					_c.display_width = codepoint_width(*r);
+					line_t * nline = line_insert(line, _c, j + t, line_no -1);
+					if (line != nline) {
+						env->lines[line_no-1] = nline;
+						line = nline;
+					}
+					t++;
+				}
+
+				*out_col = j + t;
+				set_modified();
+				return;
+			}
+			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
+			match++;
+			k++;
+		}
+		j++;
+	}
+	*out_col = -1;
+}
+
 /**
  * Process a user command.
  */
@@ -4121,8 +4169,8 @@ void process_command(char * cmd) {
 	for (char * c = cmd; *c; ++c) {
 		if (*c == ' ') {
 			*c = '\0';
-			argc++;
 			argv[1] = c+1;
+			if (*argv[1]) argc++;
 			break;
 		}
 	}
@@ -4151,6 +4199,10 @@ void process_command(char * cmd) {
 			render_error("Expected a file to open...");
 		}
 	} else if (!strcmp(argv[0], "s")) {
+		if (argc < 2) {
+			render_error("expected substitution argument");
+			return;
+		}
 		/* Substitution */
 		int range_top, range_bot;
 		if (env->mode == MODE_LINE_SELECTION) {
@@ -4163,13 +4215,101 @@ void process_command(char * cmd) {
 			range_top = env->line_no;
 			range_bot = env->line_no;
 		}
-		render_status_message("should perform replacement from lines %d to %d", range_top, range_bot);
 
 		/* Determine replacement parameters */
+		char divider = argv[1][0];
 
+		char * needle = &argv[1][1];
+		char * c = needle;
+		char * replacement = NULL;
+		char * options = "";
+
+		while (*c) {
+			if (*c == divider) {
+				*c = '\0';
+				replacement = c + 1;
+				break;
+			}
+			c++;
+		}
+
+		if (!replacement) {
+			render_error("nothing to replace with");
+			return;
+		}
+
+		c = replacement;
+		while (*c) {
+			if (*c == divider) {
+				*c = '\0';
+				options = c + 1;
+				break;
+			}
+			c++;
+		}
+
+		int global = 0;
+		int case_insensitive = 0;
+
+		/* Parse options */
+		while (*options) {
+			switch (*options) {
+				case 'g':
+					global = 1;
+					break;
+				case 'i':
+					case_insensitive = 1;
+					break;
+			}
+			options++;
+		}
+
+		uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
+		uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
+
+		{
+			int i = 0;
+			uint32_t c, state = 0;
+			for (char * cin = needle; *cin; cin++) {
+				if (!decode(&state, &c, *cin)) {
+					needle_c[i] = c;
+					i++;
+				} else if (state == UTF8_REJECT) {
+					state = 0;
+				}
+			}
+			needle_c[i] = 0;
+			i = 0;
+			c = 0;
+			state = 0;
+			for (char * cin = replacement; *cin; cin++) {
+				if (!decode(&state, &c, *cin)) {
+					replacement_c[i] = c;
+					i++;
+				} else if (state == UTF8_REJECT) {
+					state = 0;
+				}
+			}
+			replacement_c[i] = 0;
+		}
+
+		int replacements = 0;
 		for (int line = range_top; line <= range_bot; ++line) {
-
-
+			int col = 0;
+			while (col != -1) {
+				perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
+				if (col != -1) replacements++;
+				if (!global) break;
+			}
+		}
+		free(needle_c);
+		free(replacement_c);
+		if (replacements) {
+			render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
+			set_history_break();
+			redraw_text();
+		} else {
+			render_error("Pattern not found: %s", needle);
 		}
 	} else if (!strcmp(argv[0], "tabnew")) {
 		if (argc > 1) {
@@ -4875,15 +5015,6 @@ _redraw_buffer:
 			show_cursor();
 		}
 	}
-}
-
-int search_matches(uint32_t a, uint32_t b, int mode) {
-	if (mode == 0) {
-		return a == b;
-	} else if (mode == 1) {
-		return tolower(a) == tolower(b);
-	}
-	return 0;
 }
 
 int smart_case(uint32_t * str) {
@@ -6280,6 +6411,15 @@ void line_selection_mode(void) {
 						set_preferred_column();
 						set_modified();
 						goto _leave_select_line;
+					case ':': /* Handle command mode specially for redraw */
+						command_mode();
+						for (int i = (env->start_line < env->line_no ? env->start_line : env->line_no);
+							i <= (env->start_line < env->line_no ? env->line_no : env->start_line);
+							++i) {
+							_redraw_line(i,1);
+						}
+						place_cursor_actual();
+						continue;
 					default:
 						handle_navigation(c);
 						break;
