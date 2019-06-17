@@ -414,6 +414,16 @@ buffer_t * buffer_close(buffer_t * buf) {
 		return env; /* wtf */
 	}
 
+	/* Clean up lines used by old buffer */
+	for (int i = 0; i < buf->line_count; ++i) {
+		free(buf->lines[i]);
+	}
+
+	free(buf->lines);
+
+	/* Clean up the old buffer */
+	free(buf);
+
 	/* Remove the buffer from the vector, moving others up */
 	if (i != buffers_len - 1) {
 		memmove(&buffers[i], &buffers[i+1], sizeof(*buffers) * (buffers_len - i));
@@ -3820,8 +3830,6 @@ void close_buffer(void) {
 	if (!new_env) {
 		quit();
 	}
-	/* Clean up the old buffer */
-	free(previous_env);
 
 	/* Set the new active buffer */
 	env = new_env;
@@ -4208,9 +4216,10 @@ void process_command(char * cmd) {
 			buffer_t * new_env = env;
 			env = old_env;
 
-			line_t ** lines = env->lines;
-			env->lines = new_env->lines;
-			new_env->lines = lines;
+#define SWAP(T,a,b) do { T x = a; a = b; b = x; } while (0)
+			SWAP(line_t **, env->lines, new_env->lines);
+			SWAP(int, env->line_count, new_env->line_count);
+			SWAP(int, env->line_avail, new_env->line_avail);
 
 			buffer_close(new_env); /* Should probably also free, this needs editing. */
 			redraw_all();
