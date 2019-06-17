@@ -3228,7 +3228,7 @@ void render_error(char * message, ...) {
 }
 
 char * paren_pairs = "()[]{}<>";
-void find_matching_paren(int * out_line, int * out_col);
+void find_matching_paren(int * out_line, int * out_col, int in_col);
 
 int is_paren(int c) {
 	char * p = paren_pairs;
@@ -3252,7 +3252,10 @@ void highlight_matching_paren(void) {
 	int line = -1, col = -1;
 	if (env->line_no <= env->line_count && env->col_no <= env->lines[env->line_no-1]->actual &&
 		is_paren(env->lines[env->line_no-1]->text[env->col_no-1].codepoint)) {
-		find_matching_paren(&line, &col);
+		find_matching_paren(&line, &col, 1);
+		if (line != -1) env->highlighting_paren = 1;
+	} else if (env->line_no <= env->line_count && env->col_no > 1 && is_paren(env->lines[env->line_no-1]->text[env->col_no-2].codepoint)) {
+		find_matching_paren(&line, &col, 2);
 		if (line != -1) env->highlighting_paren = 1;
 	}
 	if (!env->highlighting_paren) return;
@@ -5318,8 +5321,8 @@ void search_prev(void) {
  * of strings will match, but parens in strings won't
  * match parens outside of strings and so on.
  */
-void find_matching_paren(int * out_line, int * out_col) {
-	if (env->col_no > env->lines[env->line_no-1]->actual) {
+void find_matching_paren(int * out_line, int * out_col, int in_col) {
+	if (env->col_no - in_col + 1 > env->lines[env->line_no-1]->actual) {
 		return; /* Invalid cursor position */
 	}
 
@@ -5327,8 +5330,8 @@ void find_matching_paren(int * out_line, int * out_col) {
 
 	int paren_match = 0;
 	int direction = 0;
-	int start = env->lines[env->line_no-1]->text[env->col_no-1].codepoint;
-	int flags = env->lines[env->line_no-1]->text[env->col_no-1].flags & 0xF;
+	int start = env->lines[env->line_no-1]->text[env->col_no-in_col].codepoint;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0xF;
 	int count = 0;
 
 	/* TODO what about unicode parens? */
@@ -5344,7 +5347,7 @@ void find_matching_paren(int * out_line, int * out_col) {
 
 	/* Scan for match */
 	int line = env->line_no;
-	int col  = env->col_no;
+	int col  = env->col_no - in_col + 1;
 
 	do {
 		while (col > 0 && col < env->lines[line-1]->actual + 1) {
@@ -6228,7 +6231,7 @@ void handle_navigation(int c) {
 			}
 			{
 				int paren_line = -1, paren_col = -1;
-				find_matching_paren(&paren_line, &paren_col);
+				find_matching_paren(&paren_line, &paren_col, 1);
 				if (paren_line != -1) {
 					env->line_no = paren_line;
 					env->col_no = paren_col;
@@ -7058,7 +7061,7 @@ void insert_mode(void) {
 							if (was_whitespace) {
 								int line = -1, col = -1;
 								env->col_no--;
-								find_matching_paren(&line,&col);
+								find_matching_paren(&line,&col, 1);
 								if (line != -1) {
 									while (env->lines[env->line_no-1]->actual) {
 										line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
