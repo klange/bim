@@ -4479,6 +4479,19 @@ void process_command(char * cmd) {
 			redraw_alt_buffer(left_buffer);
 			redraw_alt_buffer(right_buffer);
 		}
+	} else if (!strcmp(argv[0], "unsplit")) {
+		if (left_buffer) {
+			left_buffer->left = 0;
+			left_buffer->width = global_config.term_width;
+		}
+		if (right_buffer) {
+			right_buffer->left = 0;
+			right_buffer->width = global_config.term_width;
+		}
+		left_buffer = NULL;
+		right_buffer = NULL;
+
+		redraw_all();
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
@@ -4669,6 +4682,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("smartcase");
 		add_candidate("split");
 		add_candidate("splitpercent");
+		add_candidate("unsplit");
 		goto _accept_candidate;
 	}
 
