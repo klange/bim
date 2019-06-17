@@ -4195,8 +4195,22 @@ void process_command(char * cmd) {
 			open_file(argv[1]);
 			update_title();
 		} else {
-			/* TODO: Reopen file? */
-			render_error("Expected a file to open...");
+			if (env->modified) {
+				render_error("File is modified, can not reload.");
+				return;
+			}
+
+			buffer_t * old_env = env;
+			open_file(env->file_name);
+			buffer_t * new_env = env;
+			env = old_env;
+
+			line_t ** lines = env->lines;
+			env->lines = new_env->lines;
+			new_env->lines = lines;
+
+			buffer_close(new_env); /* Should probably also free, this needs editing. */
+			redraw_all();
 		}
 	} else if (!strcmp(argv[0], "s")) {
 		if (argc < 2) {
