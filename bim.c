@@ -2986,49 +2986,60 @@ void redraw_statusbar(void) {
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
 	/* Print the file name */
+	char status_bits[1024] = {0}; /* Sane maximum */
+	char * s = status_bits;
+
+	if (env->syntax) {
+		s += snprintf(s, 100, "[%s]", env->syntax->name);
+	}
+
+	/* Print file status indicators */
+	if (env->modified) {
+		s += snprintf(s, 5, "[+]");
+	}
+
+	if (env->readonly) {
+		s += snprintf(s, 6, "[ro]");
+	}
+
+	s += snprintf(s, 2, " ");
+
+	if (env->tabs) {
+		s += snprintf(s, 20, "[tabs]");
+	} else {
+		s += snprintf(s, 20, "[spaces=%d]", env->tabstop);
+	}
+
+	if (global_config.yanks) {
+		s += snprintf(s, 20, "[y:%ld]", global_config.yank_count);
+	}
+
+	if (env->indent) {
+		s += snprintf(s, 20, "[indent]");
+	}
+
+	/* Pre-render the right hand side of the status bar */
+	char right_hand[1024];
+	snprintf(right_hand, 1024, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
+
 	if (env->file_name) {
-		printf("%s", env->file_name);
+		int len = strlen(env->file_name);
+		int i = 0;
+		while (len > 5 && len > (int)env->width - (int)strlen(right_hand) - (int)strlen(status_bits) - 5) {
+			len--;
+			i += 1;
+		}
+		printf("%s%s", i > 0 ? "<" : "", env->file_name + i);
 	} else {
 		printf("[No Name]");
 	}
 
 	printf(" ");
 
-	if (env->syntax) {
-		printf("[%s]", env->syntax->name);
-	}
-
-	/* Print file status indicators */
-	if (env->modified) {
-		printf("[+]");
-	}
-
-	if (env->readonly) {
-		printf("[ro]");
-	}
-
-	printf(" ");
-
-	if (env->tabs) {
-		printf("[tabs]");
-	} else {
-		printf("[spaces=%d]", env->tabstop);
-	}
-
-	if (global_config.yanks) {
-		printf("[y:%ld]", global_config.yank_count);
-	}
-
-	if (env->indent) {
-		printf("[indent]");
-	}
+	printf("%s", status_bits);
 
 	/* Clear the rest of the status bar */
 	clear_to_end();
-
-	/* Pre-render the right hand side of the status bar */
-	char right_hand[1024];
-	snprintf(right_hand, 1024, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 
 	/* Move the cursor appropriately to draw it */
 	place_cursor(global_config.term_width - strlen(right_hand), global_config.term_height - 1);
