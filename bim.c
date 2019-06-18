@@ -417,6 +417,24 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	free(buf->lines);
 
+	if (buf->search) {
+		free(buf->search);
+	}
+
+	if (buf->file_name) {
+		free(buf->file_name);
+	}
+
+	history_t * h = buf->history;
+	while (h->next) {
+		h = h->next;
+	}
+	while (h) {
+		history_t * x = h->previous;
+		free(h);
+		h = x;
+	}
+
 	/* Clean up the old buffer */
 	free(buf);
 
