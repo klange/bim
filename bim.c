@@ -164,10 +164,6 @@ struct {
 	int term_width, term_height;
 	int bottom_size;
 
-	/* Command-line parameters */
-	int hilight_on_open;
-	int initial_file_is_read_only;
-
 	line_t ** yanks;
 	size_t    yank_count;
 	int       yank_is_full_lines;
@@ -176,40 +172,40 @@ struct {
 
 	const char * bimrc_path;
 
-	int can_scroll;
-	int can_hideshow;
-	int can_altscreen;
-	int can_mouse;
-	int can_unicode;
-	int can_bright;
-	int can_title;
-	int can_bce;
-	int history_enabled;
+	unsigned int hilight_on_open:1;
+	unsigned int initial_file_is_read_only:1;
+	unsigned int can_scroll:1;
+	unsigned int can_hideshow:1;
+	unsigned int can_altscreen:1;
+	unsigned int can_mouse:1;
+	unsigned int can_unicode:1;
+	unsigned int can_bright:1;
+	unsigned int can_title:1;
+	unsigned int can_bce:1;
+	unsigned int history_enabled:1;
+	unsigned int highlight_parens:1;
+	unsigned int smart_case:1;
+	unsigned int can_24bit:1;
+	unsigned int can_256color:1;
+	unsigned int can_italic:1;
+	unsigned int go_to_line:1;
+	unsigned int hilight_current_line:1;
+	unsigned int shift_scrolling:1;
 
 	int cursor_padding;
-	int highlight_parens;
-	int smart_case;
-	int can_24bit;
-	int can_256color;
-	int can_italic;
-
-	int go_to_line;
-	int hilight_current_line;
 	int split_percent;
-
-	int shift_scrolling;
 	int scroll_amount;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
 	2, /* bottom_size */
-	1, /* hilight_on_open */
-	0, /* initial_file_is_read_only */
 	NULL, /* yanks */
 	0, /* yank_count */
-	0,
+	0, /* yank is full lines */
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
+	1, /* hilight_on_open */
+	0, /* initial_file_is_read_only */
 	1, /* can scroll */
 	1, /* can hide/show cursor */
 	1, /* can use alternate screen */
@@ -219,7 +215,6 @@ struct {
 	1, /* can set title */
 	1, /* can bce */
 	1, /* history enabled */
-	4, /* cursor padding */
 	1, /* highlight parens/braces when cursor moves */
 	1, /* smart case */
 	1, /* can use 24-bit color */
@@ -227,8 +222,9 @@ struct {
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
-	50, /* split percentage */
 	1, /* shift scrolling (shifts view rather than moving cursor) */
+	4, /* cursor padding */
+	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
 };
 
