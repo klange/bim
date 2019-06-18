@@ -5973,9 +5973,33 @@ void delete_at_cursor(void) {
 	}
 }
 
+int is_whitespace(int codepoint) {
+	return codepoint == ' ' || codepoint == '\t';
+}
+
+int is_normal(int codepoint) {
+	return isalnum(codepoint) || codepoint == '_';
+}
+
+int is_special(int codepoint) {
+	return !is_normal(codepoint) && !is_whitespace(codepoint);
+}
+
 void delete_word(void) {
 	if (!env->lines[env->line_no-1]) return;
 	if (env->col_no > 1) {
+
+		/* Start by deleting whitespace */
+		while (env->col_no > 1 && is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+			line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+			env->col_no -= 1;
+			if (env->coffset > 0) env->coffset--;
+		}
+
+		int (*inverse_comparator)(int) = is_special;
+		if (env->col_no > 1 && is_special(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+			inverse_comparator = is_normal;
+		}
 
 		do {
 			if (env->col_no > 1) {
@@ -5983,7 +6007,7 @@ void delete_word(void) {
 				env->col_no -= 1;
 				if (env->coffset > 0) env->coffset--;
 			}
-		} while (env->col_no > 1 && env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint != ' ');
+		} while (env->col_no > 1 && !is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint) && !inverse_comparator(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint));
 
 		set_preferred_column();
 		redraw_text();
