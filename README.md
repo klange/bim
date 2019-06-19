@@ -28,6 +28,8 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Incremental forward and backward search with match highlighting and smart case sensitivity.
 - Undo/redo stack.
 - Highlight matching parens/braces.
+- Multi-line insert mode.
+- (experimental) Split viewports to view multiple files or different parts of the same file.
 
 ## Prerequisites
 
@@ -47,7 +49,7 @@ The alternate screen is used if available with `^[[?1049h`. This can be disabled
 
 ## Key Bindings
 
-In normal, INSERT, LINE SELECTION, CHAR SELECTION, and REPLACE modes:
+In normal, INSERT, LINE SELECTION, CHAR SELECTION, COL SELECTION, COL INSERT, and REPLACE modes:
 
 | **Key**    | **Action**                                      |
 |------------|-------------------------------------------------|
