@@ -695,6 +695,50 @@ struct syntax_state {
 #define skip() (state->i++)
 
 /**
+ * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
+ * Returns 1 if a keyword from the last was found, otherwise 0.
+ */
+static int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
+	for (char ** keyword = keywords; *keyword; ++keyword) {
+		int d = 0;
+		while (state->i + d < state->line->actual && state->line->text[state->i+d].codepoint == (*keyword)[d]) d++;
+		if ((*keyword)[d] == '\0' && (state->i + d >= state->line->actual || !keyword_qualifier(state->line->text[state->i+d].codepoint))) {
+			paint((int)strlen(*keyword), flag);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
+ * so it can be used for prefix checking for things that need further special handling.
+ */
+static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
+	int i = state->i;
+	int slen = 0;
+	while (i < state->line->actual || *keyword == '\0') {
+		if (*keyword == '\0' && (i >= state->line->actual || !keyword_qualifier(state->line->text[i].codepoint))) {
+			for (int j = 0; j < slen; ++j) {
+				paint(1, flag);
+			}
+			return 1;
+		}
+		if (*keyword != state->line->text[i].codepoint) return 0;
+
+		i++;
+		keyword++;
+		slen++;
+	}
+	return 0;
+}
+
+/**
  * Syntax definition for C
  */
 static char * syn_c_keywords[] = {
@@ -784,34 +828,13 @@ static int paint_c_pragma(struct syntax_state * state) {
 		} else if (charat() == '\\' && state->i == state->line->actual - 1) {
 			paint(1, FLAG_PRAGMA);
 			return 2;
+		} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			continue;
+		} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
+			continue;
 		} else {
 			paint(1, FLAG_PRAGMA);
 		}
-	}
-	return 0;
-}
-
-/**
- * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
- * so it can be used for prefix checking for things that need further special handling.
- */
-static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
-	if (keyword_qualifier(lastchar())) return 0;
-	if (!keyword_qualifier(charat())) return 0;
-	int i = state->i;
-	int slen = 0;
-	while (i < state->line->actual || *keyword == '\0') {
-		if (*keyword == '\0' && (i >= state->line->actual || !keyword_qualifier(state->line->text[i].codepoint))) {
-			for (int j = 0; j < slen; ++j) {
-				paint(1, flag);
-			}
-			return 1;
-		}
-		if (*keyword != state->line->text[i].codepoint) return 0;
-
-		i++;
-		keyword++;
-		slen++;
 	}
 	return 0;
 }
@@ -850,25 +873,6 @@ static int paint_c_comment(struct syntax_state * state) {
 		}
 	}
 	return 1;
-}
-
-/**
- * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
- * Returns 1 if a keyword from the last was found, otherwise 0.
- */
-static int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
-	if (keyword_qualifier(lastchar())) return 0;
-	if (!keyword_qualifier(charat())) return 0;
-	for (char ** keyword = keywords; *keyword; ++keyword) {
-		int d = 0;
-		while (state->i + d < state->line->actual && state->line->text[state->i+d].codepoint == (*keyword)[d]) d++;
-		if ((*keyword)[d] == '\0' && (state->i + d >= state->line->actual || !keyword_qualifier(state->line->text[state->i+d].codepoint))) {
-			paint((int)strlen(*keyword), flag);
-			return 1;
-		}
-	}
-
-	return 0;
 }
 
 /**
