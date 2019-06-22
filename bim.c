@@ -81,6 +81,8 @@ const char * COLOR_SELECTFG  = "@0";
 const char * COLOR_SELECTBG  = "@17";
 const char * COLOR_RED       = "@1";
 const char * COLOR_GREEN     = "@2";
+const char * COLOR_BOLD      = "@17";
+const char * COLOR_LINK      = "@17";
 const char * current_theme = "none";
 
 /**
@@ -97,6 +99,8 @@ const char * current_theme = "none";
 #define FLAG_DIFFPLUS  8
 #define FLAG_DIFFMINUS 9
 #define FLAG_NOTICE    10
+#define FLAG_BOLD      11
+#define FLAG_LINK      12
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -126,6 +130,10 @@ const char * flag_to_color(int _flag) {
 			return COLOR_RED;
 		case FLAG_SELECT:
 			return COLOR_FG;
+		case FLAG_BOLD:
+			return COLOR_BOLD;
+		case FLAG_LINK:
+			return COLOR_LINK;
 		default:
 			return COLOR_FG;
 	}
@@ -493,6 +501,9 @@ void load_colorscheme_ansi(void) {
 	COLOR_RED       = "@1";
 	COLOR_GREEN     = "@2";
 
+	COLOR_BOLD      = COLOR_FG; /* @ doesn't support extra args; FIXME */
+	COLOR_LINK      = global_config.can_bright ? "@14" : "@4";
+
 	current_theme = "ansi";
 }
 
@@ -526,6 +537,9 @@ void load_colorscheme_wombat(void) {
 
 	COLOR_RED       = "@1";
 	COLOR_GREEN     = "@2";
+
+	COLOR_BOLD      = "5;230;1";
+	COLOR_LINK      = "5;117;4";
 
 	current_theme = "wombat";
 }
@@ -561,6 +575,9 @@ void load_colorscheme_citylights(void) {
 	COLOR_RED       = "2;222;53;53";
 	COLOR_GREEN     = "2;55;167;0";
 
+	COLOR_BOLD      = "2;151;178;198;1";
+	COLOR_LINK      = "2;94;196;255;4";
+
 	current_theme = "citylights";
 }
 
@@ -595,6 +612,9 @@ void load_colorscheme_solarized_dark(void) {
 	COLOR_RED       = "2;222;53;53";
 	COLOR_GREEN     = "2;55;167;0";
 
+	COLOR_BOLD      = "2;147;161;161;1";
+	COLOR_LINK      = "2;42;161;152;4";
+
 	current_theme = "solarized-dark";
 }
 
@@ -628,6 +648,10 @@ void load_colorscheme_sunsmoke256(void) {
 
 	COLOR_RED       = "@1";
 	COLOR_GREEN     = "@2";
+
+	COLOR_BOLD      = "5;188;1";
+	COLOR_LINK      = "5;74;4";
+
 	current_theme = "sunsmoke256";
 }
 
@@ -664,6 +688,9 @@ void load_colorscheme_sunsmoke(void) {
 
 	COLOR_RED       = "2;222;53;53";
 	COLOR_GREEN     = "2;55;167;0";
+
+	COLOR_BOLD      = "2;230;230;230;1";
+	COLOR_LINK      = "2;51;162;230;4";
 
 	current_theme = "sunsmoke";
 }
@@ -1536,6 +1563,45 @@ static int syn_make_calculate(struct syntax_state * state) {
 
 static char * make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
+static int syn_markdown_calculate(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (state->i == 0 && charat() == '#') {
+			while (charat() == '#') paint(1, FLAG_KEYWORD);
+			while (charat() != -1) paint(1, FLAG_BOLD);
+		} else if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
+			/* TODO: Support highlighting stuff? */
+			return -1;
+		} else if (charat() == '`') {
+			paint(1, FLAG_STRING);
+			while (charat() != -1) {
+				if (charat() == '`') {
+					paint(1, FLAG_STRING);
+					return 0;
+				}
+				paint(1, FLAG_STRING);
+			}
+		} else if (charat() == '[') {
+			skip();
+			while (charat() != -1 && charat() != ']') {
+				paint(1, FLAG_LINK);
+			}
+			if (charat() == ']') skip();
+			if (charat() == '(') {
+				skip();
+				while (charat() != -1 && charat() != ')') {
+					paint(1, FLAG_NUMERAL);
+				}
+			}
+		} else {
+			skip();
+			return 0;
+		}
+	}
+	return -1;
+}
+
+static char * markdown_ext[] = {".md",".markdown",NULL};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -1551,6 +1617,7 @@ struct syntax_definition {
 	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate},
 	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate},
 	{"make",make_ext,syn_make_calculate},
+	{"markdown",markdown_ext,syn_markdown_calculate},
 	{NULL,NULL,NULL},
 };
 
@@ -2187,7 +2254,7 @@ void place_cursor(int x, int y) {
  * color modes.
  */
 void set_colors(const char * fg, const char * bg) {
-	printf("\033[22;23;");
+	printf("\033[22;23;24;");
 	if (*bg == '@') {
 		int _bg = atoi(bg+1);
 		if (_bg < 10) {
@@ -2217,7 +2284,7 @@ void set_colors(const char * fg, const char * bg) {
  * (See set_colors above)
  */
 void set_fg_color(const char * fg) {
-	printf("\033[22;23;");
+	printf("\033[22;23;24;");
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
 		if (_fg < 10) {
