@@ -977,6 +977,7 @@ static int syn_c_calculate(struct syntax_state * state) {
 			if (state->i == 0 && charat() == '#') {
 				/* Handle preprocessor functions */
 				paint(1, FLAG_PRAGMA);
+				while (charat() == ' ') paint(1, FLAG_PRAGMA);
 				if (match_and_paint(state, "include", FLAG_PRAGMA, c_keyword_qualifier)) {
 					/* Put quotes around <includes> */
 					while (charat() == ' ') paint(1, FLAG_PRAGMA);
@@ -990,6 +991,10 @@ static int syn_c_calculate(struct syntax_state * state) {
 						}
 					}
 					/* (for "includes", normal pragma highlighting covers that. */
+				} else if (match_and_paint(state, "if", FLAG_PRAGMA, c_keyword_qualifier)) {
+					/* These are to prevent #if and #else from being highlighted as keywords */
+				} else if (match_and_paint(state, "else", FLAG_PRAGMA, c_keyword_qualifier)) {
+					/* ... */
 				}
 				return paint_c_pragma(state);
 			} else if (charat() == '/' && nextchar() == '/') {
