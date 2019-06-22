@@ -1189,7 +1189,7 @@ static int syn_diff_calculate(struct syntax_state * state) {
 		} else {
 			return -1;
 		}
-		while (state->i < state->line->actual) paint(1, flag);
+		while (charat() != -1) paint(1, flag);
 	}
 	return -1;
 }
