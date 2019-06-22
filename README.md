@@ -16,7 +16,7 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 
 - Vim-like modal interactions.
 - Arrow-key and traditional vi `hjkl` navigation.
-- Syntax highlighting (currently for C/C++, Python, and Makefiles).
+- Syntax highlighting (currently for C/C++, Python, Makefiles, Java, Rust, and a few others).
 - Themes, including 256-color and 24-bit color support.
 - Indentation adjustment and naïve automatic indentation.
 - Multiple editor tabs.
