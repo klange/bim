@@ -883,10 +883,11 @@ static int paint_c_numeral(struct syntax_state * state) {
 		return 0;
 	} else if (charat() == '0') {
 		paint(1, FLAG_NUMERAL);
-		while (charat() >= 0 && charat() <= 7) paint(1, FLAG_NUMERAL);
+		while (charat() >= '0' && charat() <= '7') paint(1, FLAG_NUMERAL);
 	} else {
 		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
 		if (charat() == '.') {
+			paint(1, FLAG_NUMERAL);
 			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
 			if (charat() == 'f') paint(1, FLAG_NUMERAL);
 			return 0;
