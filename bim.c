@@ -1388,7 +1388,7 @@ static int syn_gitrebase_calculate(struct syntax_state * state) {
 static char * gitrebase_ext[] = {"git-rebase-todo",NULL};
 
 static int make_command_qualifier(int c) {
-	return isalnum(c) || c == '_' || c == '-';
+	return isalnum(c) || c == '_' || c == '-' || c == '.';
 }
 
 static char * syn_make_commands[] = {
@@ -1406,6 +1406,15 @@ static char * syn_make_functions[] = {
 	"join","wildcard","realpath","abspath","error","warning",
 	"shell","origin","flavor","foreach","if","or","and",
 	"call","eval","file","value",
+	NULL
+};
+
+static char * syn_make_special_targets[] = {
+	"all", /* Not really special, but highlight it 'cause I feel like it. */
+	".PHONY", ".SUFFIXES", ".DEFAULT", ".PRECIOUS", ".INTERMEDIATE",
+	".SECONDARY", ".SECONDEXPANSION", ".DELETE_ON_ERROR", ".IGNORE",
+	".LOW_RESOLUTION_TIME", ".SILENT", ".EXPORT_ALL_VARIABLES",
+	".NOTPARALLEL", ".ONESHELL", ".POSIX",
 	NULL
 };
 
@@ -1505,6 +1514,8 @@ static int syn_make_calculate(struct syntax_state * state) {
 				} else if (charat() == ':') {
 					paint(1, FLAG_TYPE);
 					make_variable_or_comment(state, FLAG_NONE);
+				} else if (find_keywords(state, syn_make_special_targets, FLAG_KEYWORD, make_command_qualifier)) {
+						continue;
 				} else {
 					paint(1, FLAG_TYPE);
 				}
