@@ -1119,6 +1119,68 @@ static int syn_py_calculate(struct syntax_state * state) {
 
 static char * py_ext[] = {".py",NULL};
 
+static char * syn_java_keywords[] = {
+	"assert","break","case","catch","class","continue",
+	"default","do","else","enum","exports","extends","finally",
+	"for","if","implements","instanceof","interface","module","native",
+	"new","requires","return","throws",
+	"strictfp","super","switch","synchronized","this","throw","try","while",
+	NULL
+};
+
+static char * syn_java_types[] = {
+	"var","boolean","void","short","long","int","double","float","enum","char",
+	"private","protected","public","static","final","transient","volatile","abstract",
+	NULL
+};
+
+static char * syn_java_special[] = {
+	"true","false","import","package","null",
+	NULL
+};
+
+static int syn_java_calculate(struct syntax_state * state) {
+	while (1) {
+		switch (state->state) {
+			case -1:
+			case 0:
+				if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+					paint_c_numeral(state);
+					return 0;
+				} else if (charat() == '/' && nextchar() == '/') {
+					/* C++-style comments */
+					paint_comment(state);
+				} else if (charat() == '/' && nextchar() == '*') {
+					/* C-style comments */
+					if (paint_c_comment(state) == 1) return 1;
+				} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+					return 0;
+				} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
+					return 0;
+				} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+					return 0;
+				} else if (charat() == '\"') {
+					paint_c_string(state);
+					return 0;
+				} else if (charat() == '\'') {
+					paint_c_char(state);
+					return 0;
+				} else if (charat() != -1) {
+					skip();
+					return 0;
+				}
+				break;
+			case 1:
+				if (paint_c_comment(state) == 1) return 1;
+				return 0;
+		}
+		return -1;
+	}
+}
+
+static char * java_ext[] = {".java",NULL};
+
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -1126,6 +1188,7 @@ struct syntax_definition {
 } syntaxes[] = {
 	{"c",c_ext,syn_c_calculate},
 	{"python",py_ext,syn_py_calculate},
+	{"java",java_ext,syn_java_calculate},
 	{NULL,NULL,NULL},
 };
 
