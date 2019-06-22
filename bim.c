@@ -83,6 +83,7 @@ const char * COLOR_RED       = "@1";
 const char * COLOR_GREEN     = "@2";
 const char * COLOR_BOLD      = "@17";
 const char * COLOR_LINK      = "@17";
+const char * COLOR_ESCAPE    = "@17";
 const char * current_theme = "none";
 
 /**
@@ -101,6 +102,7 @@ const char * current_theme = "none";
 #define FLAG_NOTICE    10
 #define FLAG_BOLD      11
 #define FLAG_LINK      12
+#define FLAG_ESCAPE    13
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -134,6 +136,8 @@ const char * flag_to_color(int _flag) {
 			return COLOR_BOLD;
 		case FLAG_LINK:
 			return COLOR_LINK;
+		case FLAG_ESCAPE:
+			return COLOR_ESCAPE;
 		default:
 			return COLOR_FG;
 	}
@@ -503,6 +507,7 @@ void load_colorscheme_ansi(void) {
 
 	COLOR_BOLD      = COLOR_FG; /* @ doesn't support extra args; FIXME */
 	COLOR_LINK      = global_config.can_bright ? "@14" : "@4";
+	COLOR_ESCAPE    = global_config.can_bright ? "@12" : "@2";
 
 	current_theme = "ansi";
 }
@@ -540,6 +545,7 @@ void load_colorscheme_wombat(void) {
 
 	COLOR_BOLD      = "5;230;1";
 	COLOR_LINK      = "5;117;4";
+	COLOR_ESCAPE    = "5;194";
 
 	current_theme = "wombat";
 }
@@ -577,6 +583,7 @@ void load_colorscheme_citylights(void) {
 
 	COLOR_BOLD      = "2;151;178;198;1";
 	COLOR_LINK      = "2;94;196;255;4";
+	COLOR_ESCAPE    = "2;133;182;249";
 
 	current_theme = "citylights";
 }
@@ -614,6 +621,7 @@ void load_colorscheme_solarized_dark(void) {
 
 	COLOR_BOLD      = "2;147;161;161;1";
 	COLOR_LINK      = "2;42;161;152;4";
+	COLOR_ESCAPE    = "2;133;153;0";
 
 	current_theme = "solarized-dark";
 }
@@ -651,6 +659,7 @@ void load_colorscheme_sunsmoke256(void) {
 
 	COLOR_BOLD      = "5;188;1";
 	COLOR_LINK      = "5;74;4";
+	COLOR_ESCAPE    = "5;79";
 
 	current_theme = "sunsmoke256";
 }
@@ -691,6 +700,7 @@ void load_colorscheme_sunsmoke(void) {
 
 	COLOR_BOLD      = "2;230;230;230;1";
 	COLOR_LINK      = "2;51;162;230;4";
+	COLOR_ESCAPE    = "2;113;203;173";
 
 	current_theme = "sunsmoke";
 }
@@ -809,10 +819,9 @@ static void paint_c_string(struct syntax_state * state) {
 		if (last != '\\' && charat() == '"') {
 			paint(1, FLAG_STRING);
 			return;
-		} else if (last == '\\' && charat() == '\\') {
-			paint(1, FLAG_STRING);
+		} else if (charat() == '\\' && (nextchar() == '\\' || nextchar() == 'n' || nextchar() == 'r' || nextchar() == '0')) {
+			paint(2, FLAG_ESCAPE);
 			last = -1;
-			/* TODO check for \0, \r, \n, \0xxx, etc. */
 		} else {
 			last = charat();
 			paint(1, FLAG_STRING);
