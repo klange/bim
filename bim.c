@@ -1220,7 +1220,7 @@ static int syn_conf_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-static char * conf_ext[] = {".conf",".ini",NULL};
+static char * conf_ext[] = {".conf",".ini",".git/config",NULL};
 
 static char * syn_rust_keywords[] = {
 	"as","break","const","continue","crate","else","enum","extern",
@@ -1346,6 +1346,25 @@ static int syn_bimrc_calculate(struct syntax_state * state) {
 
 static char * bimrc_ext[] = {".bimrc",NULL};
 
+static int syn_gitcommit_calculate(struct syntax_state * state) {
+	if (state->i == 0 && charat() == '#') {
+		while (charat() != -1) paint(1, FLAG_COMMENT);
+	} else if (state->line_no == 0) {
+		/* First line is special */
+		while (charat() != -1 && state->i < 50) paint(1, FLAG_KEYWORD);
+		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
+	} else if (state->line_no == 1) {
+		/* No text on second line */
+		while (charat() != -1) paint(1, FLAG_DIFFMINUS);
+	} else if (charat() != -1) {
+		skip();
+		return 0;
+	}
+	return -1;
+}
+
+static char * gitcommit_ext[] = {"COMMIT_EDITMSG", NULL};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -1358,6 +1377,7 @@ struct syntax_definition {
 	{"conf",conf_ext,syn_conf_calculate},
 	{"rust",rust_ext,syn_rust_calculate},
 	{"bimrc",bimrc_ext,syn_bimrc_calculate},
+	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate},
 	{NULL,NULL,NULL},
 };
 
