@@ -97,9 +97,8 @@ const char * current_theme = "none";
 #define FLAG_DIFFPLUS  8
 #define FLAG_DIFFMINUS 9
 
-#define FLAG_SELECT    (1 << 4)
-#define FLAG_SEARCH    (1 << 5)
-#define FLAG_CONTINUES (1 << 6)
+#define FLAG_SELECT    (1 << 5)
+#define FLAG_SEARCH    (1 << 6)
 
 /**
  * Convert syntax hilighting flag to color code
