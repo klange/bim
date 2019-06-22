@@ -1151,7 +1151,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 					/* C++-style comments */
 					paint_comment(state);
 				} else if (charat() == '/' && nextchar() == '*') {
-					/* C-style comments */
+					/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
 					if (paint_c_comment(state) == 1) return 1;
 				} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 					return 0;
@@ -1180,6 +1180,29 @@ static int syn_java_calculate(struct syntax_state * state) {
 
 static char * java_ext[] = {".java",NULL};
 
+static int syn_diff_calculate(struct syntax_state * state) {
+	while (1) {
+		/* No states to worry about */
+		if (state->i == 0) {
+			int flag = 0;
+			if (charat() == '+') {
+				flag = FLAG_DIFFPLUS;
+			} else if (charat() == '-') {
+				flag = FLAG_DIFFMINUS;
+			} else if (charat() == '@') {
+				flag = FLAG_TYPE;
+			} else if (charat() != ' ') {
+				flag = FLAG_KEYWORD;
+			} else {
+				return -1;
+			}
+			while (state->i < state->line->actual) paint(1, flag);
+		}
+		return -1;
+	}
+}
+
+static char * diff_ext[] = {".patch",".diff",NULL};
 
 struct syntax_definition {
 	char * name;
@@ -1189,6 +1212,7 @@ struct syntax_definition {
 	{"c",c_ext,syn_c_calculate},
 	{"python",py_ext,syn_py_calculate},
 	{"java",java_ext,syn_java_calculate},
+	{"diff",diff_ext,syn_diff_calculate},
 	{NULL,NULL,NULL},
 };
 
