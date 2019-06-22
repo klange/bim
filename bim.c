@@ -1563,38 +1563,73 @@ static int syn_make_calculate(struct syntax_state * state) {
 
 static char * make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 
+#define nest(lang, low) \
+	do { \
+		state->state = (state->state < 1 ? 0 : state->state - low); \
+		do { state->state = lang(state); } while (state->state == 0); \
+		if (state->state == -1) return low; \
+		return state->state + low; \
+	} while (0)
+
 static int syn_markdown_calculate(struct syntax_state * state) {
-	while (charat() != -1) {
-		if (state->i == 0 && charat() == '#') {
-			while (charat() == '#') paint(1, FLAG_KEYWORD);
-			while (charat() != -1) paint(1, FLAG_BOLD);
-		} else if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
-			/* TODO: Support highlighting stuff? */
-			return -1;
-		} else if (charat() == '`') {
-			paint(1, FLAG_STRING);
-			while (charat() != -1) {
-				if (charat() == '`') {
-					paint(1, FLAG_STRING);
-					return 0;
-				}
+	if (state->state < 1) {
+		while (charat() != -1) {
+			if (state->i == 0 && charat() == '#') {
+				while (charat() == '#') paint(1, FLAG_KEYWORD);
+				while (charat() != -1) paint(1, FLAG_BOLD);
+			} else if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
+				return -1;
+			} else if (charat() == '`') {
 				paint(1, FLAG_STRING);
-			}
-		} else if (charat() == '[') {
-			skip();
-			while (charat() != -1 && charat() != ']') {
-				paint(1, FLAG_LINK);
-			}
-			if (charat() == ']') skip();
-			if (charat() == '(') {
-				skip();
-				while (charat() != -1 && charat() != ')') {
-					paint(1, FLAG_NUMERAL);
+				if (charat() == '`' && nextchar() == '`') {
+					paint(2, FLAG_STRING);
+					if (charat() == 'c' && nextchar() == -1) {
+						nest(syn_c_calculate, 2);
+					} else if (charat() == 'c' && nextchar() == '+' && charrel(2) == '+' && charrel(3) == -1) {
+						nest(syn_c_calculate, 2);
+					} else if (charat() == 'p' && nextchar() == 'y' && charrel(2) == -1) {
+						nest(syn_py_calculate, 5);
+					}
+					return 1;
+				} else {
+					while (charat() != -1) {
+						if (charat() == '`') {
+							paint(1, FLAG_STRING);
+							return 0;
+						}
+						paint(1, FLAG_STRING);
+					}
 				}
+			} else if (charat() == '[') {
+				skip();
+				while (charat() != -1 && charat() != ']') {
+					paint(1, FLAG_LINK);
+				}
+				if (charat() == ']') skip();
+				if (charat() == '(') {
+					skip();
+					while (charat() != -1 && charat() != ')') {
+						paint(1, FLAG_NUMERAL);
+					}
+				}
+			} else {
+				skip();
+				return 0;
 			}
-		} else {
-			skip();
-			return 0;
+		}
+		return -1;
+	} else if (state->state >= 1) {
+		/* Continuing generic triple-` */
+		if (state->i == 0 && charat() == '`' && nextchar() == '`' && charrel(2) == '`' && charrel(3) == -1) {
+			paint(3,FLAG_STRING);
+			return -1;
+		} else if (state->state == 1) {
+			while (charat() != -1) paint(1, FLAG_STRING);
+			return 1;
+		} else if (state->state < 5) {
+			nest(syn_c_calculate, 2);
+		} else if (state->state < 8) {
+			nest(syn_py_calculate, 5);
 		}
 	}
 	return -1;
