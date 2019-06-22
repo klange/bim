@@ -1365,6 +1365,27 @@ static int syn_gitcommit_calculate(struct syntax_state * state) {
 
 static char * gitcommit_ext[] = {"COMMIT_EDITMSG", NULL};
 
+static char * syn_gitrebase_commands[] = {
+	"p","r","e","s","f","x","d",
+	"pick","reword","edit","squash","fixup",
+	"exec","drop",
+	NULL
+};
+
+static int syn_gitrebase_calculate(struct syntax_state * state) {
+	if (state->i == 0 && charat() == '#') {
+		while (charat() != -1) paint(1, FLAG_COMMENT);
+	} else if (state->i == 0 && find_keywords(state, syn_gitrebase_commands, FLAG_KEYWORD, c_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+		return -1;
+	}
+
+	return -1;
+}
+
+static char * gitrebase_ext[] = {"git-rebase-todo",NULL};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -1378,6 +1399,7 @@ struct syntax_definition {
 	{"rust",rust_ext,syn_rust_calculate},
 	{"bimrc",bimrc_ext,syn_bimrc_calculate},
 	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate},
+	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate},
 	{NULL,NULL,NULL},
 };
 
