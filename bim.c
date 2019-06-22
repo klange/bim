@@ -681,16 +681,22 @@ struct theme_def {
 	{NULL, NULL}
 };
 
+struct syntax_state {
+	line_t * line;
+	int line_no;
+	int state;
+	int i;
+};
+
+#define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
+#define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)
+#define nextchar() (state->i + 1 < state->line->actual ? state->line->text[(state->i+1)].codepoint : -1)
+#define lastchar() (state->i - 1 >= 0 ? state->line->text[(state->i-1)].codepoint : -1)
+#define skip() (state->i++)
 
 /**
  * Syntax definition for C
  */
-int syn_c_iskeywordchar(int c) {
-	if (isalnum(c)) return 1;
-	if (c == '_') return 1;
-	return 0;
-}
-
 static char * syn_c_keywords[] = {
 	"while","if","for","continue","return","break","switch","case","sizeof",
 	"struct","union","typedef","do","default","else","goto",
@@ -716,1014 +722,285 @@ static char * syn_c_special[] = {
 	NULL
 };
 
-static int syn_c_extended(line_t * line, int i, int c, int last, int * out_left) {
-	if (i == 0 && c == '#') {
-		*out_left = line->actual+1;
-		if (line->text[line->actual-1].codepoint == '\\') {
-			return FLAG_PRAGMA | FLAG_CONTINUES;
-		}
-		return FLAG_PRAGMA;
-	}
-
-	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
-		int j = i;
-		for (int s = 0; syn_c_special[s]; ++s) {
-			int d = 0;
-			while (j + d < line->actual && line->text[j+d].codepoint == syn_c_special[s][d]) d++;
-			if (syn_c_special[s][d] == '\0' && (j+d >= line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
-				*out_left = d-1;
-				return FLAG_NUMERAL;
-			}
-		}
-	}
-
-	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
-		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
-			int j = 2;
-			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
+/**
+ * Paints a basic C-style quoted string.
+ */
+static void paint_c_string(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '"' */
+	paint(1, FLAG_STRING);
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (last == '\\' && charat() == '\\') {
+			paint(1, FLAG_STRING);
+			last = -1;
+			/* TODO check for \0, \r, \n, \0xxx, etc. */
 		} else {
-			int j = 1;
-			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
-				j++;
-			}
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
+			last = charat();
+			paint(1, FLAG_STRING);
 		}
 	}
-
-	if (c == '/') {
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT;
-		}
-
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
-			int last = 0;
-			for (int j = i + 2; j < line->actual; ++j) {
-				int c = line->text[j].codepoint;
-				if (c == '/' && last == '*') {
-					*out_left = j - i;
-					return FLAG_COMMENT;
-				}
-				last = c;
-			}
-			/* TODO multiline - update next */
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT | FLAG_CONTINUES;
-		}
-	}
-
-	if (c == '\'') {
-		if (i < line->actual - 3 && line->text[i+1].codepoint == '\\' &&
-			line->text[i+3].codepoint == '\'') {
-			*out_left = 3;
-			return FLAG_NUMERAL;
-		}
-		if (i < line->actual - 2 && line->text[i+2].codepoint == '\'') {
-			*out_left = 2;
-			return FLAG_NUMERAL;
-		}
-	}
-
-	if (c == '"') {
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	return 0;
 }
 
-char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
-
-static int syn_c_finish(line_t * line, int * left, int state) {
-	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
-		int last = 0;
-		for (int i = 0; i < line->actual; ++i) {
-			if (line->text[i].codepoint == '/' && last == '*') {
-				*left = i+2;
-				return FLAG_COMMENT;
-			}
-			last = line->text[i].codepoint;
+/**
+ * Paint a C character numeral. Can be arbitrarily large, so
+ * it supports multibyte chars for things like defining weird
+ * ASCII multibyte integer constants.
+ */
+static void paint_c_char(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '\'' */
+	paint(1, FLAG_NUMERAL);
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '\'') {
+			paint(1, FLAG_NUMERAL);
+			return;
+		} else if (last == '\\' && charat() == '\\') {
+			paint(1, FLAG_NUMERAL);
+			last = -1;
+		} else {
+			last = charat();
+			paint(1, FLAG_NUMERAL);
 		}
-		return FLAG_COMMENT | FLAG_CONTINUES;
 	}
-	if (state == (FLAG_PRAGMA | FLAG_CONTINUES)) {
-		*left = line->actual + 1;
-		if (line->text[line->actual-1].codepoint == '\\') {
-			return FLAG_PRAGMA | FLAG_CONTINUES;
+}
+
+/**
+ * Paint a generic C pragma, eg. a #define statement.
+ */
+static int paint_c_pragma(struct syntax_state * state) {
+	while (state->i < state->line->actual) {
+		if (charat() == '"') {
+			/* Paint C string */
+			paint_c_string(state);
+		} else if (charat() == '\'') {
+			paint_c_char(state);
+		} else if (charat() == '\\' && state->i == state->line->actual - 1) {
+			paint(1, FLAG_PRAGMA);
+			return 2;
+		} else {
+			paint(1, FLAG_PRAGMA);
 		}
-		return FLAG_PRAGMA;
 	}
 	return 0;
 }
 
 /**
- * Syntax definition for Python
+ * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
+ * so it can be used for prefix checking for things that need further special handling.
  */
-static char * syn_py_keywords[] = {
-	"class","def","return","del","if","else","elif",
-	"for","while","continue","break","assert",
-	"as","and","or","except","finally","from",
-	"global","import","in","is","lambda","with",
-	"nonlocal","not","pass","raise","try","yield",
-	NULL
-};
-
-static char * syn_py_types[] = {
-	"True","False","None",
-	"object","set","dict","int","str","bytes",
-	NULL
-};
-
-static int syn_py_extended(line_t * line, int i, int c, int last, int * out_left) {
-
-	if (i == 0 && c == 'i') {
-		/* Check for import */
-		char * import = "import ";
-		for (int j = 0; j < line->actual + 1; ++j) {
-			if (import[j] == '\0') {
-				*out_left = j - 2;
-				return FLAG_PRAGMA;
+static int match_and_paint(struct syntax_state * state, const char * keyword, int flag) {
+	int i = state->i;
+	int slen = 0;
+	while (i < state->line->actual || *keyword == '\0') {
+		if (*keyword == '\0') {
+			for (int j = 0; j < slen; ++j) {
+				paint(1, flag);
 			}
-			if (line->text[j].codepoint != import[j]) break;
+			return 1;
 		}
-	}
+		if (*keyword != state->line->text[i].codepoint) return 0;
 
-	if (c == '#') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (c == '@') {
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
-				*out_left = j - i - 1;
-				return FLAG_PRAGMA;
-			}
-		}
-		*out_left = (line->actual + 1) - i;
-		return FLAG_PRAGMA;
-	}
-
-	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
-		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
-			int j = 2;
-			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		} else {
-			int j = 1;
-			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
-				j++;
-			}
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		}
-	}
-
-	if (line->text[i].codepoint == '\'') {
-		if (i + 2 < line->actual && line->text[i+1].codepoint == '\'' && line->text[i+2].codepoint == '\'') {
-			/* Begin multiline */
-			for (int j = i + 3; j < line->actual - 2; ++j) {
-				if (line->text[j].codepoint == '\'' &&
-					line->text[j+1].codepoint == '\'' &&
-					line->text[j+2].codepoint == '\'') {
-					*out_left = (j+2) - i;
-					return FLAG_STRING;
-				}
-			}
-			return FLAG_STRING | FLAG_CONTINUES;
-		}
-
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '\'') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	if (line->text[i].codepoint == '"') {
-		if (i + 2 < line->actual && line->text[i+1].codepoint == '"' && line->text[i+2].codepoint == '"') {
-			/* Begin multiline */
-			for (int j = i + 3; j < line->actual - 2; ++j) {
-				if (line->text[j].codepoint == '"' &&
-					line->text[j+1].codepoint == '"' &&
-					line->text[j+2].codepoint == '"') {
-					*out_left = (j+2) - i;
-					return FLAG_STRING;
-				}
-			}
-			return FLAG_STRING2 | FLAG_CONTINUES;
-		}
-
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	return 0;
-}
-
-static int syn_py_finish(line_t * line, int * left, int state) {
-	/* TODO support multiline quotes */
-	if (state == (FLAG_STRING | FLAG_CONTINUES)) {
-		for (int j = 0; j < line->actual - 2; ++j) {
-			if (line->text[j].codepoint == '\'' &&
-				line->text[j+1].codepoint == '\'' &&
-				line->text[j+2].codepoint == '\'') {
-				*left = (j+3);
-				return FLAG_STRING;
-			}
-		}
-		return FLAG_STRING | FLAG_CONTINUES;
-	}
-	if (state == (FLAG_STRING2 | FLAG_CONTINUES)) {
-		for (int j = 0; j < line->actual - 2; ++j) {
-			if (line->text[j].codepoint == '"' &&
-				line->text[j+1].codepoint == '"' &&
-				line->text[j+2].codepoint == '"') {
-				*left = (j+3);
-				return FLAG_STRING2;
-			}
-		}
-		return FLAG_STRING2 | FLAG_CONTINUES;
+		i++;
+		keyword++;
+		slen++;
 	}
 	return 0;
 }
-
-char * syn_py_ext[] = {".py",NULL};
 
 /**
- * Syntax definition for ToaruOS shell
+ * Paint a comment until end of line, assumes this comment can not continue.
+ * (Some languages have comments that can continue with a \ - don't use this!)
+ * Assumes you've already painted your comment start characters.
  */
-static char * syn_sh_keywords[] = {
-	"cd","exit","export","help","history","if",
-	"empty?","equals?","return","export-cmd","read",
-	"source","exec","not","while","then","else",
-	/* Command commands */
-	"echo","cd","ln","tar","rm","cp","chmod",
-	NULL,
-};
-
-static int variable_char(uint8_t c) {
-	if (c >= 'A' && c <= 'Z') return 1;
-	if (c >= 'a' && c <= 'z') return 1;
-	if (c >= '0' && c <= '9') return 1;
-	if (c == '_') return 1;
-	return 0;
+static int paint_comment(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO ", FLAG_SEARCH)) { continue; }
+		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX ", FLAG_SEARCH)) { continue; }
+		else {
+			last = charat();
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return -1;
 }
-
-int variable_char_first(uint8_t c) {
-	if (c == '?') return 1;
-	if (c == '$') return 1;
-	if (c == '#') return 1;
-	return 0;
-}
-
-static int syn_sh_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (c == '#' && last != '\\') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (line->text[i].codepoint == '\'' && last != '\\') {
-		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '\'') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	if (line->text[i].codepoint == '$' && last != '\\') {
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '{') {
-			int j = i + 2;
-			for (; j < line->actual+1; ++j) {
-				if (line->text[j].codepoint == '}') break;
-			}
-			*out_left = (j - i);
-			return FLAG_NUMERAL;
-		}
-		int j = i + 1;
-		int col = 0;
-		for (; j < line->actual + 1; ++j, ++col) {
-			if (col == 0) {
-				if (variable_char_first(line->text[j].codepoint) || isdigit(line->text[j].codepoint)) {
-					j++;
-					break;
-				}
-				if (!variable_char(line->text[j].codepoint)) break;
-			} else {
-				if (!variable_char(line->text[j].codepoint)) break;
-			}
-		}
-		*out_left = (j - i) - 1;
-		return FLAG_NUMERAL;
-	}
-
-	if (line->text[i].codepoint == '"' && last != '\\') {
-		int last = 0;
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	return 0;
-}
-
-static int syn_sh_iskeywordchar(int c) {
-	if (isalnum(c)) return 1;
-	if (c == '-') return 1;
-	if (c == '_') return 1;
-	if (c == '?') return 1;
-	return 0;
-}
-
-static char * syn_sh_ext[] = {".sh",".eshrc",".esh",NULL};
-
-static char * syn_make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
-
-static char * syn_make_commands[] = {
-	"define","endef","undefine","ifdef","ifndef","ifeq","ifneq","else","endif",
-	"include","sinclude","override","export","unexport","private","vpath",
-	"-include",
-	NULL
-};
-
-static char * syn_make_functions[] = {
-	"subst","patsubst","findstring","filter","filter-out",
-	"sort","word","words","wordlist","firstword","lastword",
-	"dir","notdir","suffix","basename","addsuffix","addprefix",
-	"join","wildcard","realpath","abspath","error","warning",
-	"shell","origin","flavor","foreach","if","or","and",
-	"call","eval","file","value",
-	NULL
-};
-
-static int syn_make_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (c == '#') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (c == '\t') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_NUMERAL;
-	}
-
-	if (i == 0) {
-		int j = 0;
-		for (; j < line->actual; ++j) {
-			/* Handle leading spaces */
-			if (line->text[j].codepoint != ' ') break;
-		}
-		for (int s = 0; syn_make_commands[s]; ++s) {
-			int d = 0;
-			while (j + d < line->actual && line->text[j+d].codepoint == syn_make_commands[s][d]) d++;
-			if (syn_make_commands[s][d] == '\0') {
-				*out_left = j+d;
-				return FLAG_PRAGMA;
-			}
-		}
-	}
-
-	if (last == '(' && i > 1) {
-		if (line->text[i-2].codepoint == '$') {
-			int j = i;
-			for (int s = 0; syn_make_functions[s]; ++s) {
-				int d = 0;
-				while (j + d < line->actual && line->text[j+d].codepoint == syn_make_functions[s][d]) d++;
-				if (syn_make_functions[s][d] == '\0' && (j + d == line->actual
-							|| line->text[j+d].codepoint == ')' || line->text[j+d].codepoint == ' ')) {
-					*out_left = d;
-					return FLAG_KEYWORD;
-				}
-			}
-		}
-	}
-
-	if (i == 0) {
-		int j = 0;
-		for (; j < line->actual; ++j) {
-			if (line->text[j].codepoint == '=') {
-				*out_left = j;
-				return FLAG_TYPE;
-			}
-			if (line->text[j].codepoint == ':') {
-				*out_left = j;
-				return FLAG_TYPE;
-			}
-		}
-	}
-
-
-	return FLAG_NONE;
-}
-
-static char * syn_bimrc_keywords[] = {
-	"theme",
-	"padding",
-	"splitperecent",
-	"scrollamount",
-	"shiftscrolling",
-	NULL,
-};
-
-static int syn_bimrc_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-	if (i == 0 && c == '#') {
-		*out_left = line->actual+1;
-		return FLAG_COMMENT;
-	}
-	return FLAG_NONE;
-}
-
-static char * syn_bimrc_ext[] = {".bimrc",NULL};
-
-static int syn_gitcommit_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (c == '#') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	return FLAG_NONE;
-}
-
-static char * syn_gitcommit_ext[] = {"COMMIT_EDITMSG",NULL};
-
-static char * syn_gitrebase_commands[] = {
-	"p ","r ","e ","s ","f ","x "," d",
-	"pick ","reword ","edit ","squash ","fixup ",
-	"exec ","drop ",
-	NULL
-};
-
-static int syn_gitrebase_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (c == '#') {
-		*out_left = (line->actual + 1) - i;
-		return FLAG_COMMENT;
-	}
-
-	if (i == 0) {
-		int j = i;
-		for (int s = 0; syn_gitrebase_commands[s]; ++s) {
-			int d = 0;
-			while (j + d < line->actual && line->text[j+d].codepoint == syn_gitrebase_commands[s][d]) d++;
-			if (syn_gitrebase_commands[s][d] == '\0') {
-				*out_left = j+d-1;
-				return FLAG_KEYWORD;
-			}
-		}
-	}
-
-	if (i > 0 && (line->text[i-1].flags & FLAG_KEYWORD)) {
-		int j = i;
-		while (isxdigit(line->text[j].codepoint)) {
-			j++;
-		}
-		*out_left = j-i-1;
-		return FLAG_NUMERAL;
-	}
-
-	return FLAG_NONE;
-}
-
-static char * syn_gitrebase_ext[] = {"git-rebase-todo",NULL};
-
-static int syn_diff_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (i == 0) {
-		if (c == '+') {
-			*out_left = (line->actual + 1);
-			return FLAG_DIFFPLUS;
-		} else if (c == '-') {
-			*out_left = (line->actual + 1);
-			return FLAG_DIFFMINUS;
-		} else if (c == '@') {
-			*out_left = (line->actual + 1);
-			return FLAG_TYPE;
-		} else if (c != ' ') {
-			*out_left = (line->actual + 1);
-			return FLAG_KEYWORD;
-		}
-	}
-
-	return FLAG_NONE;
-}
-
-static char * syn_diff_ext[] = {".diff",".patch",NULL};
-
-
-
-static char * syn_rust_keywords[] = {
-	"as","break","const","continue","crate","else","enum","extern",
-	"false","fn","for","if","impl","in","let","loop","match","mod",
-	"move","mut","pub","ref","return","Self","self","static","struct",
-	"super","trait","true","type","unsafe","use","where","while",
-	NULL,
-};
-
-static char * syn_rust_types[] = {
-	"bool","char","str",
-	"i8","i16","i32","i64",
-	"u8","u16","u32","u64",
-	"isize","usize",
-	"f32","f64",
-	NULL,
-};
-
-static int syn_rust_extended(line_t * line, int i, int c, int last, int * out_left) {
-	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
-		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
-			int j = 2;
-			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		} else {
-			int j = 1;
-			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
-				j++;
-			}
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		}
-	}
-
-	if (c == '/') {
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT;
-		}
-
-		/* TODO: We can't support Rust's nested comments with this... */
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
-			int last = 0;
-			for (int j = i + 2; j < line->actual; ++j) {
-				int c = line->text[j].codepoint;
-				if (c == '/' && last == '*') {
-					*out_left = j - i;
-					return FLAG_COMMENT;
-				}
-				last = c;
-			}
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT | FLAG_CONTINUES;
-		}
-	}
-
-	if (c == '\'') {
-		if (i < line->actual - 3 && line->text[i+1].codepoint == '\\' &&
-			line->text[i+3].codepoint == '\'') {
-			*out_left = 3;
-			return FLAG_NUMERAL;
-		}
-		if (i < line->actual - 2 && line->text[i+2].codepoint == '\'') {
-			*out_left = 2;
-			return FLAG_NUMERAL;
-		}
-	}
-
-	if (c == '"') {
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	return 0;
-}
-
-static int syn_rust_finish(line_t * line, int * left, int state) {
-	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
-		int last = 0;
-		for (int i = 0; i < line->actual; ++i) {
-			if (line->text[i].codepoint == '/' && last == '*') {
-				*left = i+2;
-				return FLAG_COMMENT;
-			}
-			last = line->text[i].codepoint;
-		}
-		return FLAG_COMMENT | FLAG_CONTINUES;
-	}
-	return 0;
-}
-
-
-static char * syn_rust_ext[] = {".rs",NULL};
-
-static int syn_conf_extended(line_t * line, int i, int c, int last, int * out_left) {
-	(void)last;
-
-	if (i == 0) {
-		if (c == ';') {
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT;
-		}
-
-		if (c == '[') {
-			*out_left = (line->actual + 1) - i;
-			return FLAG_KEYWORD;
-		}
-
-		int j = 0;
-		for (; j < line->actual; ++j) {
-			if (line->text[j].codepoint == '=') {
-				*out_left = j;
-				return FLAG_TYPE;
-			}
-		}
-	}
-
-	return FLAG_NONE;
-}
-
-static char * syn_conf_ext[] = {".conf",NULL};
-
-
-static char * syn_java_keywords[] = {
-	"assert","break","case","catch","class","continue",
-	"default","do","else","enum","exports","extends","finally",
-	"for","if","implements","instanceof","interface","module","native",
-	"new","requires","return","throws",
-	"strictfp","super","switch","synchronized","this","throw","try","while",
-	NULL
-};
-
-static char * syn_java_types[] = {
-	"var","boolean","void","short","long","int","double","float","enum","char",
-	"private","protected","public","static","final","transient","volatile","abstract",
-	NULL
-};
-
-static char * syn_java_special[] = {
-	"true","false","import","package","null",
-	NULL
-};
-
-static int syn_java_extended(line_t * line, int i, int c, int last, int * out_left) {
-	/* Basic numbers */
-	if ((!last || !syn_c_iskeywordchar(last)) && isdigit(c)) {
-		if (c == '0' && i < line->actual - 1 && line->text[i+1].codepoint == 'x') {
-			int j = 2;
-			for (; i + j < line->actual && isxdigit(line->text[i+j].codepoint); ++j);
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		} else {
-			int j = 1;
-			while (i + j < line->actual && isdigit(line->text[i+j].codepoint)) {
-				j++;
-			}
-			if (i + j < line->actual && syn_c_iskeywordchar(line->text[i+j].codepoint)) {
-				return FLAG_NONE;
-			}
-			*out_left = j - 1;
-			return FLAG_NUMERAL;
-		}
-	}
-
-	/* @Stuff */
-	if (c == '@') {
-		for (int j = i+1; j < line->actual + 1; ++j) {
-			if (!syn_c_iskeywordchar(line->text[j].codepoint)) {
-				*out_left = j - i - 1;
-				return FLAG_PRAGMA;
-			}
-		}
-		*out_left = (line->actual + 1) - i;
-		return FLAG_PRAGMA;
-	}
-	
-
-	/* Special matches */
-	if ((!last || !syn_c_iskeywordchar(last)) && syn_c_iskeywordchar(c)) {
-		int j = i;
-		for (int s = 0; syn_java_special[s]; ++s) {
-			int d = 0;
-			while (j + d < line->actual - 1 && line->text[j+d].codepoint == syn_java_special[s][d]) d++;
-			if (syn_java_special[s][d] == '\0' && (j+d > line->actual || !syn_c_iskeywordchar(line->text[j+d].codepoint))) {
-				*out_left = d-1;
-				return FLAG_NUMERAL;
-			}
-		}
-	}
-
-	/* Comments, both // and */
-	if (c == '/') {
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '/') {
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT;
-		}
-
-		if (i < line->actual - 1 && line->text[i+1].codepoint == '*') {
-			int last = 0;
-			for (int j = i + 2; j < line->actual; ++j) {
-				int c = line->text[j].codepoint;
-				if (c == '/' && last == '*') {
-					*out_left = j - i;
-					return FLAG_COMMENT;
-				}
-				last = c;
-			}
-			/* TODO multiline - update next */
-			*out_left = (line->actual + 1) - i;
-			return FLAG_COMMENT | FLAG_CONTINUES;
-		}
-	}
-
-	/* Simple strings */
-	if (c == '"') {
-		int last = 0;
-		for (int j = i+1; j < line->actual; ++j) {
-			int c = line->text[j].codepoint;
-			if (last != '\\' && c == '"') {
-				*out_left = j - i;
-				return FLAG_STRING;
-			}
-			if (last == '\\' && c == '\\') {
-				last = 0;
-			}
-			last = c;
-		}
-		*out_left = (line->actual + 1) - i; /* unterminated string */
-		return FLAG_STRING;
-	}
-
-	return 0;
-}
-
-static int syn_java_finish(line_t * line, int * left, int state) {
-	/* Close normal multiline comment */
-	if (state == (FLAG_COMMENT | FLAG_CONTINUES)) {
-		int last = 0;
-		for (int i = 0; i < line->actual; ++i) {
-			if (line->text[i].codepoint == '/' && last == '*') {
-				*left = i+2;
-				return FLAG_COMMENT;
-			}
-			last = line->text[i].codepoint;
-		}
-		return FLAG_COMMENT | FLAG_CONTINUES;
-	}
-	return 0;
-}
-
-static char * syn_java_ext[] = {".java",NULL};
 
 /**
- * Syntax hilighting definition database
+ * Paint a classic C comment which continues until terminated.
+ * Assumes you've already painted the starting / and *.
  */
+static int paint_c_comment(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO ", FLAG_SEARCH)) { continue; }
+		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX ", FLAG_SEARCH)) { continue; }
+		else if (last == '*' && charat() == '/') {
+			paint(1, FLAG_COMMENT);
+			return 0;
+		} else {
+			last = charat();
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return 1;
+}
+
+static int c_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_');
+}
+
+/**
+ * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
+ * Returns 1 if a keyword from the last was found, otherwise 0.
+ */
+static int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
+	for (char ** keyword = keywords; *keyword; ++keyword) {
+		int d = 0;
+		while (state->i + d < state->line->actual && state->line->text[state->i+d].codepoint == (*keyword)[d]) d++;
+		if ((*keyword)[d] == '\0' && (state->i + d >= state->line->actual || !keyword_qualifier(state->line->text[state->i+d].codepoint))) {
+			paint((int)strlen(*keyword), flag);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Paint integers and floating point values with some handling for suffixes.
+ */
+static int paint_c_numeral(struct syntax_state * state) {
+	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
+		paint(2, FLAG_NUMERAL);
+		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+	} else if (charat() == '0' && nextchar() == '.') {
+		paint(2, FLAG_NUMERAL);
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if (charat() == 'f') paint(1, FLAG_NUMERAL);
+		return 0;
+	} else if (charat() == '0') {
+		paint(1, FLAG_NUMERAL);
+		while (charat() >= 0 && charat() <= 7) paint(1, FLAG_NUMERAL);
+	} else {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		if (charat() == '.') {
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			if (charat() == 'f') paint(1, FLAG_NUMERAL);
+			return 0;
+		}
+	}
+	while (charat() == 'u' || charat() == 'U' || charat() == 'l' || charat() == 'L') paint(1, FLAG_NUMERAL);
+	return 0;
+}
+
+static int syn_c_calculate(struct syntax_state * state) {
+	while (1) {
+		switch (state->state) {
+			case -1:
+			case 0:
+				if (state->i == 0 && charat() == '#') {
+					/* Handle preprocessor functions */
+					paint(1, FLAG_PRAGMA);
+					if (match_and_paint(state, "include", FLAG_PRAGMA)) {
+						/* Put quotes around <includes> */
+						while (charat() == ' ') paint(1, FLAG_PRAGMA);
+						if (charat() == '<') {
+							paint(1, FLAG_STRING);
+							while (charat() != '>' && state->i < state->line->actual) {
+								paint(1, FLAG_STRING);
+							}
+							if (charat() != -1) {
+								paint(1, FLAG_STRING);
+							}
+						}
+						/* (for "includes", normal pragma highlighting covers that. */
+					}
+					return paint_c_pragma(state);
+				} else if (charat() == '/' && nextchar() == '/') {
+					/* C++-style comments */
+					paint_comment(state);
+				} else if (charat() == '/' && nextchar() == '*') {
+					/* C-style comments */
+					if (paint_c_comment(state) == 1) return 1;
+				} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+					return 0;
+				} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
+					return 0;
+				} else if (find_keywords(state, syn_c_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+					return 0;
+				} else if (charat() == '\"') {
+					paint_c_string(state);
+					return 0;
+				} else if (charat() == '\'') {
+					paint_c_char(state);
+					return 0;
+				} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+					paint_c_numeral(state);
+					return 0;
+				} else if (charat() != -1) {
+					skip();
+					return 0;
+				}
+				break;
+			case 1:
+				/* In a block comment */
+				if (paint_c_comment(state) == 1) return 1;
+				return 0;
+			case 2:
+				/* In an unclosed preprocessor statement */
+				return paint_c_pragma(state);
+		}
+		return -1;
+	}
+}
+
+static char * c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
-	char ** keywords;
-	char ** types;
-	int (*extended)(line_t *, int, int, int, int *);
-	int (*iskwchar)(int);
-	int (*finishml)(line_t *, int *, int);
+	int (*calculate)(struct syntax_state *);
 } syntaxes[] = {
-	{"c",syn_c_ext,syn_c_keywords,syn_c_types,syn_c_extended,syn_c_iskeywordchar,syn_c_finish},
-	{"python",syn_py_ext,syn_py_keywords,syn_py_types,syn_py_extended,syn_c_iskeywordchar,syn_py_finish},
-	{"esh",syn_sh_ext,syn_sh_keywords,NULL,syn_sh_extended,syn_sh_iskeywordchar,NULL},
-	{"make",syn_make_ext,NULL,NULL,syn_make_extended,NULL,NULL},
-	{"bimrc",syn_bimrc_ext,syn_bimrc_keywords,NULL,syn_bimrc_extended,syn_c_iskeywordchar,NULL},
-	{"gitcommit",syn_gitcommit_ext,NULL,NULL,syn_gitcommit_extended,NULL,NULL},
-	{"gitrebase",syn_gitrebase_ext,NULL,NULL,syn_gitrebase_extended,NULL,NULL},
-	{"diff",syn_diff_ext,NULL,NULL,syn_diff_extended,NULL,NULL},
-	{"rust",syn_rust_ext,syn_rust_keywords,syn_rust_types,syn_rust_extended,syn_c_iskeywordchar,syn_rust_finish},
-	{"conf",syn_conf_ext,NULL,NULL,syn_conf_extended,NULL,NULL},
-	{"java",syn_java_ext,syn_java_keywords,syn_java_types,syn_java_extended,syn_c_iskeywordchar,syn_java_finish},
-	{NULL,NULL,NULL,NULL,NULL,NULL,NULL}
+	{"c",c_ext,syn_c_calculate},
+	{NULL,NULL,NULL},
 };
 
-/**
- * Checks whether the character pointed to by `c` is the start of a match for
- * keyword or type name `str`.
- */
-int check_line(line_t * line, int c, char * str, int last) {
-	if (env->syntax->iskwchar(last)) return 0;
-	for (int i = c; i < line->actual; ++i, ++str) {
-		if (*str == '\0' && !env->syntax->iskwchar(line->text[i].codepoint)) return 1;
-		if (line->text[i].codepoint == *str) continue;
-		return 0;
-	}
-	if (*str == '\0') return 1;
-	return 0;
-}
 
 /**
  * Calculate syntax hilighting for the given line.
  */
-void recalculate_syntax(line_t * line, int offset) {
-	if (!env->syntax) {
-		for (int i = 0; i < line->actual; ++i) {
-			line->text[i].flags = 0;
-		}
-		return;
+void recalculate_syntax(line_t * line, int line_no) {
+	/* Clear syntax for this line first */
+	for (int i = 0; i < line->actual; ++i) {
+		line->text[i].flags = 0;
 	}
+
+	if (!env->syntax) return;
 
 	/* Start from the line's stored in initial state */
-	int state = line->istate;
-	int left  = 0;
-	int last  = 0;
+	struct syntax_state state;
+	state.line = line;
+	state.line_no = line_no;
+	state.state = line->istate;
+	state.i = 0;
 
-	if (state) {
-		/*
-		 * If we are already highlighting coming in, then we need to check
-		 * for a finishing sequence for the curent state.
-		 */
-		state = env->syntax->finishml(line,&left,state);
+	while (1) {
+		state.state = env->syntax->calculate(&state);
 
-		if (state & FLAG_CONTINUES) {
-			/* The finish check said that this multiline state continues. */
-			for (int i = 0; i < line->actual; i++) {
-				/* Set the entire line to draw with this state */
-				line->text[i].flags = state;
-			}
-
-			/* Recalculate later lines if needed */
-			goto _multiline;
-		}
-	}
-
-	for (int i = 0; i < line->actual; last = line->text[i++].codepoint) {
-		if (!left) state = 0;
-
-		if (state) {
-			/* Currently hilighting, have `left` characters remaining with this state */
-			left--;
-			line->text[i].flags = state;
-
-			if (!left) {
-				/* Done hilighting this state, go back to parsing on next character */
-				state = 0;
-			}
-
-			/* If we are hilighting something, don't parse */
-			continue;
-		}
-
-		int c = line->text[i].codepoint;
-		line->text[i].flags = FLAG_NONE;
-
-		/* Language-specific syntax hilighting */
-		if (env->syntax->extended) {
-			int s = env->syntax->extended(line,i,c,last,&left);
-			if (s) {
-				state = s;
-				if (state & FLAG_CONTINUES) {
-					/* A multiline state was returned. Fill the rest of the line */
-					for (; i < line->actual; i++) {
-						line->text[i].flags = state;
-					}
-					/* And recalculate later lines if needed */
-					goto _multiline;
-				}
-				goto _continue;
-			}
-		}
-
-		/* Keywords */
-		if (env->syntax->keywords) {
-			for (char ** kw = env->syntax->keywords; *kw; kw++) {
-				int c = check_line(line, i, *kw, last);
-				if (c == 1) {
-					left = strlen(*kw)-1;
-					state = FLAG_KEYWORD;
-					goto _continue;
+		if (state.state != 0) {
+			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
+				env->lines[line_no+1]->istate = state.state;
+				recalculate_syntax(env->lines[line_no+1], line_no+1);
+				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
+					redraw_line(line_no + 1 - env->offset, line_no + 1);
 				}
 			}
-		}
-
-		/* Type names */
-		if (env->syntax->types) {
-			for (char ** kw = env->syntax->types; *kw; kw++) {
-				int c = check_line(line, i, *kw, last);
-				if (c == 1) {
-					left = strlen(*kw)-1;
-					state = FLAG_TYPE;
-					goto _continue;
-				}
-			}
-		}
-
-_continue:
-		line->text[i].flags = state;
-	}
-
-	state = 0;
-
-_multiline:
-	/*
-	 * If the next line's initial state does not match the state we ended on,
-	 * then it needs to be recalculated (and redraw). This may lead to multiple
-	 * recursive calls until a match is found.
-	 */
-	if (offset + 1 < env->line_count && env->lines[offset+1]->istate != state) {
-		/* Set the next line's initial state to our ending state */
-		env->lines[offset+1]->istate = state;
-
-		/* Recursively recalculate */
-		recalculate_syntax(env->lines[offset+1],offset+1);
-
-		/*
-		 * Determine if this is an on-screen line so we can redraw it;
-		 * this ends up drawing from bottom to top when multiple lines
-		 * need to be redrawn by a recursive call.
-		 */
-		if (offset+1 >= env->offset && offset+1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
-			redraw_line(offset + 1 - env->offset,offset+1);
+			break;
 		}
 	}
 }
