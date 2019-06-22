@@ -898,64 +898,62 @@ static int paint_c_numeral(struct syntax_state * state) {
 }
 
 static int syn_c_calculate(struct syntax_state * state) {
-	while (1) {
-		switch (state->state) {
-			case -1:
-			case 0:
-				if (state->i == 0 && charat() == '#') {
-					/* Handle preprocessor functions */
-					paint(1, FLAG_PRAGMA);
-					if (match_and_paint(state, "include", FLAG_PRAGMA, c_keyword_qualifier)) {
-						/* Put quotes around <includes> */
-						while (charat() == ' ') paint(1, FLAG_PRAGMA);
-						if (charat() == '<') {
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (state->i == 0 && charat() == '#') {
+				/* Handle preprocessor functions */
+				paint(1, FLAG_PRAGMA);
+				if (match_and_paint(state, "include", FLAG_PRAGMA, c_keyword_qualifier)) {
+					/* Put quotes around <includes> */
+					while (charat() == ' ') paint(1, FLAG_PRAGMA);
+					if (charat() == '<') {
+						paint(1, FLAG_STRING);
+						while (charat() != '>' && state->i < state->line->actual) {
 							paint(1, FLAG_STRING);
-							while (charat() != '>' && state->i < state->line->actual) {
-								paint(1, FLAG_STRING);
-							}
-							if (charat() != -1) {
-								paint(1, FLAG_STRING);
-							}
 						}
-						/* (for "includes", normal pragma highlighting covers that. */
+						if (charat() != -1) {
+							paint(1, FLAG_STRING);
+						}
 					}
-					return paint_c_pragma(state);
-				} else if (charat() == '/' && nextchar() == '/') {
-					/* C++-style comments */
-					paint_comment(state);
-				} else if (charat() == '/' && nextchar() == '*') {
-					/* C-style comments */
-					if (paint_c_comment(state) == 1) return 1;
-				} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_c_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-					return 0;
-				} else if (charat() == '\"') {
-					paint_c_string(state);
-					return 0;
-				} else if (charat() == '\'') {
-					paint_c_char(state);
-					return 0;
-				} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-					paint_c_numeral(state);
-					return 0;
-				} else if (charat() != -1) {
-					skip();
-					return 0;
+					/* (for "includes", normal pragma highlighting covers that. */
 				}
-				break;
-			case 1:
-				/* In a block comment */
-				if (paint_c_comment(state) == 1) return 1;
-				return 0;
-			case 2:
-				/* In an unclosed preprocessor statement */
 				return paint_c_pragma(state);
-		}
-		return -1;
+			} else if (charat() == '/' && nextchar() == '/') {
+				/* C++-style comments */
+				paint_comment(state);
+			} else if (charat() == '/' && nextchar() == '*') {
+				/* C-style comments */
+				if (paint_c_comment(state) == 1) return 1;
+			} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_c_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\"') {
+				paint_c_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_c_char(state);
+				return 0;
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_c_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1:
+			/* In a block comment */
+			if (paint_c_comment(state) == 1) return 1;
+			return 0;
+		case 2:
+			/* In an unclosed preprocessor statement */
+			return paint_c_pragma(state);
 	}
+	return -1;
 }
 
 static char * c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
@@ -1064,57 +1062,55 @@ static int paint_py_numeral(struct syntax_state * state) {
 }
 
 static int syn_py_calculate(struct syntax_state * state) {
-	while (1) {
-		switch (state->state) {
-			case -1:
-			case 0:
-				if (charat() == '#') {
-					paint_comment(state);
-				} else if (state->i == 0 && match_and_paint(state, "import", FLAG_PRAGMA, c_keyword_qualifier)) {
-					return 0;
-				} else if (charat() == '@') {
-					paint(1, FLAG_PRAGMA);
-					while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
-					return 0;
-				} else if (charat() == '"') {
-					paint(1, FLAG_STRING);
-					if (charat() == '"' && nextchar() == '"') {
-						paint(2, FLAG_STRING);
-						return paint_py_triple_double(state);
-					} else {
-						paint_c_string(state);
-						return 0;
-					}
-				} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-					return 0;
-				} else if (charat() == '\'') {
-					paint(1, FLAG_STRING);
-					if (charat() == '\'' && nextchar() == '\'') {
-						paint(2, FLAG_STRING);
-						return paint_py_triple_single(state);
-					} else {
-						paint_py_single_string(state);
-						return 0;
-					}
-				} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-					paint_py_numeral(state);
-					return 0;
-				} else if (charat() != -1) {
-					skip();
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (charat() == '#') {
+				paint_comment(state);
+			} else if (state->i == 0 && match_and_paint(state, "import", FLAG_PRAGMA, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_PRAGMA);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
+			} else if (charat() == '"') {
+				paint(1, FLAG_STRING);
+				if (charat() == '"' && nextchar() == '"') {
+					paint(2, FLAG_STRING);
+					return paint_py_triple_double(state);
+				} else {
+					paint_c_string(state);
 					return 0;
 				}
-				break;
-			case 1: /* multiline """ string */
-				return paint_py_triple_double(state);
-			case 2: /* multiline ''' string */
-				return paint_py_triple_single(state);
-		}
-		return -1;
+			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\'') {
+				paint(1, FLAG_STRING);
+				if (charat() == '\'' && nextchar() == '\'') {
+					paint(2, FLAG_STRING);
+					return paint_py_triple_single(state);
+				} else {
+					paint_py_single_string(state);
+					return 0;
+				}
+			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_py_numeral(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1: /* multiline """ string */
+			return paint_py_triple_double(state);
+		case 2: /* multiline ''' string */
+			return paint_py_triple_single(state);
 	}
+	return -1;
 }
 
 static char * py_ext[] = {".py",NULL};
@@ -1140,66 +1136,62 @@ static char * syn_java_special[] = {
 };
 
 static int syn_java_calculate(struct syntax_state * state) {
-	while (1) {
-		switch (state->state) {
-			case -1:
-			case 0:
-				if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
-					paint_c_numeral(state);
-					return 0;
-				} else if (charat() == '/' && nextchar() == '/') {
-					/* C++-style comments */
-					paint_comment(state);
-				} else if (charat() == '/' && nextchar() == '*') {
-					/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
-					if (paint_c_comment(state) == 1) return 1;
-				} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
-					return 0;
-				} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
-					return 0;
-				} else if (charat() == '\"') {
-					paint_c_string(state);
-					return 0;
-				} else if (charat() == '\'') {
-					paint_c_char(state);
-					return 0;
-				} else if (charat() != -1) {
-					skip();
-					return 0;
-				}
-				break;
-			case 1:
-				if (paint_c_comment(state) == 1) return 1;
+	switch (state->state) {
+		case -1:
+		case 0:
+			if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
+				paint_c_numeral(state);
 				return 0;
-		}
-		return -1;
+			} else if (charat() == '/' && nextchar() == '/') {
+				/* C++-style comments */
+				paint_comment(state);
+			} else if (charat() == '/' && nextchar() == '*') {
+				/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
+				if (paint_c_comment(state) == 1) return 1;
+			} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
+				return 0;
+			} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
+				return 0;
+			} else if (charat() == '\"') {
+				paint_c_string(state);
+				return 0;
+			} else if (charat() == '\'') {
+				paint_c_char(state);
+				return 0;
+			} else if (charat() != -1) {
+				skip();
+				return 0;
+			}
+			break;
+		case 1:
+			if (paint_c_comment(state) == 1) return 1;
+			return 0;
 	}
+	return -1;
 }
 
 static char * java_ext[] = {".java",NULL};
 
 static int syn_diff_calculate(struct syntax_state * state) {
-	while (1) {
-		/* No states to worry about */
-		if (state->i == 0) {
-			int flag = 0;
-			if (charat() == '+') {
-				flag = FLAG_DIFFPLUS;
-			} else if (charat() == '-') {
-				flag = FLAG_DIFFMINUS;
-			} else if (charat() == '@') {
-				flag = FLAG_TYPE;
-			} else if (charat() != ' ') {
-				flag = FLAG_KEYWORD;
-			} else {
-				return -1;
-			}
-			while (state->i < state->line->actual) paint(1, flag);
+	/* No states to worry about */
+	if (state->i == 0) {
+		int flag = 0;
+		if (charat() == '+') {
+			flag = FLAG_DIFFPLUS;
+		} else if (charat() == '-') {
+			flag = FLAG_DIFFMINUS;
+		} else if (charat() == '@') {
+			flag = FLAG_TYPE;
+		} else if (charat() != ' ') {
+			flag = FLAG_KEYWORD;
+		} else {
+			return -1;
 		}
-		return -1;
+		while (state->i < state->line->actual) paint(1, flag);
 	}
+	return -1;
 }
 
 static char * diff_ext[] = {".patch",".diff",NULL};
