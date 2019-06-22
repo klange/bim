@@ -1319,6 +1319,33 @@ static int syn_rust_calculate(struct syntax_state * state) {
 
 static char * rust_ext[] = {".rs",NULL};
 
+static char * syn_bimrc_keywords[] = {
+	"history","padding","hlparen","hlcurrent","splitpercent",
+	"shiftscrolling","scrollamount",
+	NULL
+};
+
+static int syn_bimrc_calculate(struct syntax_state * state) {
+	/* No states */
+	if (state->i == 0) {
+		if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, c_keyword_qualifier)) {
+			if (charat() == '=') {
+				skip();
+				for (struct theme_def * s = themes; s->name; ++s) {
+					if (match_and_paint(state, s->name, FLAG_TYPE, c_keyword_qualifier)) break;
+				}
+			}
+		} else if (find_keywords(state, syn_bimrc_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			return -1;
+		}
+	}
+	return -1;
+}
+
+static char * bimrc_ext[] = {".bimrc",NULL};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -1330,6 +1357,7 @@ struct syntax_definition {
 	{"diff",diff_ext,syn_diff_calculate},
 	{"conf",conf_ext,syn_conf_calculate},
 	{"rust",rust_ext,syn_rust_calculate},
+	{"bimrc",bimrc_ext,syn_bimrc_calculate},
 	{NULL,NULL,NULL},
 };
 
