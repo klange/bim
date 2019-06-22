@@ -819,8 +819,38 @@ static void paint_c_string(struct syntax_state * state) {
 		if (last != '\\' && charat() == '"') {
 			paint(1, FLAG_STRING);
 			return;
-		} else if (charat() == '\\' && (nextchar() == '\\' || nextchar() == 'n' || nextchar() == 'r' || nextchar() == '0')) {
+		} else if (charat() == '\\' && (nextchar() == '\\' || nextchar() == 'n' || nextchar() == 'r')) {
 			paint(2, FLAG_ESCAPE);
+			last = -1;
+		} else if (charat() == '\\' && nextchar() >= '0' && nextchar() <= '7') {
+			paint(2, FLAG_ESCAPE);
+			if (charat() >= '0' && charat() <= '7') {
+				paint(1, FLAG_ESCAPE);
+				if (charat() >= '0' && charat() <= '7') {
+					paint(1, FLAG_ESCAPE);
+				}
+			}
+			last = -1;
+		} else if (charat() == '\\' && nextchar() == 'x') {
+			paint(2, FLAG_ESCAPE);
+			while (isxdigit(charat())) paint(1, FLAG_ESCAPE);
+		} else {
+			last = charat();
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
+static void paint_simple_string(struct syntax_state * state) {
+	/* Assumes you came in from a check of charat() == '"' */
+	paint(1, FLAG_STRING);
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (last == '\\' && charat() == '\\') {
+			paint(1, FLAG_STRING);
 			last = -1;
 		} else {
 			last = charat();
@@ -1122,7 +1152,7 @@ static int syn_py_calculate(struct syntax_state * state) {
 					paint(2, FLAG_STRING);
 					return paint_py_triple_double(state);
 				} else {
-					paint_c_string(state);
+					paint_simple_string(state);
 					return 0;
 				}
 			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
@@ -1198,7 +1228,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 			} else if (find_keywords(state, syn_java_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
 			} else if (charat() == '\"') {
-				paint_c_string(state);
+				paint_simple_string(state);
 				return 0;
 			} else if (charat() == '\'') {
 				paint_c_char(state);
@@ -1334,7 +1364,7 @@ static int syn_rust_calculate(struct syntax_state * state) {
 			} else if (find_keywords(state, syn_rust_types, FLAG_TYPE, c_keyword_qualifier)) {
 				return 0;
 			} else if (charat() == '\"') {
-				paint_c_string(state);
+				paint_simple_string(state);
 				return 0;
 			} else if (charat() == '\'') {
 				paint_c_char(state);
@@ -1469,7 +1499,7 @@ static int make_close_paren(struct syntax_state * state) {
 		} else if (find_keywords(state, syn_make_functions, FLAG_KEYWORD, c_keyword_qualifier)) {
 			continue;
 		} else if (charat() == '"') {
-			paint_c_string(state);
+			paint_simple_string(state);
 		}
 		paint(1,FLAG_TYPE);
 	}
