@@ -96,6 +96,7 @@ const char * current_theme = "none";
 #define FLAG_STRING2   7
 #define FLAG_DIFFPLUS  8
 #define FLAG_DIFFMINUS 9
+#define FLAG_NOTICE    10
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -822,8 +823,9 @@ static int match_and_paint(struct syntax_state * state, const char * keyword, in
  */
 static int paint_comment(struct syntax_state * state) {
 	while (charat() != -1) {
-		if (match_and_paint(state, "TODO", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "XXX", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
+		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else { paint(1, FLAG_COMMENT); }
 	}
 	return -1;
@@ -836,8 +838,9 @@ static int paint_comment(struct syntax_state * state) {
 static int paint_c_comment(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
-		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
-		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
+		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (last == '*' && charat() == '/') {
 			paint(1, FLAG_COMMENT);
 			return 0;
@@ -2211,7 +2214,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			if (c.flags & FLAG_SELECT) {
 				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
 				was_selecting = 1;
-			} else if (c.flags & FLAG_SEARCH) {
+			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
 			} else {
