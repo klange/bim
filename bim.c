@@ -722,6 +722,10 @@ static char * syn_c_special[] = {
 	NULL
 };
 
+static int c_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_');
+}
+
 /**
  * Paints a basic C-style quoted string.
  */
@@ -791,11 +795,13 @@ static int paint_c_pragma(struct syntax_state * state) {
  * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
  * so it can be used for prefix checking for things that need further special handling.
  */
-static int match_and_paint(struct syntax_state * state, const char * keyword, int flag) {
+static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
+	if (keyword_qualifier(lastchar())) return 0;
+	if (!keyword_qualifier(charat())) return 0;
 	int i = state->i;
 	int slen = 0;
 	while (i < state->line->actual || *keyword == '\0') {
-		if (*keyword == '\0') {
+		if (*keyword == '\0' && (i >= state->line->actual || !keyword_qualifier(state->line->text[i].codepoint))) {
 			for (int j = 0; j < slen; ++j) {
 				paint(1, flag);
 			}
@@ -816,14 +822,10 @@ static int match_and_paint(struct syntax_state * state, const char * keyword, in
  * Assumes you've already painted your comment start characters.
  */
 static int paint_comment(struct syntax_state * state) {
-	int last = -1;
 	while (charat() != -1) {
-		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO ", FLAG_SEARCH)) { continue; }
-		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX ", FLAG_SEARCH)) { continue; }
-		else {
-			last = charat();
-			paint(1, FLAG_COMMENT);
-		}
+		if (match_and_paint(state, "TODO", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "XXX", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
+		else { paint(1, FLAG_COMMENT); }
 	}
 	return -1;
 }
@@ -835,8 +837,8 @@ static int paint_comment(struct syntax_state * state) {
 static int paint_c_comment(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
-		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO ", FLAG_SEARCH)) { continue; }
-		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX ", FLAG_SEARCH)) { continue; }
+		if (!isalnum(last) && last != '_' && match_and_paint(state, "TODO", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
+		else if (!isalnum(last) && last != '_' && match_and_paint(state, "XXX", FLAG_SEARCH, c_keyword_qualifier)) { continue; }
 		else if (last == '*' && charat() == '/') {
 			paint(1, FLAG_COMMENT);
 			return 0;
@@ -846,10 +848,6 @@ static int paint_c_comment(struct syntax_state * state) {
 		}
 	}
 	return 1;
-}
-
-static int c_keyword_qualifier(int c) {
-	return isalnum(c) || (c == '_');
 }
 
 /**
@@ -906,7 +904,7 @@ static int syn_c_calculate(struct syntax_state * state) {
 				if (state->i == 0 && charat() == '#') {
 					/* Handle preprocessor functions */
 					paint(1, FLAG_PRAGMA);
-					if (match_and_paint(state, "include", FLAG_PRAGMA)) {
+					if (match_and_paint(state, "include", FLAG_PRAGMA, c_keyword_qualifier)) {
 						/* Put quotes around <includes> */
 						while (charat() == ' ') paint(1, FLAG_PRAGMA);
 						if (charat() == '<') {
