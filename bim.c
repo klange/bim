@@ -1211,6 +1211,82 @@ static char * syn_java_special[] = {
 	NULL
 };
 
+static char * syn_java_at_comments[] = {
+	"@author","@see","@since","@param","@return","@throws",
+	"@version","@exception","@deprecated",
+	NULL
+};
+
+static int at_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_') || (c == '@');
+}
+
+static char * syn_java_brace_comments[] = {
+	"{@docRoot","{@inheritDoc","{@link","{@linkplain",
+	"{@value","{@code","{@literal","{@serial",
+	"{@serialData","{@serialField",
+	NULL
+};
+
+static int brace_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '{') || (c == '@');
+}
+
+static int paint_java_comment(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (charat() == '@') {
+			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
+				/* Paint the @ */
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '{') {
+			/* see if this terminates */
+			if (find_keywords(state, syn_java_brace_comments, FLAG_ESCAPE, brace_keyword_qualifier)) {
+				while (charat() != '}' && charat() != -1) {
+					paint(1, FLAG_ESCAPE);
+				}
+				if (charat() == '}') paint(1, FLAG_ESCAPE);
+			} else {
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (charat() == '<') {
+			int is_tag = 0;
+			for (int i = 1; charrel(i) != -1; ++i) {
+				if (charrel(i) == '>') {
+					is_tag = 1;
+					break;
+				}
+				if (!isalnum(charrel(i)) && charrel(i) != '/') {
+					is_tag = 0;
+					break;
+				}
+			}
+			if (is_tag) {
+				paint(1, FLAG_TYPE);
+				while (charat() != -1 && charat() != '>') {
+					if (charat() == '/') paint(1, FLAG_TYPE);
+					else paint(1, FLAG_KEYWORD);
+				}
+				if (charat() == '>') paint(1, FLAG_TYPE);
+			} else {
+				/* Paint the < */
+				paint(1, FLAG_COMMENT);
+			}
+		} else if (last == '*' && charat() == '/') {
+			paint(1, FLAG_COMMENT);
+			return 0;
+		} else {
+			last = charat();
+			paint(1, FLAG_COMMENT);
+		}
+	}
+	return 1;
+}
+
 static int syn_java_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
@@ -1223,7 +1299,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 				paint_comment(state);
 			} else if (charat() == '/' && nextchar() == '*') {
 				/* C-style comments; TODO: Needs special stuff for @author; <html>; etc. */
-				if (paint_c_comment(state) == 1) return 1;
+				if (paint_java_comment(state) == 1) return 1;
 			} else if (find_keywords(state, syn_java_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 				return 0;
 			} else if (find_keywords(state, syn_java_types, FLAG_TYPE, c_keyword_qualifier)) {
@@ -1242,7 +1318,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 			}
 			break;
 		case 1:
-			if (paint_c_comment(state) == 1) return 1;
+			if (paint_java_comment(state) == 1) return 1;
 			return 0;
 	}
 	return -1;
