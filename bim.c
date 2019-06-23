@@ -1723,6 +1723,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 		if (state.state != 0) {
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
+				if (env->loading) return;
 				recalculate_syntax(env->lines[line_no+1], line_no+1);
 				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
 					redraw_line(line_no + 1 - env->offset, line_no + 1);
@@ -4555,9 +4556,11 @@ void process_command(char * cmd) {
 		for (int i = 0; i < env->line_count; ++i) {
 			env->lines[i]->istate = 0;
 		}
+		env->loading = 1;
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i],i);
 		}
+		env->loading = 0;
 		redraw_all();
 	} else if (!strcmp(argv[0], "tabs")) {
 		env->tabs = 1;
