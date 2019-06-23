@@ -1489,6 +1489,7 @@ static char * syn_make_special_targets[] = {
 
 static int make_close_paren(struct syntax_state * state) {
 	paint(2, FLAG_TYPE);
+	find_keywords(state, syn_make_functions, FLAG_KEYWORD, c_keyword_qualifier);
 	int i = 1;
 	while (charat() != -1) {
 		if (charat() == '(') {
@@ -1499,8 +1500,6 @@ static int make_close_paren(struct syntax_state * state) {
 				paint(1,FLAG_TYPE);
 				return 0;
 			}
-		} else if (find_keywords(state, syn_make_functions, FLAG_KEYWORD, c_keyword_qualifier)) {
-			continue;
 		} else if (charat() == '"') {
 			paint_simple_string(state);
 		}
