@@ -1152,9 +1152,8 @@ static int syn_py_calculate(struct syntax_state * state) {
 				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
 				return 0;
 			} else if (charat() == '"') {
-				paint(1, FLAG_STRING);
-				if (charat() == '"' && nextchar() == '"') {
-					paint(2, FLAG_STRING);
+				if (nextchar() == '"' && charrel(2) == '"') {
+					paint(3, FLAG_STRING);
 					return paint_py_triple_double(state);
 				} else {
 					paint_simple_string(state);
@@ -1167,9 +1166,8 @@ static int syn_py_calculate(struct syntax_state * state) {
 			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
 			} else if (charat() == '\'') {
-				paint(1, FLAG_STRING);
-				if (charat() == '\'' && nextchar() == '\'') {
-					paint(2, FLAG_STRING);
+				if (nextchar() == '\'' && charrel(2) == '\'') {
+					paint(3, FLAG_STRING);
 					return paint_py_triple_single(state);
 				} else {
 					paint_py_single_string(state);
