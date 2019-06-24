@@ -1710,12 +1710,11 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 			if (state->i == 0 && charat() == '#') {
 				while (charat() == '#') paint(1, FLAG_KEYWORD);
 				while (charat() != -1) paint(1, FLAG_BOLD);
-			} else if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
 				return -1;
-			} else if (charat() == '`') {
-				paint(1, FLAG_STRING);
-				if (charat() == '`' && nextchar() == '`') {
-					paint(2, FLAG_STRING);
+			} else if (state->i == 0) {
+				while (charat() == ' ') skip();
+				if (charat() == '`' && nextchar() == '`' && charrel(2) == '`') {
+					paint(3, FLAG_STRING);
 					if (match_forward(state, "c")) {
 						nest(syn_c_calculate, 2);
 					} else if (match_forward(state,"c++")) {
@@ -1738,14 +1737,18 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 						nest(syn_rust_calculate, 18); /* Keep this at the end for now */
 					}
 					return 1;
-				} else {
-					while (charat() != -1) {
-						if (charat() == '`') {
-							paint(1, FLAG_STRING);
-							return 0;
-						}
+				}
+			}
+			if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
+				return -1;
+			} else if (charat() == '`') {
+				paint(1, FLAG_STRING);
+				while (charat() != -1) {
+					if (charat() == '`') {
 						paint(1, FLAG_STRING);
+						return 0;
 					}
+					paint(1, FLAG_STRING);
 				}
 			} else if (charat() == '[') {
 				skip();
@@ -1767,10 +1770,21 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 		return -1;
 	} else if (state->state >= 1) {
 		/* Continuing generic triple-` */
-		if (state->i == 0 && charat() == '`' && nextchar() == '`' && charrel(2) == '`' && charrel(3) == -1) {
-			paint(3,FLAG_STRING);
-			return -1;
-		} else if (state->state == 1) {
+		if (state->i == 0) {
+			/* Go backwards until we find the source ``` */
+			int count = 0;
+			for (int i = state->line_no; i > 0; i--) {
+				if (env->lines[i]->istate < 1) {
+					while (env->lines[i]->text[count].codepoint == ' ') count++;
+					break;
+				}
+			}
+			if (charrel(count) == '`' && charrel(count+1) == '`' && charrel(count+2) == '`' && charrel(count+3) == -1) {
+				paint(count+3,FLAG_STRING);
+				return -1;
+			}
+		}
+		if (state->state == 1) {
 			while (charat() != -1) paint(1, FLAG_STRING);
 			return 1;
 		} else if (state->state < 5) {
