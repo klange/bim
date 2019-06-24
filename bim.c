@@ -7529,6 +7529,31 @@ void replace_mode(void) {
 	}
 }
 
+void replace_one(void) {
+	/* Read one character and replace */
+	render_commandline_message("r");
+	uint32_t state = 0;
+	int cin;
+	uint32_t c;
+	while ((cin = bim_getch())) {
+		if (cin == -1) continue;
+		if (!decode(&state, &c, cin)) {
+			if (c == '\033') {
+				return;
+			} else if (c == 22) { /* ctrl-v */
+				render_commandline_message("r ^V");
+				while ((cin = bim_getch()) == -1);
+				replace_char(cin);
+				return;
+			} else {
+				replace_char(c);
+				return;
+			}
+		}
+	}
+	return;
+}
+
 /**
  * NORMAL mode
  *
@@ -7671,6 +7696,10 @@ void normal_mode(void) {
 							set_modified();
 							redraw_all();
 						}
+						break;
+					case 'r': /* Replace with next */
+						replace_one();
+						redraw_commandline();
 						break;
 					case 'u': /* Undo one block of history */
 						undo_history();
