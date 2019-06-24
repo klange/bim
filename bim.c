@@ -1782,7 +1782,10 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 			int count = 0;
 			for (int i = state->line_no; i > 0; i--) {
 				if (env->lines[i]->istate < 1) {
-					while (env->lines[i]->text[count].codepoint == ' ') count++;
+					while (env->lines[i]->text[count].codepoint == ' ') {
+						if (charrel(count) != ' ') goto _nope;
+						count++;
+					}
 					break;
 				}
 			}
@@ -1791,6 +1794,7 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 				return -1;
 			}
 		}
+_nope:
 		if (state->state == 1) {
 			while (charat() != -1) paint(1, FLAG_STRING);
 			return 1;
