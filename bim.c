@@ -1691,6 +1691,19 @@ static char * make_ext[] = {"Makefile","makefile","GNUmakefile",".mak",NULL};
 		return state->state + low; \
 	} while (0)
 
+static int match_forward(struct syntax_state * state, char * c) {
+	int i = 0;
+	while (1) {
+		if (charrel(i) == -1 && !*c) return 1;
+		if (charrel(i) != *c) return 0;
+		c++;
+		i++;
+	}
+	return 0;
+}
+
+static int syn_json_calculate(struct syntax_state * state);
+static int syn_xml_calculate(struct syntax_state * state);
 static int syn_markdown_calculate(struct syntax_state * state) {
 	if (state->state < 1) {
 		while (charat() != -1) {
@@ -1703,12 +1716,26 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 				paint(1, FLAG_STRING);
 				if (charat() == '`' && nextchar() == '`') {
 					paint(2, FLAG_STRING);
-					if (charat() == 'c' && nextchar() == -1) {
+					if (match_forward(state, "c")) {
 						nest(syn_c_calculate, 2);
-					} else if (charat() == 'c' && nextchar() == '+' && charrel(2) == '+' && charrel(3) == -1) {
+					} else if (match_forward(state,"c++")) {
 						nest(syn_c_calculate, 2);
-					} else if (charat() == 'p' && nextchar() == 'y' && charrel(2) == -1) {
+					} else if (match_forward(state,"py") || match_forward(state,"python")) {
 						nest(syn_py_calculate, 5);
+					} else if (match_forward(state, "java")) {
+						nest(syn_java_calculate, 8);
+					} else if (match_forward(state,"json")) {
+						nest(syn_json_calculate, 10);
+					} else if (match_forward(state,"xml")) {
+						nest(syn_xml_calculate, 11);
+					} else if (match_forward(state,"html")) {
+						nest(syn_xml_calculate, 11); // TODO this will be a different highlighter later
+					} else if (match_forward(state,"make")) {
+						nest(syn_make_calculate, 16);
+					} else if (match_forward(state, "diff")) {
+						nest(syn_diff_calculate, 17);
+					} else if (match_forward(state, "rust")) {
+						nest(syn_rust_calculate, 18); /* Keep this at the end for now */
 					}
 					return 1;
 				} else {
@@ -1750,6 +1777,18 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 			nest(syn_c_calculate, 2);
 		} else if (state->state < 8) {
 			nest(syn_py_calculate, 5);
+		} else if (state->state < 10) {
+			nest(syn_java_calculate, 8);
+		} else if (state->state < 11) {
+			nest(syn_json_calculate, 10);
+		} else if (state->state < 16) {
+			nest(syn_xml_calculate, 11);
+		} else if (state->state < 17) {
+			nest(syn_make_calculate, 16);
+		} else if (state->state < 18) {
+			nest(syn_diff_calculate, 17);
+		} else {
+			nest(syn_rust_calculate, 18);
 		}
 	}
 	return -1;
