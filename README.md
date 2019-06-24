@@ -216,6 +216,22 @@ You can set the default theme in `~/.bimrc`:
     # set a scroll offset so the cursor isn't at the bottom or top of the screen
     padding=4
 
+## Syntax Support
+
+Not all syntax highlighters are complete or support all features of their respective languages.
+
+- C/C++
+- Python
+- Java
+- diffs
+- Generic INI-style config files
+- Rust
+- git commits and interactive rebase
+- Make / GNU Make
+- Markdown (with some inline code highlighting support)
+- JSON
+- XML / HTML
+
 ## License
 
 Bim is released under the terms of the ISC license, which is a simple BSD-style license. See [LICENSE](LICENSE) for details.
