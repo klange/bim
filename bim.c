@@ -1756,6 +1756,59 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 }
 
 static char * markdown_ext[] = {".md",".markdown",NULL};
+static char * syn_json_keywords[] = {
+	"true","false","null",
+	NULL
+};
+
+static int syn_json_calculate(struct syntax_state * state) {
+	while (charat() != -1) {
+		if (charat() == '"') {
+			int backtrack = state->i;
+			paint_simple_string(state);
+			int backtrack_end = state->i;
+			while (charat() == ' ') skip();
+			if (charat() == ':') {
+				/* This is dumb. */
+				state->i = backtrack;
+				paint(1, FLAG_ESCAPE);
+				while (state->i < backtrack_end-1) {
+					paint(1, FLAG_KEYWORD);
+				}
+				if (charat() == '"') {
+					paint(1, FLAG_ESCAPE);
+				}
+			}
+			return 0;
+		} else if (charat() == '-' || isdigit(charat())) {
+			if (charat() == '-') paint(1, FLAG_NUMERAL);
+			if (charat() == '0') {
+				paint(1, FLAG_NUMERAL);
+			} else {
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			}
+			if (charat() == '.') {
+				paint(1, FLAG_NUMERAL);
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			}
+			if (charat() == 'e' || charat() == 'E') {
+				paint(1, FLAG_NUMERAL);
+				if (charat() == '+' || charat() == '-') {
+					paint(1, FLAG_NUMERAL);
+				}
+				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			}
+		} else if (find_keywords(state,syn_json_keywords,FLAG_NUMERAL,c_keyword_qualifier)) {
+			/* ... */
+		} else {
+			skip();
+			return 0;
+		}
+	}
+	return -1;
+}
+
+static char * json_ext[] = {".json",NULL}; // TODO other stuff that uses json
 
 struct syntax_definition {
 	char * name;
@@ -1773,6 +1826,7 @@ struct syntax_definition {
 	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate},
 	{"make",make_ext,syn_make_calculate},
 	{"markdown",markdown_ext,syn_markdown_calculate},
+	{"json",json_ext,syn_json_calculate},
 	{NULL,NULL,NULL},
 };
 
