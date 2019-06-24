@@ -6572,6 +6572,9 @@ void handle_navigation(int c) {
 		case 'w': /* Move cursor one word right */
 			word_right();
 			break;
+		case 'G': /* Go to end of file */
+			goto_line(env->line_count);
+			break;
 		case ' ': /* Jump forward several lines */
 			goto_line(env->line_no + global_config.term_height - 6);
 			break;
