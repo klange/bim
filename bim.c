@@ -974,7 +974,14 @@ static int syn_c_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
 		case 0:
-			if (state->i == 0 && charat() == '#') {
+			if (charat() == '#') {
+				/* Must be first thing on line, but can have spaces before */
+				for (int i = 0; i < state->i; ++i) {
+					if (state->line->text[i].codepoint != ' ' && state->line->text[i].codepoint != '\t') {
+						skip();
+						return 0;
+					}
+				}
 				/* Handle preprocessor functions */
 				paint(1, FLAG_PRAGMA);
 				while (charat() == ' ') paint(1, FLAG_PRAGMA);
