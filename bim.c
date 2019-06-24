@@ -6532,6 +6532,49 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 }
 
 /**
+ * Search for the word under the cursor
+ */
+void search_under_cursor(void) {
+	/* Figure out size */
+	int c_before = 0;
+	int c_after = 0;
+	int i = env->col_no;
+	while (i > 0) {
+		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		c_before++;
+		i--;
+	}
+	i = env->col_no+1;
+	while (i < env->lines[env->line_no-1]->actual+1) {
+		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		c_after++;
+		i++;
+	}
+	if (!c_before && !c_after) return;
+
+	/* Populate with characters */
+	if (env->search) free(env->search);
+	env->search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	int j = 0;
+	while (c_before) {
+		env->search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		c_before--;
+		j++;
+	}
+	int x = 0;
+	while (c_after) {
+		env->search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		j++;
+		x++;
+		c_after--;
+	}
+	env->search[j] = 0;
+
+	/* Find it */
+	search_next();
+}
+
+/**
  * Standard navigation shared by normal, line, and char selection.
  */
 void handle_navigation(int c) {
@@ -6574,6 +6617,9 @@ void handle_navigation(int c) {
 			break;
 		case 'G': /* Go to end of file */
 			goto_line(env->line_count);
+			break;
+		case '*': /* Search for word under cursor */
+			search_under_cursor();
 			break;
 		case ' ': /* Jump forward several lines */
 			goto_line(env->line_no + global_config.term_height - 6);
