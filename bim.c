@@ -1010,6 +1010,7 @@ static int syn_c_calculate(struct syntax_state * state) {
 			} else if (charat() == '/' && nextchar() == '*') {
 				/* C-style comments */
 				if (paint_c_comment(state) == 1) return 1;
+				return 0;
 			} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 				return 0;
 			} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
