@@ -2003,6 +2003,112 @@ static int syn_proto_calculate(struct syntax_state * state) {
 
 static char * proto_ext[] = {".proto",NULL};
 
+static int esh_variable_qualifier(int c) {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_');
+}
+
+static int paint_esh_variable(struct syntax_state * state) {
+	if (charat() == '{') {
+		paint(1, FLAG_TYPE);
+		while (charat() != '}') paint(1, FLAG_TYPE);
+		if (charat() == '}') paint(1, FLAG_TYPE);
+	} else {
+		if (charat() == '?' || charat() == '$' || charat() == '#') {
+			paint(1, FLAG_TYPE);
+		} else {
+			while (esh_variable_qualifier(charat())) paint(1, FLAG_TYPE);
+		}
+	}
+	return 0;
+}
+
+static int paint_esh_string(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '"') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() == '$') {
+			paint(1, FLAG_TYPE);
+			paint_esh_variable(state);
+			last = -1;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 0;
+}
+
+static int paint_esh_single_string(struct syntax_state * state) {
+	int last = -1;
+	while (charat() != -1) {
+		if (last != '\\' && charat() == '\'') {
+			paint(1, FLAG_STRING);
+			return 0;
+		} else if (charat() != -1) {
+			last = charat();
+			paint(1, FLAG_STRING);
+		}
+	}
+	return 0;
+}
+
+static int esh_keyword_qualifier(int c) {
+	return (isalnum(c) || c == '?' || c == '_' || c == '-'); /* technically anything that isn't a space should qualify... */
+}
+
+static char * esh_keywords[] = {
+	"cd","exit","export","help","history","if","empty?",
+	"equals?","return","export-cmd","source","exec","not","while",
+	"then","else","echo",
+	NULL
+};
+
+static int syn_esh_calculate(struct syntax_state * state) {
+	if (charat() == '#') {
+		while (charat() != -1) paint(1, FLAG_COMMENT);
+		return -1;
+	} else if (charat() == '$') {
+		paint(1, FLAG_TYPE);
+		paint_esh_variable(state);
+		return 0;
+	} else if (charat() == '\'') {
+		paint(1, FLAG_STRING);
+		paint_esh_single_string(state);
+		return 0;
+	} else if (charat() == '"') {
+		paint(1, FLAG_STRING);
+		paint_esh_string(state);
+		return 0;
+	} else if (match_and_paint(state, "export", FLAG_KEYWORD, esh_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (esh_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+		return 0;
+	} else if (match_and_paint(state, "export-cmd", FLAG_KEYWORD, esh_keyword_qualifier)) {
+		while (charat() == ' ') skip();
+		while (esh_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+		return 0;
+	} else if (find_keywords(state, esh_keywords, FLAG_KEYWORD, esh_keyword_qualifier)) {
+		return 0;
+	} else if (isdigit(charat())) {
+		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		return 0;
+	} else if (charat() != -1) {
+		skip();
+		return 0;
+	}
+	return -1;
+}
+
+/* Only enable esh highlighting by default on ToaruOS */
+static char * esh_ext[] = {
+#ifdef __toaru__
+	".sh",
+#endif
+	NULL
+};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -2023,6 +2129,7 @@ struct syntax_definition {
 	{"json",json_ext,syn_json_calculate,1},
 	{"xml",xml_ext,syn_xml_calculate,1},
 	{"protobuf",proto_ext,syn_proto_calculate,1},
+	{"toarush",esh_ext,syn_esh_calculate,0},
 	{NULL,NULL,NULL,0},
 };
 
