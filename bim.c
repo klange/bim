@@ -1954,21 +1954,22 @@ struct syntax_definition {
 	char * name;
 	char ** ext;
 	int (*calculate)(struct syntax_state *);
+	int prefers_spaces;
 } syntaxes[] = {
-	{"c",c_ext,syn_c_calculate},
-	{"python",py_ext,syn_py_calculate},
-	{"java",java_ext,syn_java_calculate},
-	{"diff",diff_ext,syn_diff_calculate},
-	{"conf",conf_ext,syn_conf_calculate},
-	{"rust",rust_ext,syn_rust_calculate},
-	{"bimrc",bimrc_ext,syn_bimrc_calculate},
-	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate},
-	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate},
-	{"make",make_ext,syn_make_calculate},
-	{"markdown",markdown_ext,syn_markdown_calculate},
-	{"json",json_ext,syn_json_calculate},
-	{"xml",xml_ext,syn_xml_calculate},
-	{NULL,NULL,NULL},
+	{"c",c_ext,syn_c_calculate,0},
+	{"python",py_ext,syn_py_calculate,1},
+	{"java",java_ext,syn_java_calculate,1},
+	{"diff",diff_ext,syn_diff_calculate,0},
+	{"conf",conf_ext,syn_conf_calculate,0},
+	{"rust",rust_ext,syn_rust_calculate,1},
+	{"bimrc",bimrc_ext,syn_bimrc_calculate,0},
+	{"gitcommit",gitcommit_ext,syn_gitcommit_calculate,0},
+	{"gitrebase",gitrebase_ext,syn_gitrebase_calculate,0},
+	{"make",make_ext,syn_make_calculate,0}, /* Definitely don't use spaces for Make */
+	{"markdown",markdown_ext,syn_markdown_calculate,1},
+	{"json",json_ext,syn_json_calculate,1},
+	{"xml",xml_ext,syn_xml_calculate,1},
+	{NULL,NULL,NULL,0},
 };
 
 
@@ -3925,6 +3926,9 @@ void open_file(char * file) {
 		env->loading = 0;
 		if (global_config.go_to_line) {
 			goto_line(init_line);
+		}
+		if (env->syntax && env->syntax->prefers_spaces) {
+			env->tabs = 0;
 		}
 		return;
 	}
