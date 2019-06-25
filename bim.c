@@ -3455,6 +3455,21 @@ void redraw_most(void) {
 	redraw_commandline();
 }
 
+void unsplit(void) {
+	if (left_buffer) {
+		left_buffer->left = 0;
+		left_buffer->width = global_config.term_width;
+	}
+	if (right_buffer) {
+		right_buffer->left = 0;
+		right_buffer->width = global_config.term_width;
+	}
+	left_buffer = NULL;
+	right_buffer = NULL;
+
+	redraw_all();
+}
+
 /**
  * Update the terminal title bar
  */
@@ -4668,6 +4683,10 @@ void process_command(char * cmd) {
 		close_buffer();
 	} else if (!strcmp(argv[0], "q")) {
 		/* close buffer if unmodified */
+		if (left_buffer && left_buffer == right_buffer) {
+			unsplit();
+			return;
+		}
 		if (env->modified) {
 			render_error("No write since last change. Use :q! to force exit.");
 		} else {
@@ -4788,18 +4807,7 @@ void process_command(char * cmd) {
 			redraw_alt_buffer(right_buffer);
 		}
 	} else if (!strcmp(argv[0], "unsplit")) {
-		if (left_buffer) {
-			left_buffer->left = 0;
-			left_buffer->width = global_config.term_width;
-		}
-		if (right_buffer) {
-			right_buffer->left = 0;
-			right_buffer->width = global_config.term_width;
-		}
-		left_buffer = NULL;
-		right_buffer = NULL;
-
-		redraw_all();
+		unsplit();
 	} else if (!strcmp(argv[0], "syntax")) {
 		if (argc < 2) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
