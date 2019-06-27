@@ -2447,6 +2447,7 @@ void replace_line(line_t ** lines, int offset, line_t * replacement) {
 	memcpy(&lines[offset]->text, &replacement->text, sizeof(char_t) * replacement->actual);
 
 	if (!env->loading) {
+		lines[offset]->rev_status = 2;
 		recalculate_syntax(lines[offset],offset);
 	}
 }
@@ -2487,6 +2488,7 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	lines[linea]->actual = lines[linea]->actual + lines[lineb]->actual;
 
 	if (!env->loading) {
+		lines[linea]->rev_status = 2;
 		recalculate_tabs(lines[linea]);
 		recalculate_syntax(lines[linea], linea);
 	}
@@ -2556,6 +2558,8 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	lines[line]->actual = split;
 
 	if (!env->loading) {
+		lines[line]->rev_status = 2;
+		lines[line+1]->rev_status = 2;
 		recalculate_tabs(lines[line]);
 		recalculate_tabs(lines[line+1]);
 		recalculate_syntax(lines[line], line);
