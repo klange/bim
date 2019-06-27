@@ -3341,6 +3341,12 @@ void redraw_line(int j, int x) {
 		case 2:
 			set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
 			break;
+		case 3:
+			set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
+			break;
+		case 4:
+			set_colors(COLOR_NUMBER_FG, COLOR_RED);
+			break;
 		default:
 			set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
 			break;
@@ -4275,7 +4281,7 @@ int git_examine(char * filename) {
 	if (child == 0) {
 		close(fds[0]);
 		dup2(fds[1], STDOUT_FILENO);
-		char * args[] = {"git","diff","--",filename,NULL};
+		char * args[] = {"git","--no-pager","diff","-U0","--no-color","--",filename,NULL};
 		exit(execvp("git",args));
 	} else if (child < 0) {
 		return 1;
@@ -4288,6 +4294,7 @@ int git_examine(char * filename) {
 	int line_count = 0;
 	int lines_to_pull = 0;
 	int line_no = 0;
+	int pre_count = 0;
 	while (!feof(f)) {
 		int c = fgetc(f);
 		if (c < 0) break;
@@ -4295,28 +4302,36 @@ int git_examine(char * filename) {
 		if (lines_to_pull > 0 && line_offset == 0) {
 			if (c != '-') {
 				if (c == '+') {
-					env->lines[line_no-1]->rev_status = 1;
+					if (pre_count == lines_to_pull) {
+						env->lines[line_no-1]->rev_status = 3;
+					} else {
+						env->lines[line_no-1]->rev_status = 1;
+					}
 				}
 				lines_to_pull--;
+				pre_count--;
 				line_no++;
 			}
 		} else if (c == '@' && line_offset == 0) {
 			/* Read line offset, count */
 			if (fgetc(f) == '@' && fgetc(f) == ' ' && fgetc(f) == '-') {
 				while (isdigit(c = fgetc(f)));
-				ungetc(c,f);
-				while ((c = fgetc(f)) == ',');
-				ungetc(c,f);
-				while (isdigit(c = fgetc(f)));
-				ungetc(c,f);
+				if (c != ',') {
+					fscanf(f,"%d",&line_no);
+					pre_count = 1;
+				} else {
+					while ((c = fgetc(f)) == ',');
+					ungetc(c,f);
+					fscanf(f,"%d",&pre_count);
+				}
 				while ((c = fgetc(f)) == ' ');
-				ungetc(c,f);
-				while ((c = fgetc(f)) == ',');
 				ungetc(c,f);
 				/* Read one integer */
 				fscanf(f,"%d",&line_no);
-				fgetc(f); // == ','
-				fscanf(f,"%d",&lines_to_pull);
+				lines_to_pull = 1;
+				if (fgetc(f) == ',') {
+					fscanf(f,"%d",&lines_to_pull);
+				}
 			}
 		}
 
