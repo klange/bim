@@ -792,6 +792,7 @@ static char * syn_c_keywords[] = {
 	"alignas","alignof","offsetof","asm","__asm__",
 	/* C++ stuff */
 	"public","private","class","using","namespace","virtual","override","protected",
+	"template","typename",
 	NULL
 };
 
