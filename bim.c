@@ -1049,7 +1049,7 @@ static int syn_c_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-static char * c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",NULL};
+static char * c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",".cc",".hh",NULL};
 
 static char * syn_py_keywords[] = {
 	"class","def","return","del","if","else","elif","for","while","continue",
