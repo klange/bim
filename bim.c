@@ -2312,6 +2312,7 @@ void line_delete(line_t * line, int offset, int lineno) {
 
 	/* The line is one character shorter */
 	line->actual -= 1;
+	line->rev_status = 2;
 
 	recalculate_tabs(line);
 	recalculate_syntax(line, lineno);
