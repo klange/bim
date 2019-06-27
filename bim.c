@@ -165,6 +165,7 @@ typedef struct {
 	int actual;
 	int istate;
 	int is_current;
+	int rev_status;
 	char_t   text[];
 } line_t;
 
@@ -203,6 +204,8 @@ struct {
 	unsigned int go_to_line:1;
 	unsigned int hilight_current_line:1;
 	unsigned int shift_scrolling:1;
+	unsigned int check_git:1;
+	unsigned int color_gutter:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -235,12 +238,15 @@ struct {
 	1, /* should go to line when opening file */
 	1, /* hilight the current line */
 	1, /* shift scrolling (shifts view rather than moving cursor) */
+	0, /* check git on open and on save */
+	1, /* color the gutter for modified lines */
 	4, /* cursor padding */
 	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
 };
 
 void redraw_line(int j, int x);
+int git_examine(char * filename);
 
 /**
  * Special implementation of getch with a timeout
@@ -323,6 +329,7 @@ typedef struct _env {
 	unsigned short readonly:1;
 	unsigned short indent:1;
 	unsigned short highlighting_paren:1;
+	unsigned short checkgitstatusonwrite:1;
 
 	short  mode;
 	short  tabstop;
@@ -1478,7 +1485,7 @@ static char * rust_ext[] = {".rs",NULL};
 
 static char * syn_bimrc_keywords[] = {
 	"history","padding","hlparen","hlcurrent","splitpercent",
-	"shiftscrolling","scrollamount",
+	"shiftscrolling","scrollamount","git","colorgutter",
 	NULL
 };
 
@@ -2273,6 +2280,7 @@ line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 	line->actual += 1;
 
 	if (!env->loading) {
+		line->rev_status = 2; /* Modified */
 		recalculate_tabs(line);
 		recalculate_syntax(line, lineno);
 	}
@@ -2327,6 +2335,7 @@ void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 	line->text[offset] = _c;
 
 	if (!env->loading) {
+		line->rev_status = 2; /* Modified */
 		recalculate_tabs(line);
 		recalculate_syntax(line, lineno);
 	}
@@ -2396,15 +2405,16 @@ line_t ** add_line(line_t ** lines, int offset) {
 	}
 
 	/* Allocate the new line */
-	lines[offset] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
+	lines[offset] = calloc(sizeof(line_t) + sizeof(char_t) * 32, 1);
 	lines[offset]->available = 32;
-	lines[offset]->actual    = 0;
-	lines[offset]->istate    = 0;
-	lines[offset]->is_current = 0;
 
 	/* There is one new line */
 	env->line_count += 1;
 	env->lines = lines;
+
+	if (!env->loading) {
+		lines[offset]->rev_status = 2; /* Modified */
+	}
 
 	if (offset > 0 && !env->loading) {
 		recalculate_syntax(lines[offset-1],offset-1);
@@ -2536,11 +2546,9 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	v++;
 
 	/* Allocate space for the new line */
-	lines[line+1] = malloc(sizeof(line_t) + sizeof(char_t) * v);
+	lines[line+1] = calloc(sizeof(line_t) + sizeof(char_t) * v, 1);
 	lines[line+1]->available = v;
 	lines[line+1]->actual = remaining;
-	lines[line+1]->istate = 0;
-	lines[line+1]->is_current = 0;
 
 	/* Move the data from the old line into the new line */
 	memmove(lines[line+1]->text, &lines[line]->text[split], sizeof(char_t) * remaining);
@@ -2648,11 +2656,8 @@ void setup_buffer(buffer_t * env) {
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
 
 	/* Initialize the first line */
-	env->lines[0] = malloc(sizeof(line_t) + sizeof(char_t) * 32);
+	env->lines[0] = calloc(sizeof(line_t) + sizeof(char_t) * 32, 1);
 	env->lines[0]->available = 32;
-	env->lines[0]->actual    = 0;
-	env->lines[0]->istate    = 0;
-	env->lines[0]->is_current = 0;
 }
 
 /**
@@ -3323,12 +3328,19 @@ void redraw_line(int j, int x) {
 	/* Move cursor to upper left most cell of this line */
 	place_cursor(1 + env->left,2 + j);
 
-	/* Draw a gutter on the left.
-	 * TODO: The gutter can be used to show single-character
-	 *       line annotations, such as collapse state, or
-	 *       whether a search result was found on this line.
-	 */
-	set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+	/* Draw a gutter on the left. */
+	switch (env->lines[x]->rev_status) {
+		case 1:
+			set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
+			break;
+		case 2:
+			set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
+			break;
+		default:
+			set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+			break;
+	}
+
 	printf(" ");
 
 	draw_line_number(x);
@@ -4153,6 +4165,11 @@ void open_file(char * file) {
 
 	env->loading = 0;
 
+	if (global_config.check_git) {
+		env->checkgitstatusonwrite = 1;
+		git_examine(file);
+	}
+
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_tabs(env->lines[i]);
 	}
@@ -4241,6 +4258,79 @@ void next_tab(void) {
 }
 
 /**
+ * Check for modified lines in a file by examining `git diff` output.
+ * This can be enabled globally in bimrc or per environment with the 'git' option.
+ */
+int git_examine(char * filename) {
+	if (env->modified) return 1;
+#ifndef __toaru__
+	int fds[2];
+	pipe(fds);
+	int child = fork();
+	if (child == 0) {
+		close(fds[0]);
+		dup2(fds[1], STDOUT_FILENO);
+		char * args[] = {"git","diff","--",filename,NULL};
+		exit(execvp("git",args));
+	} else if (child < 0) {
+		return 1;
+	}
+
+	close(fds[1]);
+	FILE * f = fdopen(fds[0],"r");
+
+	int line_offset = 0;
+	int line_count = 0;
+	int lines_to_pull = 0;
+	int line_no = 0;
+	while (!feof(f)) {
+		int c = fgetc(f);
+		if (c < 0) break;
+
+		if (lines_to_pull > 0 && line_offset == 0) {
+			if (c != '-') {
+				if (c == '+') {
+					env->lines[line_no-1]->rev_status = 1;
+				}
+				lines_to_pull--;
+				line_no++;
+			}
+		} else if (c == '@' && line_offset == 0) {
+			/* Read line offset, count */
+			if (fgetc(f) == '@' && fgetc(f) == ' ' && fgetc(f) == '-') {
+				while (isdigit(c = fgetc(f)));
+				ungetc(c,f);
+				while ((c = fgetc(f)) == ',');
+				ungetc(c,f);
+				while (isdigit(c = fgetc(f)));
+				ungetc(c,f);
+				while ((c = fgetc(f)) == ' ');
+				ungetc(c,f);
+				while ((c = fgetc(f)) == ',');
+				ungetc(c,f);
+				/* Read one integer */
+				fscanf(f,"%d",&line_no);
+				fgetc(f); // == ','
+				fscanf(f,"%d",&lines_to_pull);
+			}
+		}
+
+		if (c == '\n') {
+			line_offset = 0;
+			line_count++;
+			continue;
+		}
+
+		line_offset++;
+	}
+
+	fclose(f);
+#endif
+	return 0;
+}
+
+
+/**
  * Write active buffer to file
  */
 void write_file(char * file) {
@@ -4260,6 +4350,7 @@ void write_file(char * file) {
 	int i, j;
 	for (i = 0; i < env->line_count; ++i) {
 		line_t * line = env->lines[i];
+		line->rev_status = 0;
 		for (j = 0; j < line->actual; j++) {
 			char_t c = line->text[j];
 			if (c.codepoint == 0) {
@@ -4283,6 +4374,10 @@ void write_file(char * file) {
 	if (!env->file_name) {
 		env->file_name = malloc(strlen(file) + 1);
 		memcpy(env->file_name, file, strlen(file) + 1);
+	}
+
+	if (env->checkgitstatusonwrite) {
+		git_examine(file);
 	}
 
 	update_title();
@@ -4870,6 +4965,23 @@ void process_command(char * cmd) {
 		/* Previous tab */
 		next_tab();
 		update_title();
+	} else if (!strcmp(argv[0], "git")) {
+		if (argc < 2) {
+			render_status_message("git=%d", env->checkgitstatusonwrite);
+		} else {
+			env->checkgitstatusonwrite = !!atoi(argv[1]);
+			if (env->checkgitstatusonwrite && !env->modified && env->file_name) {
+				git_examine(env->file_name);
+				redraw_text();
+			}
+		}
+	} else if (!strcmp(argv[0], "colorgutter")) {
+		if (argc < 2) {
+			render_status_message("colorgutter=%d", global_config.color_gutter);
+		} else {
+			global_config.color_gutter = !!atoi(argv[1]);
+			redraw_text();
+		}
 	} else if (!strcmp(argv[0], "indent")) {
 		env->indent = 1;
 		redraw_statusbar();
@@ -5162,6 +5274,8 @@ void command_tab_complete(char * buffer) {
 		add_candidate("split");
 		add_candidate("splitpercent");
 		add_candidate("unsplit");
+		add_candidate("git");
+		add_candidate("colorgutter");
 		goto _accept_candidate;
 	}
 
@@ -8102,6 +8216,14 @@ void load_bimrc(void) {
 
 		if (!strcmp(l,"scrollamount") && value) {
 			global_config.scroll_amount = atoi(value);
+		}
+
+		if (!strcmp(l,"git") && value) {
+			global_config.check_git = !!atoi(value);
+		}
+
+		if (!strcmp(l,"colorgutter") && value) {
+			global_config.color_gutter = !!atoi(value);
 		}
 	}
 
