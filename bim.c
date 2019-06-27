@@ -792,7 +792,7 @@ static char * syn_c_keywords[] = {
 	"alignas","alignof","offsetof","asm","__asm__",
 	/* C++ stuff */
 	"public","private","class","using","namespace","virtual","override","protected",
-	"template","typename",
+	"template","typename","static_cast","throw",
 	NULL
 };
 
@@ -802,6 +802,7 @@ static char * syn_c_types[] = {
 	"uint8_t","uint16_t","uint32_t","uint64_t",
 	"int8_t","int16_t","int32_t","int64_t","FILE",
 	"ssize_t","size_t","uintptr_t","intptr_t","__volatile__",
+	"constexpr",
 	NULL
 };
 
