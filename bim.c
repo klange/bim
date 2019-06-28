@@ -2593,20 +2593,73 @@ int line_ends_with_brace(line_t * line) {
 	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':');
 }
 
+int line_is_comment(line_t * line) {
+	if (!env->syntax) return 0;
+
+	if (!strcmp(env->syntax->name,"c")) {
+		if (line->istate == 1) return 1;
+	} else if (!strcmp(env->syntax->name,"java")) {
+		if (line->istate == 1) return 1;
+	} else if (!strcmp(env->syntax->name,"rust")) {
+		if (line->istate > 0) return 1;
+	}
+
+	return 0;
+}
+
 /**
  * Add indentation from the previous (temporally) line
  */
 void add_indent(int new_line, int old_line, int ignore_brace) {
 	if (env->indent) {
 		int changed = 0;
-		for (int i = 0; i < env->lines[old_line]->actual; ++i) {
-			if (env->lines[old_line]->text[i].codepoint == ' ' ||
-				env->lines[old_line]->text[i].codepoint == '\t') {
-				env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
-				env->col_no++;
-				changed = 1;
-			} else {
-				break;
+		if (line_is_comment(env->lines[new_line])) {
+			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
+				if (env->lines[old_line]->text[i].codepoint == '/') {
+					if (env->lines[old_line]->text[i+1].codepoint == '*') {
+						/* Insert ' * ' */
+						char_t space = {1,FLAG_COMMENT,' '};
+						char_t asterisk = {1,FLAG_COMMENT,'*'};
+						env->lines[new_line] = line_insert(env->lines[new_line],space,i,new_line);
+						env->lines[new_line] = line_insert(env->lines[new_line],asterisk,i+1,new_line);
+						env->lines[new_line] = line_insert(env->lines[new_line],space,i+2,new_line);
+						env->col_no += 3;
+					}
+					break;
+				} else if (env->lines[old_line]->text[i].codepoint == ' ' && env->lines[old_line]->text[i+1].codepoint == '*') {
+					/* Insert ' * ' */
+					char_t space = {1,FLAG_COMMENT,' '};
+					char_t asterisk = {1,FLAG_COMMENT,'*'};
+					env->lines[new_line] = line_insert(env->lines[new_line],space,i,new_line);
+					env->lines[new_line] = line_insert(env->lines[new_line],asterisk,i+1,new_line);
+					env->lines[new_line] = line_insert(env->lines[new_line],space,i+2,new_line);
+					env->col_no += 3;
+					break;
+				} else if (env->lines[old_line]->text[i].codepoint == ' ' ||
+					env->lines[old_line]->text[i].codepoint == '\t' ||
+					env->lines[old_line]->text[i].codepoint == '*') {
+					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
+					env->col_no++;
+					changed = 1;
+				} else {
+					break;
+				}
+			}
+		} else {
+			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
+				if (i == env->lines[old_line]->actual - 3 &&
+					env->lines[old_line]->text[i].codepoint == ' ' &&
+					env->lines[old_line]->text[i+1].codepoint == '*' &&
+					env->lines[old_line]->text[i+2].codepoint == '/') {
+					break;
+				} else if (env->lines[old_line]->text[i].codepoint == ' ' ||
+					env->lines[old_line]->text[i].codepoint == '\t') {
+					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
+					env->col_no++;
+					changed = 1;
+				} else {
+					break;
+				}
 			}
 		}
 		if (old_line < new_line && !ignore_brace && line_ends_with_brace(env->lines[old_line])) {
@@ -7814,6 +7867,14 @@ void insert_mode(void) {
 						break;
 					case ENTER_KEY:
 					case LINE_FEED:
+						if (env->indent) {
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
+								(env->col_no > 3) &&
+								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
+								delete_at_cursor();
+							}
+						}
 						insert_line_feed();
 						redraw |= 2;
 						break;
@@ -7849,6 +7910,20 @@ void insert_mode(void) {
 						redraw |= 1;
 						set_preferred_column();
 						break;
+					case '/':
+						if (env->indent) {
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
+								(env->col_no > 3) &&
+								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
+								env->col_no--;
+								replace_char('/');
+								env->col_no++;
+								place_cursor_actual();
+								break;
+							}
+						}
+						goto _just_insert;
 					case '}':
 						if (env->indent) {
 							int was_whitespace = 1;
@@ -7879,6 +7954,7 @@ void insert_mode(void) {
 						}
 						/* fallthrough */
 					default:
+_just_insert:
 						insert_char(c);
 						set_preferred_column();
 						redraw |= 1;
