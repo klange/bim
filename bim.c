@@ -7217,13 +7217,7 @@ void line_selection_mode(void) {
 						goto _leave_select_line;
 					case ':': /* Handle command mode specially for redraw */
 						command_mode();
-						for (int i = (env->start_line < env->line_no ? env->start_line : env->line_no);
-							i <= (env->start_line < env->line_no ? env->line_no : env->start_line);
-							++i) {
-							_redraw_line(i,1);
-						}
-						place_cursor_actual();
-						continue;
+						goto _leave_select_line;
 					default:
 						handle_navigation(c);
 						break;
@@ -7476,6 +7470,9 @@ void col_selection_mode(void) {
 						redraw_text();
 						col_insert_mode();
 						goto _leave_select_col;
+					case ':':
+						command_mode();
+						goto _leave_select_col;
 					default:
 						handle_navigation(c);
 						break;
@@ -7701,6 +7698,9 @@ void char_selection_mode(void) {
 						}
 						set_preferred_column();
 						set_modified();
+						goto _leave_select_char;
+					case ':':
+						command_mode();
 						goto _leave_select_char;
 					default:
 						handle_navigation(c);
