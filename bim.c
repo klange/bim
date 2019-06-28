@@ -2613,7 +2613,7 @@ int line_is_comment(line_t * line) {
 void add_indent(int new_line, int old_line, int ignore_brace) {
 	if (env->indent) {
 		int changed = 0;
-		if (line_is_comment(env->lines[new_line])) {
+		if (old_line < new_line && line_is_comment(env->lines[new_line])) {
 			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
 				if (env->lines[old_line]->text[i].codepoint == '/') {
 					if (env->lines[old_line]->text[i+1].codepoint == '*') {
@@ -2647,7 +2647,7 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 			}
 		} else {
 			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
-				if (i == env->lines[old_line]->actual - 3 &&
+				if (old_line < new_line && i == env->lines[old_line]->actual - 3 &&
 					env->lines[old_line]->text[i].codepoint == ' ' &&
 					env->lines[old_line]->text[i+1].codepoint == '*' &&
 					env->lines[old_line]->text[i+2].codepoint == '/') {
