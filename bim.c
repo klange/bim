@@ -2577,6 +2577,23 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 }
 
 /**
+ * Understand spaces and comments and check if the previous line
+ * ended with a brace or a colon.
+ */
+int line_ends_with_brace(line_t * line) {
+	int i = line->actual-1;
+	while (i >= 0) {
+		if ((line->text[i].flags & 0xF) == FLAG_COMMENT || line->text[i].codepoint == ' ') {
+			i--;
+		} else {
+			break;
+		}
+	}
+	if (i < 0) return 0;
+	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':');
+}
+
+/**
  * Add indentation from the previous (temporally) line
  */
 void add_indent(int new_line, int old_line, int ignore_brace) {
@@ -2592,9 +2609,7 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 				break;
 			}
 		}
-		if (old_line < new_line && !ignore_brace &&
-			(env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == '{' ||
-			env->lines[old_line]->text[env->lines[old_line]->actual-1].codepoint == ':')) {
+		if (old_line < new_line && !ignore_brace && line_ends_with_brace(env->lines[old_line])) {
 			if (env->tabs) {
 				char_t c;
 				c.codepoint = '\t';
