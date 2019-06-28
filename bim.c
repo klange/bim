@@ -247,6 +247,7 @@ struct {
 
 void redraw_line(int j, int x);
 int git_examine(char * filename);
+void search_next(void);
 
 /**
  * Special implementation of getch with a timeout
@@ -5809,6 +5810,19 @@ void search_mode(int direction) {
 
 	redraw_commandline();
 	printf(direction == 1 ? "/" : "?");
+	if (env->search) {
+		printf("\0337");
+		set_colors(COLOR_ALT_FG, COLOR_BG);
+		uint32_t * c = env->search;
+		while (*c) {
+			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+			to_eight(*c, tmp);
+			printf("%s", tmp);
+			c++;
+		}
+		printf("\0338");
+		set_colors(COLOR_FG, COLOR_BG);
+	}
 	show_cursor();
 
 	uint32_t state = 0;
@@ -5834,6 +5848,12 @@ void search_mode(int direction) {
 				break;
 			} else if (c == ENTER_KEY || c == LINE_FEED) {
 				/* Exit search */
+				if (!buffer_len) {
+					if (env->search) {
+						search_next();
+					}
+					break;
+				}
 				if (env->search) {
 					free(env->search);
 				}
