@@ -4742,12 +4742,41 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 	*out_col = -1;
 }
 
+#define COMMAND_HISTORY_MAX 255
+char * command_history[COMMAND_HISTORY_MAX] = {NULL};
+
+void insert_command_history(char * cmd) {
+	/* See if this is already in the history. */
+	size_t amount_to_shift = COMMAND_HISTORY_MAX - 1;
+	for (int i = 0; i < COMMAND_HISTORY_MAX && command_history[i]; ++i) {
+		if (!strcmp(command_history[i], cmd)) {
+			free(command_history[i]);
+			amount_to_shift = i;
+			break;
+		}
+	}
+
+	/* Remove last entry that will roll off the stack */
+	if (amount_to_shift == COMMAND_HISTORY_MAX - 1) {
+		if (command_history[COMMAND_HISTORY_MAX-1]) free(command_history[COMMAND_HISTORY_MAX-1]);
+	}
+
+	/* Roll the history */
+	memmove(&command_history[1], &command_history[0], sizeof(char *) * (amount_to_shift));
+
+	command_history[0] = strdup(cmd);
+}
+
 /**
  * Process a user command.
  */
 void process_command(char * cmd) {
 	/* Special case ! to run shell commands without parsing tokens */
 	int c;
+
+	/* Add command to history */
+	insert_command_history(cmd);
+
 	if (*cmd == '!') {
 		/* Reset and draw some line feeds */
 		reset();
@@ -4956,6 +4985,19 @@ void process_command(char * cmd) {
 		} else {
 			write_file(env->file_name);
 		}
+	} else if (!strcmp(argv[0], "history")) {
+		render_commandline_message(""); /* To clear command line */
+		for (int i = COMMAND_HISTORY_MAX; i > 1; --i) {
+			if (command_history[i-1]) render_commandline_message("%d:%s\n", i-1, command_history[i-1]);
+		}
+		render_commandline_message("\n");
+		redraw_tabbar();
+		redraw_commandline();
+		fflush(stdout);
+		int c;
+		while ((c = bim_getch())== -1);
+		bim_unget(c);
+		redraw_all();
 	} else if (!strcmp(argv[0], "wq")) {
 		/* wq: write file and close buffer; if there's no file to write to, may do weird things */
 		write_file(env->file_name);
@@ -5560,6 +5602,8 @@ void command_mode(void) {
 	printf(":");
 	show_cursor();
 
+	int history_point = -1;
+
 	while ((c = bim_getch())) {
 		if (c == -1) {
 			if (timeout && this_buf[timeout-1] == '\033') {
@@ -5648,10 +5692,22 @@ void command_mode(void) {
 						bim_unget(c);
 						return;
 					case 'A':
-						render_status_message("history up");
+						/* Load from history */
+						if (command_history[history_point+1]) {
+							memcpy(buffer, command_history[history_point+1], strlen(command_history[history_point+1])+1);
+							history_point++;
+							buffer_len = strlen(buffer);
+						}
 						goto _redraw_buffer;
 					case 'B':
-						render_status_message("history down");
+						if (history_point > 0) {
+							history_point--;
+							memcpy(buffer, command_history[history_point], strlen(command_history[history_point])+1);
+						} else {
+							history_point = -1;
+							memset(buffer, 0, 1000);
+						}
+						buffer_len = strlen(buffer);
 						goto _redraw_buffer;
 					case 'C':
 					case 'D':
