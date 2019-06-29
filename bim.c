@@ -37,6 +37,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <poll.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -450,7 +451,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 	if (!realpath(buf->file_name, tmp_path)) {
 		return 1;
 	}
-	tmp_path[strlen(tmp_path)] = ' ';
+	strcat(tmp_path," ");
 
 	FILE * biminfo = open_biminfo();
 	if (!biminfo) return 1;
@@ -488,7 +489,7 @@ int update_biminfo(buffer_t * buf) {
 	if (!realpath(buf->file_name, tmp_path)) {
 		return 1;
 	}
-	tmp_path[strlen(tmp_path)] = ' ';
+	strcat(tmp_path," ");
 
 	FILE * biminfo = open_biminfo();
 	if (!biminfo) return 1;
