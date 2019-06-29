@@ -4382,6 +4382,7 @@ void open_file(char * file) {
 			env->line_no = 1;
 			env->col_no = 1;
 			fetch_from_biminfo(env);
+			redraw_all();
 			place_cursor_actual();
 			set_preferred_column();
 		}
@@ -4418,6 +4419,10 @@ void try_quit(void) {
 			}
 			return;
 		}
+	}
+	/* Close all buffers */
+	while (buffers_len) {
+		buffer_close(buffers[0]);
 	}
 	quit();
 }
@@ -5218,6 +5223,9 @@ void process_command(char * cmd) {
 		try_quit();
 	} else if (!strcmp(argv[0], "qa!")) {
 		/* Forcefully exit editor */
+		while (buffers_len) {
+			buffer_close(buffers[0]);
+		}
 		quit();
 	} else if (!strcmp(argv[0], "tabp")) {
 		/* Next tab */
