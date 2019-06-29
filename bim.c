@@ -2047,7 +2047,7 @@ static int paint_esh_string(struct syntax_state * state) {
 			paint(1, FLAG_STRING);
 		}
 	}
-	return 0;
+	return 2;
 }
 
 static int paint_esh_single_string(struct syntax_state * state) {
@@ -2061,7 +2061,7 @@ static int paint_esh_single_string(struct syntax_state * state) {
 			paint(1, FLAG_STRING);
 		}
 	}
-	return 0;
+	return 1;
 }
 
 static int esh_keyword_qualifier(int c) {
@@ -2076,6 +2076,11 @@ static char * esh_keywords[] = {
 };
 
 static int syn_esh_calculate(struct syntax_state * state) {
+	if (state->state == 1) {
+		return paint_esh_single_string(state);
+	} else if (state->state == 2) {
+		return paint_esh_string(state);
+	}
 	if (charat() == '#') {
 		while (charat() != -1) paint(1, FLAG_COMMENT);
 		return -1;
@@ -2085,12 +2090,10 @@ static int syn_esh_calculate(struct syntax_state * state) {
 		return 0;
 	} else if (charat() == '\'') {
 		paint(1, FLAG_STRING);
-		paint_esh_single_string(state);
-		return 0;
+		return paint_esh_single_string(state);
 	} else if (charat() == '"') {
 		paint(1, FLAG_STRING);
-		paint_esh_string(state);
-		return 0;
+		return paint_esh_string(state);
 	} else if (match_and_paint(state, "export", FLAG_KEYWORD, esh_keyword_qualifier)) {
 		while (charat() == ' ') skip();
 		while (esh_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
