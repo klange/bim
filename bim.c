@@ -4353,8 +4353,10 @@ int git_examine(char * filename) {
 	pipe(fds);
 	int child = fork();
 	if (child == 0) {
+		FILE * dev_null = fopen("/dev/null","w");
 		close(fds[0]);
 		dup2(fds[1], STDOUT_FILENO);
+		dup2(fileno(dev_null), STDERR_FILENO);
 		char * args[] = {"git","--no-pager","diff","-U0","--no-color","--",filename,NULL};
 		exit(execvp("git",args));
 	} else if (child < 0) {
