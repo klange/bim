@@ -4409,8 +4409,8 @@ void open_file(char * file) {
 			env->line_no = 1;
 			env->col_no = 1;
 			fetch_from_biminfo(env);
-			redraw_all();
 			place_cursor_actual();
+			redraw_all();
 			set_preferred_column();
 		}
 	}
