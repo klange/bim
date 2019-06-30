@@ -2254,6 +2254,7 @@ static char * esh_ext[] = {
 #ifdef __toaru__
 	".sh",
 #endif
+	".eshrc",".yutanirc",
 	NULL
 };
 
@@ -2262,9 +2263,9 @@ static char * syn_bash_keywords[] = {
 	"if","then","else","elif","fi","case","esac","for","coproc",
 	"select","while","until","do","done","in","function","time",
 	/* Other keywords */
-	"exit","return","source","function","export",
+	"exit","return","source","function","export","alias","complete","shopt","local","eval",
 	/* Common Unix utilities */
-	"echo","cd","pushd","popd","printf","sed",
+	"echo","cd","pushd","popd","printf","sed","rm","mv",
 	NULL
 };
 
@@ -2395,7 +2396,7 @@ static int syn_bash_calculate(struct syntax_state * state) {
 					}
 					return 0;
 				}
-				if (!c_keyword_qualifier(charrel(i)) && charrel(i) != ' ') break;
+				if (!c_keyword_qualifier(charrel(i)) && charrel(i) != '-' && charrel(i) != ' ') break;
 			}
 			skip();
 			return 0;
@@ -2433,7 +2434,7 @@ static char * bash_ext[] = {
 #ifndef __toaru__
 	".sh",
 #endif
-	".bash",
+	".bash",".bashrc",
 	NULL
 };
 
