@@ -4548,6 +4548,8 @@ int git_examine(char * filename) {
 					to_count = 1;
 				}
 
+				if (to_line > env->line_count) continue;
+
 				if (from_count == 0 && to_count > 0) {
 					/* No -, all + means all of to_count is green */
 					for (int i = 0; i < to_count; ++i) {
@@ -4558,6 +4560,7 @@ int git_examine(char * filename) {
 					 * No +, all - means we have a deletion. We mark the next line such that it has a red bar at the top
 					 * Note that to_line is one lower than the affacted line, so we don't need to mes with indexes.
 					 */
+					if (to_line >= env->line_count) continue;
 					env->lines[to_line]->rev_status = 4; /* Red */
 				} else if (from_count > 0 && from_count == to_count) {
 					/* from = to, all modified */
