@@ -5214,6 +5214,14 @@ static void html_convert_color(const char * color_string) {
 		if (italic && italic[2] == '\0') {
 			add_string(" font-style: oblique;");
 		}
+		char * bold = strstr(color_string,";1");
+		if (bold && bold[2] == '\0') {
+			add_string(" font-weight: bold;");
+		}
+		char * underline = strstr(color_string,";4");
+		if (underline && underline[2] == '\0') {
+			add_string(" font-decoration: underline;");
+		}
 	} else if (!strncmp(color_string,"5;",2)) {
 		/* 256 colors; needs lookup table */
 	} else {
