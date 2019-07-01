@@ -5198,6 +5198,103 @@ void insert_command_history(char * cmd) {
 	command_history[0] = strdup(cmd);
 }
 
+static void add_string(char * string) {
+	add_buffer((uint8_t*)string,strlen(string));
+}
+
+static void html_convert_color(const char * color_string) {
+	if (!strncmp(color_string,"2;",2)) {
+		/* 24-bit color */
+		int red, green, blue;
+		sscanf(color_string+2,"%d;%d;%d",&red,&green,&blue);
+		char tmp[100];
+		sprintf(tmp, "#%02x%02x%02x;", red,green,blue);
+		add_string(tmp);
+		char * italic = strstr(color_string,";3");
+		if (italic && italic[2] == '\0') {
+			add_string(" font-style: oblique;");
+		}
+	} else if (!strncmp(color_string,"5;",2)) {
+		/* 256 colors; needs lookup table */
+	} else {
+		/* 16 colors; needs lookup table */
+	}
+}
+
+void convert_to_html(void) {
+	buffer_t * old = env;
+	env = buffer_new();
+	setup_buffer(env);
+	env->loading = 1;
+
+	add_string("<!doctype html>\n");
+	add_string("<html>\n");
+	add_string("	<head>\n");
+	add_string("		<style>\n");
+	add_string("			body {\n");
+	add_string("				font-family: monospace;\n");
+	add_string("				white-space: pre-wrap;\n");
+	add_string("				background-color: ");
+	/* Convert color */
+	html_convert_color(COLOR_BG);
+	add_string("\n");
+	add_string("			}\n");
+	for (int i = 0; i < 14; ++i) {
+		/* For each of the relevant flags... */
+		char tmp[20];
+		sprintf(tmp,"			.s%d { color: ", i);
+		add_string(tmp);
+		html_convert_color(flag_to_color(i));
+		add_string("}\n");
+	}
+	add_string("		</style>\n");
+	add_string("	</head>\n");
+	add_string("	<body>\n");
+
+	for (int i = 0; i < old->line_count; ++i) {
+		int last_flag = -1;
+		int opened = 0;
+		for (int j = 0; j < old->lines[i]->actual; ++j) {
+			char_t c = old->lines[i]->text[j];
+
+			if (last_flag == -1 || last_flag != (c.flags & 0x1F)) {
+				if (opened) add_string("</span>");
+				opened = 1;
+				char tmp[100];
+				sprintf(tmp, "<span class=\"s%d\">", c.flags & 0x1F);
+				add_string(tmp);
+				last_flag = (c.flags & 0x1F);
+			}
+
+			if (c.codepoint == '<') {
+				add_string("&lt;");
+			} else if (c.codepoint == '>') {
+				add_string("&gt;");
+			} else {
+				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+				to_eight(c.codepoint, tmp);
+				add_string(tmp);
+			}
+		}
+		if (opened) {
+			add_string("</span>\n");
+		}
+	}
+
+	add_string("	</body>\n");
+	add_string("</html>\n");
+
+	env->loading = 0;
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_tabs(env->lines[i]);
+	}
+	env->syntax = match_syntax(".htm");
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	redraw_all();
+}
+
 /**
  * Process a user command.
  */
@@ -5688,6 +5785,8 @@ void process_command(char * cmd) {
 			redraw_text();
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
+		convert_to_html();
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -5775,6 +5874,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("unsplit");
 		add_candidate("git");
 		add_candidate("colorgutter");
+		add_candidate("tohtml");
 		goto _accept_candidate;
 	}
 
