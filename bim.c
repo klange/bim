@@ -5229,6 +5229,10 @@ static void html_convert_color(const char * color_string) {
 	}
 }
 
+/**
+ * Based on vim's :TOhtml
+ * Convert syntax-highlighted buffer contents to HTML.
+ */
 void convert_to_html(void) {
 	buffer_t * old = env;
 	env = buffer_new();
@@ -5241,7 +5245,6 @@ void convert_to_html(void) {
 	add_string("		<style>\n");
 	add_string("			body {\n");
 	add_string("				font-family: monospace;\n");
-	add_string("				white-space: pre-wrap;\n");
 	add_string("				background-color: ");
 	/* Convert color */
 	html_convert_color(COLOR_BG);
@@ -5255,11 +5258,22 @@ void convert_to_html(void) {
 		html_convert_color(flag_to_color(i));
 		add_string("}\n");
 	}
+	add_string("			div {\n");
+	add_string("				white-space: pre-wrap;\n");
+	add_string("			}\n");
+	add_string("			div:target {\n");
+	add_string("				background-color: ");
+	html_convert_color(COLOR_ALT_BG);
+	add_string("\n");
+	add_string("			}\n");
 	add_string("		</style>\n");
 	add_string("	</head>\n");
 	add_string("	<body>\n");
 
 	for (int i = 0; i < old->line_count; ++i) {
+		char tmp[100];
+		sprintf(tmp, "<div id=\"line_%d\">", i+1);
+		add_string(tmp);
 		int last_flag = -1;
 		int opened = 0;
 		for (int j = 0; j < old->lines[i]->actual; ++j) {
@@ -5287,10 +5301,9 @@ void convert_to_html(void) {
 			}
 		}
 		if (opened) {
-			add_string("</span>\n");
-		} else {
-			add_string("\n");
+			add_string("</span>");
 		}
+		add_string("</div>\n");
 	}
 
 	add_string("	</body>\n");
