@@ -5270,6 +5270,8 @@ void convert_to_html(void) {
 				add_string("&lt;");
 			} else if (c.codepoint == '>') {
 				add_string("&gt;");
+			} else if (c.codepoint == '&') {
+				add_string("&amp;");
 			} else {
 				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
 				to_eight(c.codepoint, tmp);
@@ -5285,6 +5287,15 @@ void convert_to_html(void) {
 	add_string("</html>\n");
 
 	env->loading = 0;
+	env->modified = 1;
+	if (old->file_name) {
+		char * base = file_basename(old->file_name);
+		char * tmp = malloc(strlen(base) + 5);
+		*tmp = '\0';
+		strcat(tmp, base);
+		strcat(tmp, ".htm");
+		env->file_name = tmp;
+	}
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_tabs(env->lines[i]);
 	}
