@@ -5302,6 +5302,8 @@ void convert_to_html(void) {
 		}
 		if (opened) {
 			add_string("</span>");
+		} else {
+			add_string("<wbr>");
 		}
 		add_string("</div>\n");
 	}
