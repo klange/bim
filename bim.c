@@ -5916,7 +5916,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split"))) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
