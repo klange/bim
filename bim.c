@@ -3525,6 +3525,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				was_searching = 1;
 			} else {
 				if (was_selecting || was_searching) {
+					was_selecting = 0;
+					was_searching = 0;
 					set_colors(color, line->is_current ? COLOR_ALT_BG : COLOR_BG);
 					last_color = color;
 				} else if (!last_color || strcmp(color, last_color)) {
