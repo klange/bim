@@ -1450,6 +1450,7 @@ static int syn_java_calculate(struct syntax_state * state) {
 			} else if (charat() == '@') {
 				paint(1, FLAG_PRAGMA);
 				while (c_keyword_qualifier(charat())) paint(1, FLAG_PRAGMA);
+				return 0;
 			} else if (charat() != -1) {
 				skip();
 				return 0;
