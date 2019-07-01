@@ -5280,6 +5280,8 @@ void convert_to_html(void) {
 		}
 		if (opened) {
 			add_string("</span>\n");
+		} else {
+			add_string("\n");
 		}
 	}
 
