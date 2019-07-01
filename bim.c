@@ -2905,7 +2905,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 int line_ends_with_brace(line_t * line) {
 	int i = line->actual-1;
 	while (i >= 0) {
-		if ((line->text[i].flags & 0xF) == FLAG_COMMENT || line->text[i].codepoint == ' ') {
+		if ((line->text[i].flags & 0x1F) == FLAG_COMMENT || line->text[i].codepoint == ' ') {
 			i--;
 		} else {
 			break;
@@ -6479,7 +6479,7 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 	int paren_match = 0;
 	int direction = 0;
 	int start = env->lines[env->line_no-1]->text[env->col_no-in_col].codepoint;
-	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0xF;
+	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0x1F;
 	int count = 0;
 
 	/* TODO what about unicode parens? */
@@ -6500,7 +6500,7 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 	do {
 		while (col > 0 && col < env->lines[line-1]->actual + 1) {
 			/* Only match on same syntax */
-			if ((env->lines[line-1]->text[col-1].flags & 0xF) == flags) {
+			if ((env->lines[line-1]->text[col-1].flags & 0x1F) == flags) {
 				/* Count up on same direction */
 				if (env->lines[line-1]->text[col-1].codepoint == start) count++;
 				/* Count down on opposite direction */
@@ -8234,7 +8234,7 @@ void insert_mode(void) {
 					case ENTER_KEY:
 					case LINE_FEED:
 						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
 								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
 								(env->col_no > 3) &&
 								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
@@ -8278,7 +8278,7 @@ void insert_mode(void) {
 						break;
 					case '/':
 						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0xF) == FLAG_COMMENT &&
+							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
 								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
 								(env->col_no > 3) &&
 								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
