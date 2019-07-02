@@ -9078,11 +9078,15 @@ int main(int argc, char * argv[]) {
 
 	/* Open file */
 	if (argc > optind) {
-		open_file(argv[optind]);
-		update_title();
-		if (global_config.initial_file_is_read_only) {
-			env->readonly = 1;
+		while (argc > optind) {
+			open_file(argv[optind]);
+			update_title();
+			if (global_config.initial_file_is_read_only) {
+				env->readonly = 1;
+			}
+			optind++;
 		}
+		env = buffers[0];
 	} else {
 		env = buffer_new();
 		update_title();
