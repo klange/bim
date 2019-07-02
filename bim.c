@@ -4302,6 +4302,11 @@ void update_screen_size(void) {
 			env->width = w.ws_col;
 		}
 	}
+	for (int i = 0; i < buffers_len; ++i) {
+		if (buffers[i] != left_buffer && buffers[i] != right_buffer) {
+			buffers[i]->width = w.ws_col;
+		}
+	}
 }
 
 /**
