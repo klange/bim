@@ -1893,9 +1893,7 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 					return 1;
 				}
 			}
-			if (charat() == ' ' && charrel(1) == ' ' && charrel(2) == ' ' && charrel(3) == ' ') {
-				return -1;
-			} else if (charat() == '`') {
+			if (charat() == '`') {
 				paint(1, FLAG_STRING);
 				while (charat() != -1) {
 					if (charat() == '`') {
