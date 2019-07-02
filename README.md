@@ -29,6 +29,9 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Undo/redo stack.
 - Highlight matching parens/braces.
 - Multi-line insert mode.
+- Persistent cursor location between sessions.
+- Git integration, shows `git diff` status in-line, along with unsaved changes.
+- Convert syntax highlighted code to an HTML document.
 - (experimental) Split viewports to view multiple files or different parts of the same file.
 
 ## Prerequisites
@@ -158,6 +161,8 @@ In COL SELECTION mode, you can enter COL INSERT mode to insert characters on mul
 | `:split`           | Split either the current buffer or the first two tabs into a vertical viewing mode             |
 | `:split file`      | Open a new file next to the current buffer                                                     |
 | `:s P`             | Replace text, `P` is a sed pattern (eg. `/foo/bar/g`); supports `g`, `i` options; no regex yet |
+| `:git VALUE`       | Enable (1) or disable (0) `git diff` integration.                                              |
+| `:tohtml`          | Created an HTML document with syntax highlighted text from the currently open document         |
 
 ## Additional Bim Functionality
 
