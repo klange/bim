@@ -5826,6 +5826,17 @@ void process_command(char * cmd) {
 		}
 	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
 		convert_to_html();
+	} else if (!strcmp(argv[0],"buffers")) {
+		for (int i = 0; i < buffers_len; ++i) {
+			render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
+		}
+		redraw_tabbar();
+		redraw_commandline();
+		fflush(stdout);
+		int c;
+		while ((c = bim_getch())== -1);
+		bim_unget(c);
+		redraw_all();
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
@@ -5914,6 +5925,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("git");
 		add_candidate("colorgutter");
 		add_candidate("tohtml");
+		add_candidate("buffers");
 		goto _accept_candidate;
 	}
 
