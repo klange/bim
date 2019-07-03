@@ -3400,12 +3400,24 @@ void unset_alternate_screen(void) {
 	}
 }
 
+/**
+ * Get the name of just a file from a full path.
+ * Returns a pointer within the original string.
+ */
 char * file_basename(char * file) {
 	char * c = strrchr(file, '/');
 	if (!c) return file;
 	return (c+1);
 }
 
+/**
+ * Print a tab name with fixed width and modifiers
+ * into an output buffer and return the written width.
+ *
+ * TODO this isn't unicode/display-width aware, so it returns
+ *      byte lengths and doesn't limit the width of the file
+ *      properly if it has wide characters. FIXME
+ */
 int draw_tab_name(buffer_t * _env, char * out) {
 	return sprintf(out, "%s %.40s ",
 		_env->modified ? " +" : "",
@@ -3851,6 +3863,11 @@ void redraw_text(void) {
 static int view_left_offset = 0;
 static int view_right_offset = 0;
 
+/**
+ * When in split view, draw the other buffer.
+ * Has special handling for when the split is
+ * on a single buffer.
+ */
 void redraw_alt_buffer(buffer_t * buf) {
 	if (left_buffer == right_buffer) {
 		/* draw the opposite view */
@@ -4074,6 +4091,9 @@ void redraw_all(void) {
 	redraw_commandline();
 }
 
+/**
+ * Redraw all screen elements except the other split view.
+ */
 void redraw_most(void) {
 	redraw_tabbar();
 	redraw_text();
@@ -4081,6 +4101,9 @@ void redraw_most(void) {
 	redraw_commandline();
 }
 
+/**
+ * Disable screen splitting.
+ */
 void unsplit(void) {
 	if (left_buffer) {
 		left_buffer->left = 0;
@@ -4312,6 +4335,10 @@ void place_cursor_actual(void) {
 	show_cursor();
 }
 
+/**
+ * If the screen is split, update the split sizes based
+ * on the new terminal width and the user's split_percent setting.
+ */
 void update_split_size(void) {
 	if (!left_buffer) return;
 	if (left_buffer == right_buffer) {
@@ -4916,6 +4943,13 @@ void close_buffer(void) {
 	redraw_all();
 }
 
+/**
+ * Set the visual column the cursor should attempt to keep
+ * when moving up and down based on where the cursor currently is.
+ * This should happen whenever the user intentionally changes
+ * the cursor's horizontal positioning, such as with left/right
+ * arrow keys, word-move, search, mouse, etc.
+ */
 void set_preferred_column(void) {
 	int c = 0;
 	for (int i = 0; i < env->lines[env->line_no-1]->actual && i < env->col_no-1; ++i) {
@@ -5170,6 +5204,9 @@ void leave_insert(void) {
 	redraw_commandline();
 }
 
+/**
+ * Helper for handling smart case sensitivity.
+ */
 int search_matches(uint32_t a, uint32_t b, int mode) {
 	if (mode == 0) {
 		return a == b;
@@ -5179,6 +5216,9 @@ int search_matches(uint32_t a, uint32_t b, int mode) {
 	return 0;
 }
 
+/**
+ * Replace text on a given line with other text.
+ */
 void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col) {
 	line_t * line = env->lines[line_no-1];
 	int j = col;
@@ -5221,6 +5261,12 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 #define COMMAND_HISTORY_MAX 255
 char * command_history[COMMAND_HISTORY_MAX] = {NULL};
 
+/**
+ * Add a command to the history. If that command was
+ * already in history, it is moved to the front of the list;
+ * otherwise, the whole list is shifted backwards and
+ * overflow is freed up.
+ */
 void insert_command_history(char * cmd) {
 	/* See if this is already in the history. */
 	size_t amount_to_shift = COMMAND_HISTORY_MAX - 1;
@@ -5243,10 +5289,20 @@ void insert_command_history(char * cmd) {
 	command_history[0] = strdup(cmd);
 }
 
+/**
+ * Add a raw string to a buffer. Convenience wrapper
+ * for add_buffer for nil-terminated strings.
+ */
 static void add_string(char * string) {
 	add_buffer((uint8_t*)string,strlen(string));
 }
 
+/**
+ * Convert a color setting from terminal format
+ * to a hexadecimal color code and add it to the current
+ * buffer. This is used for HTML conversion, but could
+ * possibly be used for other purposes.
+ */
 static void html_convert_color(const char * color_string) {
 	if (!strncmp(color_string,"2;",2)) {
 		/* 24-bit color */
@@ -6155,6 +6211,11 @@ done:
 	free(buf);
 }
 
+/**
+ * Handle complex keyboard escapes when taking in a command.
+ * This allows us to not muck up the command input and also
+ * handle things like up/down arrow keys to go through history.
+ */
 int handle_command_escape(int * this_buf, int * timeout, int c) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
@@ -6356,6 +6417,11 @@ _redraw_buffer:
 	}
 }
 
+/**
+ * Determine whether a string should be searched
+ * case-sensitive or not based on whether it contains
+ * any upper-case letters.
+ */
 int smart_case(uint32_t * str) {
 	if (!global_config.smart_case) return 0;
 
@@ -6726,6 +6792,10 @@ _match_found:
 	*out_col  = col;
 }
 
+/**
+ * Switch to the left split view
+ * (Primarily to handle cases where the left and right are the same buffer)
+ */
 void use_left_buffer(void) {
 	if (left_buffer == right_buffer && env->left != 0) {
 		view_right_offset = env->offset;
@@ -6736,6 +6806,10 @@ void use_left_buffer(void) {
 	env = left_buffer;
 }
 
+/**
+ * Switch to the right split view
+ * (Primarily to handle cases where the left and right are the same buffer)
+ */
 void use_right_buffer(void) {
 	if (left_buffer == right_buffer && env->left == 0) {
 		view_left_offset = env->offset;
@@ -7282,6 +7356,10 @@ int is_special(int codepoint) {
 	return !is_normal(codepoint) && !is_whitespace(codepoint);
 }
 
+/**
+ * Delete a "word"; the logic here is a bit complex, but it attempts to do
+ * what vim does when you hit ^W (and it's what we bind ^W to as well)
+ */
 void delete_word(void) {
 	if (!env->lines[env->line_no-1]) return;
 	if (env->col_no > 1) {
@@ -7913,7 +7991,13 @@ _leave_select_line:
 		} \
 	} while (0)
 
-
+/**
+ * COL INSERT MODE
+ *
+ * Allows entering text on multiple lines simultaneously.
+ * A full multi-cursor insert mode would be way cooler, but
+ * this is all we need for my general use case of vim's BLOCK modes.
+ */
 void col_insert_mode(void) {
 	if (env->start_line < env->line_no) {
 		/* swap */
@@ -8617,6 +8701,13 @@ void replace_mode(void) {
 	}
 }
 
+/**
+ * Handler for 'r'; takes in input to replace a single
+ * character in the document. Handles Unicode, so we
+ * can replace a character with complex input. Also
+ * handles ^V so we can replace with escape sequences
+ * we would otherwise gobble up.
+ */
 void replace_one(void) {
 	/* Read one character and replace */
 	render_commandline_message("r");
