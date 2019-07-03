@@ -2447,6 +2447,8 @@ static int syn_bash_calculate(struct syntax_state * state) {
 				state->state = bash_paint_string(state,')',state->state,FLAG_TYPE);
 			} else if (s == 4) {
 				state->state = bash_paint_string(state,'"',state->state,FLAG_STRING);
+			} else if (!s) {
+				return -1;
 			}
 		}
 		return state->state;
