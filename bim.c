@@ -6818,7 +6818,9 @@ void handle_mouse(void) {
 			line_no = env->line_count;
 		}
 
-		env->coffset = 0;
+		if (line_no != env->line_no) {
+			env->coffset = 0;
+		}
 
 		/* Account for the left hand gutter */
 		int num_size = num_width() + 3;
