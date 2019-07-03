@@ -4606,7 +4606,6 @@ void open_file(char * file) {
 			return;
 		}
 		f = stdin;
-		global_config.tty_in = STDERR_FILENO;
 		env->modified = 1;
 	} else {
 		char * l = strrchr(file, ':');
@@ -9160,6 +9159,9 @@ void initialize(void) {
  * Initialize terminal for editor display.
  */
 void init_terminal(void) {
+	if (!isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) {
+		global_config.tty_in = STDERR_FILENO;
+	}
 	set_alternate_screen();
 	update_screen_size();
 	get_initial_termios();
