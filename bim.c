@@ -958,6 +958,21 @@ static void paint_c_string(struct syntax_state * state) {
 				}
 			}
 			last = -1;
+		} else if (charat() == '%') {
+			paint(1, FLAG_ESCAPE);
+			if (charat() == '%') {
+				paint(1, FLAG_ESCAPE);
+			} else {
+				while (charat() == '-' || charat() == '#' || charat() == '*' || charat() == '0' || charat() == '+') paint(1, FLAG_ESCAPE);
+				while (isdigit(charat())) paint(1, FLAG_ESCAPE);
+				if (charat() == '.') {
+					paint(1, FLAG_ESCAPE);
+					if (charat() == '*') paint(1, FLAG_ESCAPE);
+					else while (isdigit(charat())) paint(1, FLAG_ESCAPE);
+				}
+				while (charat() == 'l' || charat() == 'z') paint(1, FLAG_ESCAPE);
+				paint(1, FLAG_ESCAPE);
+			}
 		} else if (charat() == '\\' && nextchar() == 'x') {
 			paint(2, FLAG_ESCAPE);
 			while (isxdigit(charat())) paint(1, FLAG_ESCAPE);
