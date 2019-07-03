@@ -236,6 +236,15 @@ Not all syntax highlighters are complete or support all features of their respec
 - Markdown (with some inline code highlighting support)
 - JSON
 - XML / HTML
+- Protobuf
+- Bash
+
+## Why is Bim a single ~10k line source file?
+
+Bim was designed to be the included text editor in ToaruOS, and ToaruOS's build system was designed to have a single source file for each application binary.
+For the vast majority of applications in ToaruOS, this limitation is entirely reasonable.
+Bim is by far the largest application in the OS; the window compositor comes in second at a much smaller ~3000 lines.
+As Bim has grown, the question has come up several times as to whether it should be broken up into logical units in separate files, but being a single large file still has its benefits.
 
 ## License
 
