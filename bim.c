@@ -104,6 +104,7 @@ const char * current_theme = "none";
 #define FLAG_BOLD      11
 #define FLAG_LINK      12
 #define FLAG_ESCAPE    13
+#define FLAG_ERROR     14
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -1303,8 +1304,15 @@ static void paint_py_format_string(struct syntax_state * state) {
 			paint(2, FLAG_ESCAPE);
 		} else if (charat() == '{') {
 			paint(1, FLAG_NUMERAL);
-			while (charat() != -1 && charat() != '}') paint(1, FLAG_NUMERAL);
-			paint(1, FLAG_NUMERAL);
+			if (charat() == '}') {
+				state->i--;
+				paint(2, FLAG_ERROR); /* Can't do that. */
+			} else {
+				while (charat() != -1 && charat() != '}') {
+					paint(1, FLAG_NUMERAL);
+				}
+				paint(1, FLAG_NUMERAL);
+			}
 		} else {
 			paint(1, FLAG_STRING);
 		}
@@ -3577,6 +3585,9 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
+			} else if ((c.flags == FLAG_ERROR)) {
+				set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+				was_searching = 1; /* co-opting this should work... */
 			} else {
 				if (was_selecting || was_searching) {
 					was_selecting = 0;
