@@ -250,6 +250,8 @@ void redraw_line(int j, int x);
 int git_examine(char * filename);
 void search_next(void);
 void set_preferred_column(void);
+void quit(const char * message);
+void close_buffer(void);
 
 /**
  * Special implementation of getch with a timeout
@@ -4558,6 +4560,14 @@ void open_file(char * file) {
 		/**
 		 * Read file from stdin. stderr provides terminal input.
 		 */
+		if (isatty(STDIN_FILENO)) {
+			if (buffers_len == 1) {
+				quit("stdin is a terminal and you tried to open -; not letting you do that");
+			}
+			close_buffer();
+			render_error("stdin is a terminal and you tried to open -; not letting you do that");
+			return;
+		}
 		f = stdin;
 		global_config.tty_in = STDERR_FILENO;
 		env->modified = 1;
@@ -4678,13 +4688,16 @@ void open_file(char * file) {
 /**
  * Clean up the terminal and exit the editor.
  */
-void quit(void) {
+void quit(const char * message) {
 	mouse_disable();
 	set_buffered();
 	reset();
 	clear_screen();
 	show_cursor();
 	unset_alternate_screen();
+	if (message) {
+		fprintf(stdout, "%s\n", message);
+	}
 	exit(0);
 }
 
@@ -4708,7 +4721,7 @@ void try_quit(void) {
 	while (buffers_len) {
 		buffer_close(buffers[0]);
 	}
-	quit();
+	quit(NULL);
 }
 
 /**
@@ -4933,7 +4946,7 @@ void close_buffer(void) {
 	}
 	/* No more buffers, exit */
 	if (!new_env) {
-		quit();
+		quit(NULL);
 	}
 
 	/* Set the new active buffer */
@@ -5689,7 +5702,7 @@ void process_command(char * cmd) {
 		while (buffers_len) {
 			buffer_close(buffers[0]);
 		}
-		quit();
+		quit(NULL);
 	} else if (!strcmp(argv[0], "tabp")) {
 		/* Next tab */
 		previous_tab();
@@ -5804,6 +5817,7 @@ void process_command(char * cmd) {
 			if (argc == 2) {
 				open_file(argv[1]);
 			}
+			if (buffers_len != 2) return; /* something bad happened when trying to open the new file */
 			left_buffer = buffers[0];
 			right_buffer = buffers[1];
 
@@ -9199,7 +9213,10 @@ int main(int argc, char * argv[]) {
 				} else if (!strcmp(optarg,"help")) {
 					show_usage(argv);
 					return 0;
-				}
+				} else if (strlen(optarg)) {
+					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
+					return 1;
+				} /* Else, this is -- to indicate end of arguments */
 				break;
 			case '?':
 				show_usage(argv);
