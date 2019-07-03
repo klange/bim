@@ -211,6 +211,7 @@ struct {
 	int cursor_padding;
 	int split_percent;
 	int scroll_amount;
+	const char * syntax_fallback;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -244,6 +245,7 @@ struct {
 	4, /* cursor padding */
 	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
+	NULL, /* syntax to fall back to if none other match applies */
 };
 
 void redraw_line(int j, int x);
@@ -252,6 +254,7 @@ void search_next(void);
 void set_preferred_column(void);
 void quit(const char * message);
 void close_buffer(void);
+void set_syntax_by_name(const char * name);
 
 /**
  * Special implementation of getch with a timeout
@@ -4512,6 +4515,9 @@ void add_buffer(uint8_t * buf, int size) {
 	}
 }
 
+/**
+ * Find a syntax highlighter for the given filename.
+ */
 struct syntax_definition * match_syntax(char * file) {
 	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
 		for (char ** ext = s->ext; *ext; ++ext) {
@@ -4530,6 +4536,37 @@ struct syntax_definition * match_syntax(char * file) {
 
 	return NULL;
 }
+
+/**
+ * Set the syntax configuration by the name of the syntax highlighter.
+ */
+void set_syntax_by_name(const char * name) {
+	if (!strcmp(name,"none")) {
+		for (int i = 0; i < env->line_count; ++i) {
+			env->lines[i]->istate = 0;
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags = 0;
+			}
+		}
+		redraw_all();
+		return;
+	}
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		if (!strcmp(name,s->name)) {
+			env->syntax = s;
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->istate = 0;
+			}
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_all();
+			return;
+		}
+	}
+	render_error("unrecognized syntax type");
+}
+
 
 /**
  * Check if a string is all numbers.
@@ -4637,6 +4674,9 @@ void open_file(char * file) {
 
 	if (global_config.hilight_on_open) {
 		env->syntax = match_syntax(file);
+		if (!env->syntax && global_config.syntax_fallback) {
+			set_syntax_by_name(global_config.syntax_fallback);
+		}
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i],i);
 		}
@@ -5833,30 +5873,7 @@ void process_command(char * cmd) {
 			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
 			return;
 		}
-		if (!strcmp(argv[1],"none")) {
-			for (int i = 0; i < env->line_count; ++i) {
-				env->lines[i]->istate = 0;
-				for (int j = 0; j < env->lines[i]->actual; ++j) {
-					env->lines[i]->text[j].flags = 0;
-				}
-			}
-			redraw_all();
-			return;
-		}
-		for (struct syntax_definition * s = syntaxes; s->name; ++s) {
-			if (!strcmp(argv[1],s->name)) {
-				env->syntax = s;
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->istate = 0;
-				}
-				for (int i = 0; i < env->line_count; ++i) {
-					recalculate_syntax(env->lines[i],i);
-				}
-				redraw_all();
-				return;
-			}
-		}
-		render_error("unrecognized syntax type");
+		set_syntax_by_name(argv[1]);
 	} else if (!strcmp(argv[0], "recalc")) {
 		for (int i = 0; i < env->line_count; ++i) {
 			env->lines[i]->istate = 0;
@@ -9156,7 +9173,7 @@ void init_terminal(void) {
 
 int main(int argc, char * argv[]) {
 	int opt;
-	while ((opt = getopt(argc, argv, "?c:C:u:RO:-:")) != -1) {
+	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
 		switch (opt) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
@@ -9178,6 +9195,9 @@ int main(int argc, char * argv[]) {
 				return 0;
 			case 'u':
 				global_config.bimrc_path = optarg;
+				break;
+			case 'S':
+				global_config.syntax_fallback = optarg;
 				break;
 			case 'O':
 				/* Set various display options */
