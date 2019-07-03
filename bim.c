@@ -1239,17 +1239,15 @@ static int paint_py_triple_single(struct syntax_state * state) {
 
 static int paint_py_single_string(struct syntax_state * state) {
 	paint(1, FLAG_STRING);
-	int last = -1;
 	while (charat() != -1) {
-		if (last != '\\' && charat() == '\'') {
+		if (charat() == '\\' && nextchar() == '\'') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '\'') {
 			paint(1, FLAG_STRING);
 			return 0;
-		} else if (last == '\\' && charat() == '\\') {
-			paint(1, FLAG_STRING);
-			last = -1;
-			/* TODO check for \0, \r, \n, \0xxx, etc. */
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
 		} else {
-			last = charat();
 			paint(1, FLAG_STRING);
 		}
 	}
@@ -1350,8 +1348,7 @@ static int syn_py_calculate(struct syntax_state * state) {
 					paint(3, FLAG_STRING);
 					return paint_py_triple_single(state);
 				} else {
-					paint_py_single_string(state);
-					return 0;
+					return paint_py_single_string(state);
 				}
 			} else if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
 				paint_py_numeral(state);
