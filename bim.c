@@ -971,16 +971,15 @@ static void paint_c_string(struct syntax_state * state) {
 static void paint_simple_string(struct syntax_state * state) {
 	/* Assumes you came in from a check of charat() == '"' */
 	paint(1, FLAG_STRING);
-	int last = -1;
 	while (charat() != -1) {
-		if (last != '\\' && charat() == '"') {
+		if (charat() == '\\' && nextchar() == '"') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '"') {
 			paint(1, FLAG_STRING);
 			return;
-		} else if (last == '\\' && charat() == '\\') {
-			paint(1, FLAG_STRING);
-			last = -1;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
 		} else {
-			last = charat();
 			paint(1, FLAG_STRING);
 		}
 	}
