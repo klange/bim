@@ -8595,6 +8595,22 @@ void insert_mode(void) {
 						break;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
+						if (!env->tabs && env->col_no > 1) {
+							int i;
+							for (i = 0; i < env->col_no-1; ++i) {
+								if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
+							}
+							render_commandline_message("i=%d, col_no-1=%d", i, env->col_no-1);
+							if (i == env->col_no-1) {
+								/* Backspace until aligned */
+								delete_at_cursor();
+								while (env->col_no > 1 && (env->col_no-1) % env->tabstop) {
+									delete_at_cursor();
+								}
+								redraw |= 2;
+								break; /* out of case */
+							}
+						}
 						delete_at_cursor();
 						break;
 					case ENTER_KEY:
