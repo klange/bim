@@ -3662,7 +3662,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				} else {
 					printf("|");
 				}
-				_set_colors(COLOR_FG, COLOR_BG);
+				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint == ' ' && i == line->actual - 1) {
 				/* Special case: space at end of line */
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
