@@ -5455,9 +5455,12 @@ void convert_to_html(void) {
 	add_string("<!doctype html>\n");
 	add_string("<html>\n");
 	add_string("	<head>\n");
+	add_string("		<meta charset=\"UTF-8\">\n");
 	add_string("		<style>\n");
 	add_string("			body {\n");
 	add_string("				font-family: monospace;\n");
+	add_string("				margin: 0;\n");
+	add_string("				counter-reset: line-no;\n");
 	add_string("				background-color: ");
 	/* Convert color */
 	html_convert_color(COLOR_BG);
@@ -5482,21 +5485,64 @@ void convert_to_html(void) {
 		}
 		add_string("}\n");
 	}
-	add_string("			div {\n");
+	add_string("			pre {\n");
+	add_string("				margin: 0;\n");
 	add_string("				white-space: pre-wrap;\n");
 	add_string("			}\n");
-	add_string("			div:target {\n");
+	add_string("			pre>span {\n");
+	add_string("				display: inline-block;\n");
+	add_string("				width: 100%;\n");
+	add_string("			}\n");
+	add_string("			pre>span::before {\n");
+	add_string("				counter-increment: line-no;\n");
+	add_string("				content: counter(line-no);\n");
+	add_string("				padding-right: 1em;\n");
+	add_string("				width: 3em;\n");
+	add_string("				display: inline-block;\n");
+	add_string("				text-align: right;\n");
+	add_string("				background-color: ");
+	html_convert_color(COLOR_NUMBER_BG);
+	add_string("\n");
+	add_string("				color: ");
+	html_convert_color(COLOR_NUMBER_FG);
+	add_string("\n");
+	add_string("			}\n");
+	add_string("			pre>span:target {\n");
 	add_string("				background-color: ");
 	html_convert_color(COLOR_ALT_BG);
 	add_string("\n");
 	add_string("			}\n");
+	for (int i = 1; i <= env->tabstop; ++i) {
+		char tmp[10];
+		sprintf(tmp, ".tab%d", i);
+		add_string("			");
+		add_string(tmp);
+		add_string(">span {\n");
+		add_string("				font-size: 0;\n");
+		add_string("			}\n");
+		add_string("			");
+		add_string(tmp);
+		add_string("::after {\n");
+		add_string("				content: '»");
+		for (int j = 1; j < i; ++j) {
+			add_string("·");
+		}
+		add_string("';\n");
+		add_string("			background-color: ");
+		html_convert_color(COLOR_ALT_BG);
+		add_string("\n");
+		add_string("			color: ");
+		html_convert_color(COLOR_ALT_FG);
+		add_string("\n");
+		add_string("			}\n");
+	}
 	add_string("		</style>\n");
 	add_string("	</head>\n");
-	add_string("	<body>\n");
+	add_string("	<body><pre>\n");
 
 	for (int i = 0; i < old->line_count; ++i) {
 		char tmp[100];
-		sprintf(tmp, "<div id=\"line_%d\">", i+1);
+		sprintf(tmp, "<span id=\"L%d\">", i+1);
 		add_string(tmp);
 		int last_flag = -1;
 		int opened = 0;
@@ -5518,6 +5564,10 @@ void convert_to_html(void) {
 				add_string("&gt;");
 			} else if (c.codepoint == '&') {
 				add_string("&amp;");
+			} else if (c.codepoint == '\t') {
+				char tmp[100];
+				sprintf(tmp, "<span class=\"tab%d\"><span>	</span></span>",c.display_width);
+				add_string(tmp);
 			} else {
 				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
 				to_eight(c.codepoint, tmp);
@@ -5529,10 +5579,10 @@ void convert_to_html(void) {
 		} else {
 			add_string("<wbr>");
 		}
-		add_string("</div>\n");
+		add_string("</span>\n");
 	}
 
-	add_string("	</body>\n");
+	add_string("</pre></body>\n");
 	add_string("</html>\n");
 
 	env->loading = 0;
