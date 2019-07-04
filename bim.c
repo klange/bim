@@ -5403,7 +5403,7 @@ static void html_convert_color(const char * color_string) {
 		/* 256 colors; needs lookup table */
 		int index;
 		sscanf(color_string+2,"%d",&index);
-		sprintf(tmp,"#%06x;", term_colors[(index >= 0 && index <= 255) ? index : 0]);
+		sprintf(tmp,"#%06x;", (unsigned int)term_colors[(index >= 0 && index <= 255) ? index : 0]);
 	} else {
 		/* 16 colors; needs lookup table */
 		int index;
@@ -5417,7 +5417,7 @@ static void html_convert_color(const char * color_string) {
 		} else {
 			color = term_colors[index];
 		}
-		sprintf(tmp,"#%06x;", color);
+		sprintf(tmp,"#%06x;", (unsigned int)color);
 	}
 	add_string(tmp);
 	char * italic = strstr(color_string,";3");
