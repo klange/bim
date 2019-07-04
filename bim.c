@@ -3523,6 +3523,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 	 */
 	int remainder = 0;
 
+	int is_spaces = 1;
+
 	/* For each character in the line ... */
 	while (i < line->actual) {
 
@@ -3556,6 +3558,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 		/* Get the next character to draw */
 		char_t c = line->text[i];
+
+		if (c.codepoint != ' ') is_spaces = 0;
 
 		/* If we should be drawing by now... */
 		if (j >= offset) {
@@ -3654,6 +3658,10 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("[U+%06x]", c.codepoint);
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
+			} else if (i > 0 && is_spaces && c.codepoint == ' ' && !(i % env->tabstop)) {
+				_set_colors(COLOR_ALT_FG, COLOR_BG); /* Normal background so this is more subtle */
+				printf("▏");
+				_set_colors(COLOR_FG, COLOR_BG);
 			} else if (c.codepoint == ' ' && i == line->actual - 1) {
 				/* Special case: space at end of line */
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
