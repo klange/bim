@@ -213,6 +213,7 @@ struct {
 	int split_percent;
 	int scroll_amount;
 	const char * syntax_fallback;
+	uint32_t * search;
 } global_config = {
 	0, /* term_width */
 	0, /* term_height */
@@ -247,6 +248,7 @@ struct {
 	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
 	NULL, /* syntax to fall back to if none other match applies */
+	NULL, /* search text */
 };
 
 void redraw_line(int j, int x);
@@ -351,7 +353,6 @@ typedef struct _env {
 	int    line_avail;
 	int    col_no;
 	int    preferred_column;
-	uint32_t * search;
 	struct syntax_definition * syntax;
 	line_t ** lines;
 
@@ -559,10 +560,6 @@ buffer_t * buffer_close(buffer_t * buf) {
 	}
 
 	free(buf->lines);
-
-	if (buf->search) {
-		free(buf->search);
-	}
 
 	if (buf->file_name) {
 		free(buf->file_name);
@@ -5897,9 +5894,9 @@ void process_command(char * cmd) {
 	} else if (!strcmp(argv[0], "cursorcolumn")) {
 		render_status_message("cursorcolumn=%d", env->preferred_column);
 	} else if (!strcmp(argv[0], "noh")) {
-		if (env->search) {
-			free(env->search);
-			env->search = NULL;
+		if (global_config.search) {
+			free(global_config.search);
+			global_config.search = NULL;
 			for (int i = 0; i < env->line_count; ++i) {
 				recalculate_syntax(env->lines[i],i);
 			}
@@ -6710,10 +6707,10 @@ void search_mode(int direction) {
 
 	redraw_commandline();
 	printf(direction == 1 ? "/" : "?");
-	if (env->search) {
+	if (global_config.search) {
 		printf("\0337");
 		set_colors(COLOR_ALT_FG, COLOR_BG);
-		uint32_t * c = env->search;
+		uint32_t * c = global_config.search;
 		while (*c) {
 			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
 			to_eight(*c, tmp);
@@ -6749,16 +6746,16 @@ void search_mode(int direction) {
 			} else if (c == ENTER_KEY || c == LINE_FEED) {
 				/* Exit search */
 				if (!buffer_len) {
-					if (env->search) {
+					if (global_config.search) {
 						search_next();
 					}
 					break;
 				}
-				if (env->search) {
-					free(env->search);
+				if (global_config.search) {
+					free(global_config.search);
 				}
-				env->search = malloc((buffer_len + 1) * sizeof(uint32_t));
-				memcpy(env->search, buffer, (buffer_len + 1) * sizeof(uint32_t));
+				global_config.search = malloc((buffer_len + 1) * sizeof(uint32_t));
+				memcpy(global_config.search, buffer, (buffer_len + 1) * sizeof(uint32_t));
 				break;
 			} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
 				/* Backspace, delete last character in search buffer */
@@ -6833,40 +6830,40 @@ void search_mode(int direction) {
  * Find the next search result, or loop back around if at the end.
  */
 void search_next(void) {
-	if (!env->search) return;
+	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
-	find_match(env->line_no, env->col_no+1, &line, &col, env->search);
+	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search);
 
 	if (line == -1) {
-		find_match(1,1, &line, &col, env->search);
+		find_match(1,1, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(env->search, -1);
+	draw_search_match(global_config.search, -1);
 }
 
 /**
  * Find the previous search result, or loop to the end of the file.
  */
 void search_prev(void) {
-	if (!env->search) return;
+	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
-	find_match_backwards(env->line_no, env->col_no-1, &line, &col, env->search);
+	find_match_backwards(env->line_no, env->col_no-1, &line, &col, global_config.search);
 
 	if (line == -1) {
-		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, env->search);
+		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(env->search, -1);
+	draw_search_match(global_config.search, -1);
 }
 
 /**
@@ -7798,22 +7795,22 @@ void search_under_cursor(void) {
 	if (!c_before && !c_after) return;
 
 	/* Populate with characters */
-	if (env->search) free(env->search);
-	env->search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	if (global_config.search) free(global_config.search);
+	global_config.search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
 	int j = 0;
 	while (c_before) {
-		env->search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
 		c_before--;
 		j++;
 	}
 	int x = 0;
 	while (c_after) {
-		env->search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
 		j++;
 		x++;
 		c_after--;
 	}
-	env->search[j] = 0;
+	global_config.search[j] = 0;
 
 	/* Find it */
 	search_next();
