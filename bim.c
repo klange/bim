@@ -478,6 +478,9 @@ int fetch_from_biminfo(buffer_t * buf) {
 			/* Read */
 			sscanf(line+1+strlen(tmp_path)+1,"%d",&buf->line_no);
 			sscanf(line+1+strlen(tmp_path)+21,"%d",&buf->col_no);
+
+			if (buf->line_no > buf->line_count) buf->line_no = buf->line_count;
+			if (buf->col_no > buf->lines[buf->line_no-1]->actual) buf->col_no = buf->lines[buf->line_no-1]->actual;
 			return 0;
 		}
 	}
