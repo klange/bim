@@ -8617,6 +8617,17 @@ _leave_select_char:
 	redraw_all();
 }
 
+void omni_complete(void) {
+	render_status_message("");
+	set_fg_color(COLOR_NUMERAL);
+	set_bold();
+	printf("Completion Mode ");
+	set_fg_color(COLOR_FG);
+	unset_bold();
+	/* Word under cursor */
+
+}
+
 /**
  * INSERT mode
  *
@@ -8697,6 +8708,9 @@ void insert_mode(void) {
 						}
 						insert_line_feed();
 						redraw |= 2;
+						break;
+					case 15: /* ^O */
+						omni_complete();
 						break;
 					case 22: /* ^V */
 						/* Insert next byte raw */
@@ -8948,6 +8962,9 @@ void normal_mode(void) {
 						break;
 					case 'v': /* Enter CHAR SELECTION mode */
 						char_selection_mode();
+						break;
+					case 15: /* ^O */
+						omni_complete();
 						break;
 					case 22: /* ctrl-v, enter COL SELECTION mode */
 						col_selection_mode();
