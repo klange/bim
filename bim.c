@@ -8626,6 +8626,57 @@ void omni_complete(void) {
 	unset_bold();
 	/* Word under cursor */
 
+	/* Figure out size */
+	int c_before = 0;
+	int c_after = 0;
+	int i = env->col_no;
+	while (i > 0) {
+		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		c_before++;
+		i--;
+	}
+	i = env->col_no+1;
+	while (i < env->lines[env->line_no-1]->actual+1) {
+		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		c_after++;
+		i++;
+	}
+	if (!c_before && !c_after) return;
+
+	/* Populate with characters */
+	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	int j = 0;
+	while (c_before) {
+		tmp[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		c_before--;
+		j++;
+	}
+	int x = 0;
+	while (c_after) {
+		tmp[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		j++;
+		x++;
+		c_after--;
+	}
+	tmp[j] = 0;
+
+	for (int i = 0; tmp[i]; ++i) {
+		char t[7] = {0};
+		to_eight(tmp[i], t);
+		printf("%s", t);
+	}
+
+	/* tmp is now the word under the cursor */
+
+	place_cursor_actual();
+
+	/* Wait for input */
+	int c;
+	while ((c = bim_getch())== -1);
+	bim_unget(c);
+
+	free(tmp);
+	redraw_all();
 }
 
 /**
