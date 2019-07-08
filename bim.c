@@ -1397,8 +1397,9 @@ static char * syn_java_special[] = {
 };
 
 static char * syn_java_at_comments[] = {
-	"@author","@see","@since","@param","@return","@throws",
+	"@author","@see","@since","@return","@throws",
 	"@version","@exception","@deprecated",
+	/* @param is special */
 	NULL
 };
 
@@ -1425,8 +1426,13 @@ static int paint_java_comment(struct syntax_state * state) {
 		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (charat() == '@') {
 			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
-				/* Paint the @ */
-				paint(1, FLAG_COMMENT);
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
+					while (charat() == ' ') skip();
+					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+				} else {
+					/* Paint the @ */
+					paint(1, FLAG_COMMENT);
+				}
 			}
 		} else if (charat() == '{') {
 			/* see if this terminates */
