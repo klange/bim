@@ -8788,6 +8788,7 @@ _completion_done:
 			retval = 1;
 			goto _finish_completion;
 		}
+		redraw_all();
 		break;
 	}
 	bim_unget(c);
