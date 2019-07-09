@@ -8617,66 +8617,196 @@ _leave_select_char:
 	redraw_all();
 }
 
-void omni_complete(void) {
-	render_status_message("");
-	set_fg_color(COLOR_NUMERAL);
-	set_bold();
-	printf("Completion Mode ");
-	set_fg_color(COLOR_FG);
-	unset_bold();
-	/* Word under cursor */
+/**
+ * Read ctags file to find matches for a symbol
+ */
+int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
+	int matches_len = 4;
+	*matches_count = 0;
+	*matches = malloc(sizeof(char *) * (matches_len));
 
+	FILE * tags = fopen("tags","r");
+	if (!tags) return 1;
+	char tmp[4096]; /* max line */
+	while (!feof(tags) && fgets(tmp, 4096, tags)) {
+		if (tmp[0] == '!') continue;
+		int i = 0;
+		while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
+		if (comp[i] == '\0') {
+			int j = i;
+			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+			tmp[j] = '\0';
+
+			/* Dedup */
+			int match_found = 0;
+			for (int i = 0; i < *matches_count; ++i) {
+				if (!strcmp((*matches)[i], tmp)) {
+					match_found = 1;
+					break;
+				}
+			}
+			if (match_found) continue;
+
+			if (*matches_count == matches_len) {
+				matches_len *= 2;
+				*matches = realloc(*matches, sizeof(char *) * (matches_len));
+			}
+			(*matches)[*matches_count] = strdup(tmp);
+			(*matches_count)++;
+		}
+	}
+	fclose(tags);
+	return 0;
+}
+
+void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count) {
+	int original_length = 0;
+	while (tmp[original_length]) original_length++;
+	int max_width = 0;
+	for (int i = 0; i < matches_count; ++i) {
+		/* TODO unicode width */
+		if (strlen(matches[i]) > (unsigned int)max_width) {
+			max_width = strlen(matches[i]);
+		}
+	}
+
+	/* Figure out how much space we have to display the window */
+	int cursor_y = env->line_no - env->offset + 1;
+	int max_y = global_config.term_height - 2 - cursor_y;
+
+	/* Find a good place to put the box horizontally */
+	int num_size = num_width() + 3;
+	int x = num_size + 1 - env->coffset;
+
+	/* Determine where the cursor is physically */
+	for (int i = 0; i < env->col_no - 1 - original_length; ++i) {
+		char_t * c = &env->lines[env->line_no-1]->text[i];
+		x += c->display_width;
+	}
+
+	int box_width = max_width;
+	int box_x = x;
+	int box_y = cursor_y+1;
+	if (max_width > env->width - num_width()) {
+		box_width = env->width - num_width();
+		box_x = 1;
+	} else if (env->width - x < max_width) {
+		box_width = max_width;
+		box_x = env->width - max_width;
+	}
+
+	int max_count = (max_y < matches_count) ? max_y - 1 : matches_count;
+
+	for (int i = 0; i < max_count; ++i) {
+		place_cursor(box_x, box_y+i);
+		set_colors(COLOR_KEYWORD, COLOR_STATUS_BG);
+		/* TODO wide characters */
+		int match_width = strlen(matches[i]);
+		for (int j = 0; j < box_width; ++j) {
+			if (j == original_length) set_colors(i == 0 ? COLOR_NUMERAL : COLOR_STATUS_FG, COLOR_STATUS_BG);
+			if (j < match_width) printf("%c", matches[i][j]);
+			else printf(" ");
+		}
+	}
+	if (max_count == 0) {
+		place_cursor(box_x, box_y);
+		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
+		printf(" (no matches) ");
+	} else if (max_count != matches_count) {
+		place_cursor(box_x, box_y+max_count);
+		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
+		printf(" (%d more) ", matches_count-max_count);
+	}
+}
+
+/**
+ * Show an autocomplete popover.
+ */
+int omni_complete(void) {
+	int c;
+	/* Word under cursor */
 	/* Figure out size */
 	int c_before = 0;
 	int c_after = 0;
-	int i = env->col_no;
+	int i = env->col_no-1;
 	while (i > 0) {
 		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_before++;
 		i--;
 	}
-	i = env->col_no+1;
+	i = env->col_no;
 	while (i < env->lines[env->line_no-1]->actual+1) {
 		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_after++;
 		i++;
 	}
-	if (!c_before && !c_after) return;
+	if (!c_before && !c_after) return 0;
 
 	/* Populate with characters */
 	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+c_after+1));
 	int j = 0;
 	while (c_before) {
-		tmp[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		tmp[j] = env->lines[env->line_no-1]->text[env->col_no-c_before-1].codepoint;
 		c_before--;
 		j++;
 	}
 	int x = 0;
 	while (c_after) {
-		tmp[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		tmp[j] = env->lines[env->line_no-1]->text[env->col_no+x-1].codepoint;
 		j++;
 		x++;
 		c_after--;
 	}
 	tmp[j] = 0;
 
-	for (int i = 0; tmp[i]; ++i) {
-		char t[7] = {0};
-		to_eight(tmp[i], t);
-		printf("%s", t);
-	}
+	char ** matches;
+	int matches_count;
+	if (read_tags(tmp, &matches, &matches_count)) goto _completion_done;
 
-	/* tmp is now the word under the cursor */
+	draw_completion_matches(tmp, matches, matches_count);
 
+	int retval = 0;
+
+_completion_done:
 	place_cursor_actual();
-
-	/* Wait for input */
-	int c;
-	while ((c = bim_getch())== -1);
+	while (1) {
+		c = bim_getch();
+		if (c == -1) continue;
+		if (matches_count < 1) break;
+		if (c == '\t') {
+			for (unsigned int i = j; i < strlen(matches[0]); ++i) {
+				insert_char(matches[0][i]);
+			}
+			set_preferred_column();
+			redraw_text();
+			goto _finish_completion;
+		} else if (isgraph(c) && c != '}') {
+			/* insert and continue matching */
+			insert_char(c);
+			set_preferred_column();
+			redraw_text();
+			place_cursor_actual();
+			retval = 1;
+			goto _finish_completion;
+		} else if (c == DELETE_KEY || c == BACKSPACE_KEY) {
+			delete_at_cursor();
+			set_preferred_column();
+			redraw_text();
+			place_cursor_actual();
+			retval = 1;
+			goto _finish_completion;
+		}
+		break;
+	}
 	bim_unget(c);
-
+_finish_completion:
+	for (int i = 0; i < matches_count; ++i) {
+		free(matches[i]);
+	}
+	free(matches);
 	free(tmp);
 	redraw_all();
+	return retval;
 }
 
 /**
@@ -8761,7 +8891,7 @@ void insert_mode(void) {
 						redraw |= 2;
 						break;
 					case 15: /* ^O */
-						omni_complete();
+						while (omni_complete() == 1);
 						break;
 					case 22: /* ^V */
 						/* Insert next byte raw */
@@ -9013,9 +9143,6 @@ void normal_mode(void) {
 						break;
 					case 'v': /* Enter CHAR SELECTION mode */
 						char_selection_mode();
-						break;
-					case 15: /* ^O */
-						omni_complete();
 						break;
 					case 22: /* ctrl-v, enter COL SELECTION mode */
 						col_selection_mode();

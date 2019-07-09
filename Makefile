@@ -26,3 +26,6 @@ install-strip: all
 
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/$(TARGET)
+
+tags: bim.c
+	ctags --c-kinds=+lx bim.c
