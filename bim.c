@@ -8864,7 +8864,6 @@ void insert_mode(void) {
 							for (i = 0; i < env->col_no-1; ++i) {
 								if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
 							}
-							render_commandline_message("i=%d, col_no-1=%d", i, env->col_no-1);
 							if (i == env->col_no-1) {
 								/* Backspace until aligned */
 								delete_at_cursor();
