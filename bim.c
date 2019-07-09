@@ -8724,38 +8724,23 @@ void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count)
  */
 int omni_complete(void) {
 	int c;
-	/* Word under cursor */
-	/* Figure out size */
+
+	/* Pull the word from before the cursor */
 	int c_before = 0;
-	int c_after = 0;
 	int i = env->col_no-1;
 	while (i > 0) {
 		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_before++;
 		i--;
 	}
-	i = env->col_no;
-	while (i < env->lines[env->line_no-1]->actual+1) {
-		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
-		c_after++;
-		i++;
-	}
-	if (!c_before && !c_after) return 0;
 
 	/* Populate with characters */
-	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+1));
 	int j = 0;
 	while (c_before) {
 		tmp[j] = env->lines[env->line_no-1]->text[env->col_no-c_before-1].codepoint;
 		c_before--;
 		j++;
-	}
-	int x = 0;
-	while (c_after) {
-		tmp[j] = env->lines[env->line_no-1]->text[env->col_no+x-1].codepoint;
-		j++;
-		x++;
-		c_after--;
 	}
 	tmp[j] = 0;
 
