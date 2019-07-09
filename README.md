@@ -33,6 +33,7 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Git integration, shows `git diff` status in-line, along with unsaved changes.
 - Convert syntax highlighted code to an HTML document.
 - (experimental) Split viewports to view multiple files or different parts of the same file.
+- (experimental) Autocompletion using ctags.
 
 ## Prerequisites
 
@@ -114,6 +115,7 @@ In INSERT mode, the following additional commands are available:
 |-------------|--------------------------|
 | `^V`        | Insert literal character |
 | `^W`        | Delete previous word     |
+| `^O`        | Trigger autocomplete     |
 
 In COL SELECTION mode, you can enter COL INSERT mode to insert characters on multiple lines simultaneously:
 
