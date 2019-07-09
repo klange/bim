@@ -8659,6 +8659,9 @@ int read_tags(uint32_t * comp, char *** matches, int * matches_count) {
 	return 0;
 }
 
+/**
+ * Draw an autocomplete popover with matches.
+ */
 void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count) {
 	int original_length = 0;
 	while (tmp[original_length]) original_length++;
@@ -8720,7 +8723,7 @@ void draw_completion_matches(uint32_t * tmp, char ** matches, int matches_count)
 }
 
 /**
- * Show an autocomplete popover.
+ * Autocomplete words (function/variable names, etc.) in input mode.
  */
 int omni_complete(void) {
 	int c;
@@ -8744,6 +8747,12 @@ int omni_complete(void) {
 	}
 	tmp[j] = 0;
 
+	/*
+	 * TODO matches should probably be a struct with more data than just
+	 * the matching string; maybe offset where the needle was found,
+	 * class information, source file information - anything we can extract
+	 * from ctags, but also other information for other sources of completion.
+	 */
 	char ** matches;
 	int matches_count;
 
@@ -8788,6 +8797,7 @@ _completion_done:
 			retval = 1;
 			goto _finish_completion;
 		}
+		/* TODO: Keyboard navigation of the matches list would be nice */
 		redraw_all();
 		break;
 	}
