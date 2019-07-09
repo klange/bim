@@ -8761,8 +8761,11 @@ int omni_complete(void) {
 
 	char ** matches;
 	int matches_count;
+
+	/* TODO just reading ctags is rather mediocre; can we do something cool here? */
 	if (read_tags(tmp, &matches, &matches_count)) goto _completion_done;
 
+	/* Draw box with matches at cursor-width(tmp) */
 	draw_completion_matches(tmp, matches, matches_count);
 
 	int retval = 0;
