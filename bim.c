@@ -8760,13 +8760,17 @@ _completion_done:
 	while (1) {
 		c = bim_getch();
 		if (c == -1) continue;
-		if (matches_count < 1) break;
+		if (matches_count < 1) {
+			redraw_all();
+			break;
+		}
 		if (c == '\t') {
 			for (unsigned int i = j; i < strlen(matches[0]); ++i) {
 				insert_char(matches[0][i]);
 			}
 			set_preferred_column();
 			redraw_text();
+			place_cursor_actual();
 			goto _finish_completion;
 		} else if (isgraph(c) && c != '}') {
 			/* insert and continue matching */
@@ -8793,7 +8797,6 @@ _finish_completion:
 	}
 	free(matches);
 	free(tmp);
-	redraw_all();
 	return retval;
 }
 
