@@ -1,10 +1,10 @@
-# Bim - A Bad IMitation of Vi(m)
+# Bim - A Text Editor
 
 ![screenshot](docs/screenshot.png)
 
 Bim is a terminal text editor with syntax highlighting.
 
-Inspired by Vim and featuring similar mode-based editing, Bim was originally written for ToaruOS, but it has also been tested in Linux, Sortix, FreeBSD, and macOS.
+Inspired by Vim (one might say a Bad Imitation) and featuring similar mode-based editing, Bim was originally written for ToaruOS, but it has also been tested in Linux, Sortix, FreeBSD, and macOS.
 
 ## Goals / Purpose
 
