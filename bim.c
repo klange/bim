@@ -2495,6 +2495,25 @@ static char * bash_ext[] = {
 	NULL
 };
 
+int syn_ctags_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (charat() == '!') {
+			paint_comment(state);
+			return -1;
+		} else {
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_TYPE);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && charat() != '\t') paint(1, FLAG_NUMERAL);
+			if (charat() == '\t') skip();
+			while (charat() != -1 && !(charat() == ';' && nextchar() == '"')) paint(1, FLAG_KEYWORD);
+			return -1;
+		}
+	}
+	return -1;
+}
+
+static char * ctags_ext[] = { "tags", NULL };
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
@@ -2518,6 +2537,7 @@ struct syntax_definition {
 	{"protobuf",proto_ext,syn_proto_calculate,1},
 	{"toarush",esh_ext,syn_esh_calculate,0},
 	{"bash",bash_ext,syn_bash_calculate,0},
+	{"ctags",ctags_ext,syn_ctags_calculate,0},
 	{NULL,NULL,NULL,0},
 };
 
