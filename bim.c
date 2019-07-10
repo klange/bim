@@ -3595,7 +3595,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 				was_searching = 1;
-			} else if ((c.flags == FLAG_ERROR)) {
+			} else if (c.flags == FLAG_ERROR) {
 				set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 				was_searching = 1; /* co-opting this should work... */
 			} else {
