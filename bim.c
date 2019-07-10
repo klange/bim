@@ -4805,10 +4805,12 @@ void previous_tab(void) {
 				/* Wrap around */
 				env = last;
 				redraw_all();
+				update_title();
 				return;
 			} else {
 				env = buffers[buffers_len-1];
 				redraw_all();
+				update_title();
 				return;
 			}
 		}
@@ -4826,11 +4828,13 @@ void next_tab(void) {
 			if (i != buffers_len - 1) {
 				env = buffers[i+1];
 				redraw_all();
+				update_title();
 				return;
 			} else {
 				/* Wrap around */
 				env = buffers[0];
 				redraw_all();
+				update_title();
 				return;
 			}
 		}
@@ -5023,6 +5027,7 @@ void close_buffer(void) {
 
 	/* Redraw the screen */
 	redraw_all();
+	update_title();
 }
 
 /**
@@ -5857,9 +5862,11 @@ void process_command(char * cmd) {
 		} else {
 			close_buffer();
 		}
+		update_title();
 	} else if (!strcmp(argv[0], "q!")) {
 		/* close buffer without warning if unmodified */
 		close_buffer();
+		update_title();
 	} else if (!strcmp(argv[0], "qa") || !strcmp(argv[0], "qall")) {
 		/* Close all */
 		try_quit();
@@ -5991,6 +5998,7 @@ void process_command(char * cmd) {
 
 			redraw_alt_buffer(left_buffer);
 			redraw_alt_buffer(right_buffer);
+			update_title();
 		}
 	} else if (!strcmp(argv[0], "unsplit")) {
 		unsplit();
@@ -6961,6 +6969,7 @@ void use_left_buffer(void) {
 		env->offset = view_left_offset;
 	}
 	env = left_buffer;
+	update_title();
 }
 
 /**
@@ -6975,6 +6984,7 @@ void use_right_buffer(void) {
 		env->offset = view_right_offset;
 	}
 	env = right_buffer;
+	update_title();
 }
 
 /**
@@ -7035,6 +7045,7 @@ void handle_mouse(void) {
 				if (_x >= x) {
 					env = buffers[i];
 					redraw_all();
+					update_title();
 					return;
 				}
 			}
