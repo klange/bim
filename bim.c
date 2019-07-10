@@ -9613,9 +9613,10 @@ int main(int argc, char * argv[]) {
 		env = buffers[0];
 	} else {
 		env = buffer_new();
-		update_title();
 		setup_buffer(env);
 	}
+
+	update_title();
 
 	/* Draw the screen once */
 	redraw_all();
