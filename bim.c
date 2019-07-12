@@ -5143,6 +5143,8 @@ void cursor_down(void) {
 			redraw_text();
 		}
 
+		set_history_break();
+
 		/* Update the status bar */
 		redraw_statusbar();
 
@@ -5224,6 +5226,8 @@ void cursor_up(void) {
 			redraw_text();
 		}
 
+		set_history_break();
+
 		/* Update the status bar */
 		redraw_statusbar();
 
@@ -5245,6 +5249,7 @@ void cursor_left(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_history_break();
 	set_preferred_column();
 }
 
@@ -5263,6 +5268,7 @@ void cursor_right(void) {
 		/* Place the terminal cursor again */
 		place_cursor_actual();
 	}
+	set_history_break();
 	set_preferred_column();
 }
 
@@ -5271,6 +5277,7 @@ void cursor_right(void) {
  */
 void cursor_home(void) {
 	env->col_no = 1;
+	set_history_break();
 	set_preferred_column();
 
 	/* Update the status bar */
@@ -5288,6 +5295,7 @@ void cursor_home(void) {
  */
 void cursor_end(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+!!(env->mode == MODE_INSERT);
+	set_history_break();
 	set_preferred_column();
 
 	/* Update the status bar */
@@ -7155,6 +7163,7 @@ void handle_mouse(void) {
 
 		env->line_no = line_no;
 		env->col_no = col_no;
+		set_history_break();
 		set_preferred_column();
 		place_cursor_actual();
 	}
