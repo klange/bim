@@ -8233,6 +8233,8 @@ void col_insert_mode(void) {
 							timeout++;
 						}
 						break;
+					case 3: /* ^C */
+						return;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						if (env->sel_col > 0) {
@@ -8917,6 +8919,9 @@ void insert_mode(void) {
 							timeout++;
 						}
 						break;
+					case 3: /* ^C */
+						leave_insert();
+						return;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
 						if (!env->tabs && env->col_no > 1) {
