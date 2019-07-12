@@ -8250,8 +8250,8 @@ void col_insert_mode(void) {
 									char_t * c = &line->text[j];
 									_x += c->display_width;
 									col = j+1;
-									prev_width = c->display_width;
 									if (_x > env->sel_col) break;
+									prev_width = c->display_width;
 								}
 
 								if ((_x == env->sel_col && j == line->actual)) {
@@ -8288,6 +8288,8 @@ void col_insert_mode(void) {
 							_c.flags = 0;
 							_c.display_width = codepoint_width(c);
 
+							int inserted_width = 0;
+
 							/* For each line */
 							for (int i = env->line_no; i <= env->start_line; i++) {
 								line_t * line = env->lines[i - 1];
@@ -8315,9 +8317,11 @@ void col_insert_mode(void) {
 									}
 									set_modified();
 								}
+								recalculate_tabs(line);
+								inserted_width = line->text[col-1].display_width;
 							}
 
-							env->sel_col += _c.display_width;
+							env->sel_col += inserted_width;
 							redraw_text();
 
 						}
