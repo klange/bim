@@ -305,6 +305,8 @@ typedef struct history {
 	struct history * previous;
 	struct history * next;
 	int type;
+	int line;
+	int col;
 	union {
 		struct {
 			int lineno;
@@ -2625,6 +2627,8 @@ void recursive_history_free(history_t * root) {
 }
 
 #define HIST_APPEND(e) do { \
+		e->col = env->col_no; \
+		e->line = env->line_no; \
 		if (env->history) { \
 			e->previous = env->history; \
 			recursive_history_free(env->history); \
@@ -7237,8 +7241,6 @@ void undo_history(void) {
 						e->contents.insert_delete_replace.offset+1,
 						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
@@ -7251,8 +7253,6 @@ void undo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
@@ -7265,39 +7265,27 @@ void undo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = remove_line(env->lines, e->contents.add_merge_split_lines.lineno);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.old_contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno+1);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno-1, e->contents.add_merge_split_lines.split);
-				env->line_no = e->contents.add_merge_split_lines.lineno;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_BREAK:
@@ -7308,12 +7296,17 @@ void undo_history(void) {
 				break;
 		}
 
+		env->line_no = env->history->line;
+		env->col_no = env->history->col;
+
 		env->history = e->previous;
 		e = env->history;
 	} while (e->type != HISTORY_BREAK);
 
 	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->line_no < 1) env->line_no = 1;
 	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+	if (env->col_no < 1) env->col_no = 1;
 
 	env->modified = (env->history != env->last_save_history);
 
@@ -7369,8 +7362,6 @@ void redo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_DELETE:
@@ -7380,8 +7371,6 @@ void redo_history(void) {
 						e->contents.insert_delete_replace.offset,
 						e->contents.insert_delete_replace.lineno
 				);
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 1;
 				count_chars++;
 				break;
 			case HISTORY_REPLACE:
@@ -7394,38 +7383,26 @@ void redo_history(void) {
 							e->contents.insert_delete_replace.lineno
 					);
 				}
-				env->line_no = e->contents.insert_delete_replace.lineno + 1;
-				env->col_no  = e->contents.insert_delete_replace.offset + 2;
 				count_chars++;
 				break;
 			case HISTORY_ADD_LINE:
 				env->lines = add_line(env->lines, e->contents.remove_replace_line.lineno);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REMOVE_LINE:
 				env->lines = remove_line(env->lines, e->contents.remove_replace_line.lineno);
-				env->line_no = e->contents.add_merge_split_lines.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_REPLACE_LINE:
 				replace_line(env->lines, e->contents.remove_replace_line.lineno, e->contents.remove_replace_line.contents);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_MERGE_LINES:
 				env->lines = merge_lines(env->lines, e->contents.add_merge_split_lines.lineno);
-				env->line_no = e->contents.remove_replace_line.lineno + 1;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_SPLIT_LINE:
 				env->lines = split_line(env->lines, e->contents.add_merge_split_lines.lineno, e->contents.add_merge_split_lines.split);
-				env->line_no = e->contents.remove_replace_line.lineno + 2;
-				env->col_no = 1;
 				count_lines++;
 				break;
 			case HISTORY_BREAK:
@@ -7440,8 +7417,13 @@ void redo_history(void) {
 		e = e->next;
 	}
 
+	env->line_no = env->history->line;
+	env->col_no = env->history->col;
+
 	if (env->line_no > env->line_count) env->line_no = env->line_count;
+	if (env->line_no < 1) env->line_no = 1;
 	if (env->col_no > env->lines[env->line_no-1]->actual) env->col_no = env->lines[env->line_no-1]->actual;
+	if (env->col_no < 1) env->col_no = 1;
 
 	env->modified = (env->history != env->last_save_history);
 
