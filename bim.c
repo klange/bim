@@ -258,6 +258,7 @@ void set_preferred_column(void);
 void quit(const char * message);
 void close_buffer(void);
 void set_syntax_by_name(const char * name);
+void rehilight_search(line_t * line);
 
 /**
  * Special implementation of getch with a timeout
@@ -2564,10 +2565,12 @@ void recalculate_syntax(line_t * line, int line_no) {
 		state.state = env->syntax->calculate(&state);
 
 		if (state.state != 0) {
+			rehilight_search(line);
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
 				if (env->loading) return;
 				recalculate_syntax(env->lines[line_no+1], line_no+1);
+				rehilight_search(env->lines[line_no+1]);
 				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
 					redraw_line(line_no + 1 - env->offset, line_no + 1);
 				}
@@ -4718,7 +4721,7 @@ void open_file(char * file) {
 
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
-		remove_line(env->lines, env->line_no-1);
+		env->lines = remove_line(env->lines, env->line_no-1);
 	}
 
 	if (global_config.hilight_on_open) {
@@ -5356,6 +5359,7 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 				set_modified();
 				return;
 			}
+			if (k == line->actual) break;
 			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 			match++;
 			k++;
@@ -6642,6 +6646,7 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, uint
 					*out_col = j + 1;
 					return;
 				}
+				if (k == line->actual) break;
 				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
@@ -6673,6 +6678,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 					*out_col = j + 1;
 					return;
 				}
+				if (k == line->actual) break;
 				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
 				match++;
 				k++;
@@ -6681,7 +6687,36 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 		}
 		col = (i > 1) ? (env->lines[i-2]->actual) : -1;
 	}
+}
 
+/**
+ * Re-mark search matches while editing text.
+ * This gets called after recalculate_syntax, so it works as we're typing or
+ * whenever syntax calculation would redraw other lines.
+ * XXX There's a bunch of code duplication between the (now three) search match functions.
+ *     and search should be improved to support regex anyway, so this needs to be fixed.
+ */
+void rehilight_search(line_t * line) {
+	if (!global_config.search) return;
+	int j = 0;
+	int ignorecase = smart_case(global_config.search);
+	while (j < line->actual) {
+		int k = j;
+		uint32_t * match = global_config.search;
+		while (k < line->actual+1) {
+			if (*match == '\0') {
+				for (int i = j; i < k; ++i) {
+					line->text[i].flags |= FLAG_SEARCH;
+				}
+				break;
+			}
+			if (k == line->actual) break;
+			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
+			match++;
+			k++;
+		}
+		j++;
+	}
 }
 
 /**
@@ -6777,6 +6812,7 @@ void search_mode(int direction) {
 					for (int j = 0; j < env->lines[i]->actual; ++j) {
 						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
 					}
+					rehilight_search(env->lines[i]);
 				}
 				redraw_all();
 				break;
@@ -8094,13 +8130,13 @@ void line_selection_mode(void) {
 						if (env->start_line <= env->line_no) {
 							int lines_to_delete = env->line_no - env->start_line + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, env->start_line-1);
+								env->lines = remove_line(env->lines, env->start_line-1);
 							}
 							env->line_no = env->start_line;
 						} else {
 							int lines_to_delete = env->start_line - env->line_no + 1;
 							for (int i = 0; i < lines_to_delete; ++i) {
-								remove_line(env->lines, env->line_no-1);
+								env->lines = remove_line(env->lines, env->line_no-1);
 							}
 						}
 						if (env->line_no > env->line_count) {
@@ -8586,7 +8622,7 @@ void char_selection_mode(void) {
 								yank_text(start_line, start_col, end_line, end_col);
 								/* Delete lines */
 								for (int i = start_line+1; i < end_line; ++i) {
-									remove_line(env->lines, start_line);
+									env->lines = remove_line(env->lines, start_line);
 								} /* end_line is no longer valid; should be start_line+1*/
 								/* Delete from start_col forward */
 								int tmp = env->lines[start_line-1]->actual;
