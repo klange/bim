@@ -8291,8 +8291,8 @@ void col_insert_mode(void) {
 							}
 
 							env->sel_col -= prev_width;
+							env->col_no--;
 							redraw_text();
-							
 						}
 						break;
 					case ENTER_KEY:
@@ -8341,6 +8341,7 @@ void col_insert_mode(void) {
 									line_t * nline = line_insert(line, _c, col - 1, i - 1);
 									if (line != nline) {
 										env->lines[i - 1] = nline;
+										line = nline;
 									}
 									set_modified();
 								}
@@ -8349,6 +8350,7 @@ void col_insert_mode(void) {
 							}
 
 							env->sel_col += inserted_width;
+							env->col_no++;
 							redraw_text();
 
 						}
@@ -9240,6 +9242,7 @@ void normal_mode(void) {
 						char_selection_mode();
 						break;
 					case 22: /* ctrl-v, enter COL SELECTION mode */
+						set_preferred_column();
 						col_selection_mode();
 						break;
 					case 'O': /* Append line before and enter INSERT mode */
