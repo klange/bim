@@ -5492,6 +5492,11 @@ void convert_to_html(void) {
 	add_string("<html>\n");
 	add_string("	<head>\n");
 	add_string("		<meta charset=\"UTF-8\">\n");
+	if (old->file_name) {
+		add_string("		<title>");
+		add_string(file_basename(old->file_name));
+		add_string("</title>\n");
+	}
 	add_string("		<style>\n");
 	add_string("			body {\n");
 	add_string("				margin: 0;\n");
@@ -5530,7 +5535,7 @@ void convert_to_html(void) {
 	add_string("				display: inline-block;\n");
 	add_string("				width: 100%;\n");
 	add_string("			}\n");
-	add_string("			pre>span::before {\n");
+	add_string("			pre>span>a::before {\n");
 	add_string("				counter-increment: line-no;\n");
 	add_string("				content: counter(line-no);\n");
 	add_string("				padding-right: 1em;\n");
@@ -5547,6 +5552,14 @@ void convert_to_html(void) {
 	add_string("			pre>span:target {\n");
 	add_string("				background-color: ");
 	html_convert_color(COLOR_ALT_BG);
+	add_string("\n");
+	add_string("			}\n");
+	add_string("			pre>span:target>a::before {\n");
+	add_string("				background-color: ");
+	html_convert_color(COLOR_NUMBER_FG);
+	add_string("\n");
+	add_string("				color: ");
+	html_convert_color(COLOR_NUMBER_BG);
 	add_string("\n");
 	add_string("			}\n");
 	for (int i = 1; i <= env->tabstop; ++i) {
@@ -5582,7 +5595,7 @@ void convert_to_html(void) {
 
 	for (int i = 0; i < old->line_count; ++i) {
 		char tmp[100];
-		sprintf(tmp, "<span id=\"L%d\">", i+1);
+		sprintf(tmp, "<span id=\"L%d\"><a href=\"#L%d\"></a>", i+1, i+1);
 		add_string(tmp);
 		int last_flag = -1;
 		int opened = 0;
