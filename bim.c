@@ -5500,6 +5500,7 @@ void convert_to_html(void) {
 	add_string("		<style>\n");
 	add_string("			body {\n");
 	add_string("				margin: 0;\n");
+	add_string("				-webkit-text-size-adjust: none;\n");
 	add_string("				counter-reset: line-no;\n");
 	add_string("				background-color: ");
 	/* Convert color */
