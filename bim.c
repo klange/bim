@@ -5494,7 +5494,7 @@ void convert_to_html(void) {
 	add_string("		<meta charset=\"UTF-8\">\n");
 	add_string("		<style>\n");
 	add_string("			body {\n");
-	add_string("				font-family: monospace;\n");
+	add_string("				font-family: \"DejaVu Sans Mono\", Courier, monospace;\n");
 	add_string("				margin: 0;\n");
 	add_string("				counter-reset: line-no;\n");
 	add_string("				background-color: ");
@@ -5524,6 +5524,7 @@ void convert_to_html(void) {
 	add_string("			pre {\n");
 	add_string("				margin: 0;\n");
 	add_string("				white-space: pre-wrap;\n");
+	add_string("				font-family: \"DejaVu Sans Mono\", Courier, monospace;\n");
 	add_string("			}\n");
 	add_string("			pre>span {\n");
 	add_string("				display: inline-block;\n");
@@ -5554,7 +5555,10 @@ void convert_to_html(void) {
 		add_string("			");
 		add_string(tmp);
 		add_string(">span {\n");
-		add_string("				font-size: 0;\n");
+		add_string("				display: inline-block;\n");
+		add_string("				overflow: hidden;\n");
+		add_string("				width: 0;\n");
+		add_string("				height: 0;\n");
 		add_string("			}\n");
 		add_string("			");
 		add_string(tmp);
