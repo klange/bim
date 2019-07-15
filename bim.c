@@ -3401,15 +3401,15 @@ void mouse_disable(void) {
 /**
  * Shift the screen up one line
  */
-void shift_up(void) {
-	printf("\033[1S");
+void shift_up(int amount) {
+	printf("\033[%dS", amount);
 }
 
 /**
  * Shift the screen down one line.
  */
-void shift_down(void) {
-	printf("\033[1T");
+void shift_down(int amount) {
+	printf("\033[%dT", amount);
 }
 
 /**
@@ -4447,6 +4447,7 @@ void SIGTSTP_handler(int sig) {
 	clear_screen();
 	show_cursor();
 	unset_alternate_screen();
+	fflush(stdout);
 
 	signal(SIGTSTP, SIG_DFL);
 	raise(SIGTSTP);
@@ -5092,6 +5093,8 @@ void cursor_down(void) {
 			if (env->col_no == 0) env->col_no = 1;
 		}
 
+		if (env->loading) return;
+
 		/*
 		 * If the screen was scrolled horizontally, unscroll it;
 		 * if it will be scrolled on this line as well, that will
@@ -5109,7 +5112,7 @@ void cursor_down(void) {
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_up();
+				shift_up(1);
 
 				/* A new line appears on screen at the bottom, draw it */
 				int l = global_config.term_height - global_config.bottom_size - 1;
@@ -5177,6 +5180,8 @@ void cursor_up(void) {
 			if (env->col_no == 0) env->col_no = 1;
 		}
 
+		if (env->loading) return;
+
 		/*
 		 * If the screen was scrolled horizontally, unscroll it;
 		 * if it will be scrolled on this line as well, that will
@@ -5194,7 +5199,7 @@ void cursor_up(void) {
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_down();
+				shift_down(1);
 
 				/*
 				 * The line at the top of the screen should always be real
@@ -7046,14 +7051,30 @@ void handle_mouse(void) {
 	if (buttons == 64) {
 		/* Scroll up */
 		if (global_config.shift_scrolling) {
+			env->loading = 1;
+			int shifted = 0;
 			for (int i = 0; i < global_config.scroll_amount; ++i) {
-				if (env->offset > 0) env->offset--;
-				if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
-					cursor_up();
+				if (env->offset > 0) {
+					env->offset--;
+					if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+						cursor_up();
+					}
+					shifted++;
 				}
 			}
-
-			redraw_most();
+			env->loading = 0;
+			if (global_config.can_scroll && !left_buffer) {
+				shift_down(shifted);
+				for (int i = 0; i < shifted; ++i) {
+					redraw_line(i,env->offset+i);
+				}
+			} else {
+				redraw_text();
+			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 		} else {
 			for (int i = 0; i < global_config.scroll_amount; ++i) {
 				cursor_up();
@@ -7063,14 +7084,36 @@ void handle_mouse(void) {
 	} else if (buttons == 65) {
 		/* Scroll down */
 		if (global_config.shift_scrolling) {
+			env->loading = 1;
+			int shifted = 0;
 			for (int i = 0; i < global_config.scroll_amount; ++i) {
-				if (env->offset < env->line_count-1) env->offset++;
-				int e = (env->offset == 0) ? env->offset : env->offset + global_config.cursor_padding;
-				if (env->line_no <= e) {
-					cursor_down();
+				if (env->offset < env->line_count-1) {
+					env->offset++;
+					int e = (env->offset == 0) ? env->offset : env->offset + global_config.cursor_padding;
+					if (env->line_no <= e) {
+						cursor_down();
+					}
+					shifted++;
 				}
 			}
-			redraw_most();
+			env->loading = 0;
+			if (global_config.can_scroll && !left_buffer) {
+				shift_up(shifted);
+				int l = global_config.term_height - global_config.bottom_size - 1;
+				for (int i = 0; i < shifted; ++i) {
+					if (env->offset + l - i < env->line_count + 1) {
+						redraw_line(l-1-i, env->offset + l-1-i);
+					} else {
+						draw_excess_line(l - 1 - i);
+					}
+				}
+			} else {
+				redraw_text();
+			}
+			redraw_tabbar();
+			redraw_statusbar();
+			redraw_commandline();
+			place_cursor_actual();
 		} else {
 			for (int i = 0; i < global_config.scroll_amount; ++i) {
 				cursor_down();
