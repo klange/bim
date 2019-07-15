@@ -271,6 +271,7 @@ void bim_unget(int c) {
 
 #define bim_getch() bim_getch_timeout(200)
 int bim_getch_timeout(int timeout) {
+	fflush(stdout);
 	if (_bim_unget != -1) {
 		int out = _bim_unget;
 		_bim_unget = -1;
@@ -3240,7 +3241,6 @@ int codepoint_width(wchar_t codepoint) {
  */
 void place_cursor(int x, int y) {
 	printf("\033[%d;%dH", y, x);
-	fflush(stdout);
 }
 
 /**
@@ -3274,7 +3274,6 @@ void set_colors(const char * fg, const char * bg) {
 	} else {
 		printf("38;%sm", fg);
 	}
-	fflush(stdout);
 }
 
 /**
@@ -3294,7 +3293,6 @@ void set_fg_color(const char * fg) {
 	} else {
 		printf("38;%sm", fg);
 	}
-	fflush(stdout);
 }
 
 /**
@@ -3303,7 +3301,6 @@ void set_fg_color(const char * fg) {
 void clear_to_end(void) {
 	if (global_config.can_bce) {
 		printf("\033[K");
-		fflush(stdout);
 	}
 }
 
@@ -3328,7 +3325,6 @@ void paint_line(const char * bg) {
  */
 void set_bold(void) {
 	printf("\033[1m");
-	fflush(stdout);
 }
 
 /**
@@ -3336,7 +3332,6 @@ void set_bold(void) {
  */
 void unset_bold(void) {
 	printf("\033[22m");
-	fflush(stdout);
 }
 
 /**
@@ -3344,7 +3339,6 @@ void unset_bold(void) {
  */
 void set_underline(void) {
 	printf("\033[4m");
-	fflush(stdout);
 }
 
 /**
@@ -3352,7 +3346,6 @@ void set_underline(void) {
  */
 void unset_underline(void) {
 	printf("\033[24m");
-	fflush(stdout);
 }
 
 /**
@@ -3360,7 +3353,6 @@ void unset_underline(void) {
  */
 void reset(void) {
 	printf("\033[0m");
-	fflush(stdout);
 }
 
 /**
@@ -3368,7 +3360,6 @@ void reset(void) {
  */
 void clear_screen(void) {
 	printf("\033[H\033[2J");
-	fflush(stdout);
 }
 
 /**
@@ -3378,7 +3369,6 @@ void hide_cursor(void) {
 	if (global_config.can_hideshow) {
 		printf("\033[?25l");
 	}
-	fflush(stdout);
 }
 
 /**
@@ -3388,7 +3378,6 @@ void show_cursor(void) {
 	if (global_config.can_hideshow) {
 		printf("\033[?25h");
 	}
-	fflush(stdout);
 }
 
 /**
@@ -3398,7 +3387,6 @@ void mouse_enable(void) {
 	if (global_config.can_mouse) {
 		printf("\033[?1000h");
 	}
-	fflush(stdout);
 }
 
 /**
@@ -3408,7 +3396,6 @@ void mouse_disable(void) {
 	if (global_config.can_mouse) {
 		printf("\033[?1000l");
 	}
-	fflush(stdout);
 }
 
 /**
@@ -4044,7 +4031,6 @@ void redraw_statusbar(void) {
 	place_cursor(global_config.term_width - strlen(right_hand), global_config.term_height - 1);
 	/* TODO: What if we're localized and this has wide chars? */
 	printf("%s",right_hand);
-	fflush(stdout);
 }
 
 /**
@@ -4265,7 +4251,6 @@ void render_error(char * message, ...) {
 
 	/* Draw the message */
 	printf("%s", buf);
-	fflush(stdout);
 }
 
 char * paren_pairs = "()[]{}<>";
@@ -4462,7 +4447,6 @@ void SIGTSTP_handler(int sig) {
 	clear_screen();
 	show_cursor();
 	unset_alternate_screen();
-	fflush(stdout);
 
 	signal(SIGTSTP, SIG_DFL);
 	raise(SIGTSTP);
@@ -5676,7 +5660,6 @@ void process_command(char * cmd) {
 		/* Return to the editor, wait for user to press enter. */
 		set_unbuffered();
 		printf("\n\nPress ENTER to continue.");
-		fflush(stdout);
 		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 
 		/* Redraw the screen */
@@ -5878,7 +5861,6 @@ void process_command(char * cmd) {
 		render_commandline_message("\n");
 		redraw_tabbar();
 		redraw_commandline();
-		fflush(stdout);
 		int c;
 		while ((c = bim_getch())== -1);
 		bim_unget(c);
@@ -5979,7 +5961,6 @@ void process_command(char * cmd) {
 		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
 		redraw_tabbar();
 		redraw_commandline();
-		fflush(stdout);
 		/* Wait for a character so we can redraw the screen before continuing */
 		int c;
 		while ((c = bim_getch())== -1);
@@ -6131,7 +6112,6 @@ void process_command(char * cmd) {
 		}
 		redraw_tabbar();
 		redraw_commandline();
-		fflush(stdout);
 		int c;
 		while ((c = bim_getch())== -1);
 		bim_unget(c);
