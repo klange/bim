@@ -5994,7 +5994,7 @@ void process_command(char * cmd) {
 		 * upper few lines of text on screen again
 		 */
 		redraw_all();
-	} else if (!strcmp(argv[0], "theme")) {
+	} else if (!strcmp(argv[0], "theme") || !strcmp(argv[0],"colorscheme")) {
 		if (argc < 2) {
 			render_status_message("theme=%s", current_theme);
 			return;
@@ -6209,6 +6209,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("tabp");
 		add_candidate("tabnew");
 		add_candidate("theme");
+		add_candidate("colorscheme");
 		add_candidate("tabs");
 		add_candidate("tabstop");
 		add_candidate("spaces");
@@ -6240,7 +6241,7 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && !strcmp(args[0], "theme")) {
+	if (arg == 1 && (!strcmp(args[0], "theme") || !strcmp(args[0], "colorscheme"))) {
 		/* Complete color theme names */
 		for (struct theme_def * s = themes; s->name; ++s) {
 			add_candidate(s->name);
