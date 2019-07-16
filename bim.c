@@ -7082,6 +7082,7 @@ void handle_mouse(void) {
 				}
 			}
 			env->loading = 0;
+			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
 				shift_down(shifted);
 				for (int i = 0; i < shifted; ++i) {
@@ -7116,6 +7117,7 @@ void handle_mouse(void) {
 				}
 			}
 			env->loading = 0;
+			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
 				shift_up(shifted);
 				int l = global_config.term_height - global_config.bottom_size - 1;
