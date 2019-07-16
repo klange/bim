@@ -5704,20 +5704,27 @@ void process_command(char * cmd) {
 	}
 
 	/* Arguments aren't really tokenized, but the first command before a space is extracted */
-	char *argv[512]; /* If a specific command wants to tokenize further, it can do that later. */
+	char *argv[3]; /* If a specific command wants to tokenize further, it can do that later. */
 	int argc = 0;
-	argv[0] = cmd;
 	if (*cmd) argc++;
+
+	int i = 0;
+	char tmp[512] = {0};
 
 	/* Collect up until first space for argv[0] */
 	for (char * c = cmd; *c; ++c) {
+		if (i == 511) break;
 		if (*c == ' ') {
-			*c = '\0';
+			tmp[i] = '\0';
 			argv[1] = c+1;
 			if (*argv[1]) argc++;
 			break;
+		} else {
+			tmp[i] = *c;
 		}
+		i++;
 	}
+	argv[0] = tmp;
 	argv[argc] = NULL;
 
 	if (argc < 1) {
@@ -5757,8 +5764,8 @@ void process_command(char * cmd) {
 			buffer_close(new_env); /* Should probably also free, this needs editing. */
 			redraw_all();
 		}
-	} else if (!strcmp(argv[0], "s")) {
-		if (argc < 2) {
+	} else if (argv[0][0] == 's' && !isalpha(argv[0][1])) {
+		if (!argv[0][1]) {
 			render_error("expected substitution argument");
 			return;
 		}
@@ -5776,9 +5783,9 @@ void process_command(char * cmd) {
 		}
 
 		/* Determine replacement parameters */
-		char divider = argv[1][0];
+		char divider = cmd[1];
 
-		char * needle = &argv[1][1];
+		char * needle = &cmd[2];
 		char * c = needle;
 		char * replacement = NULL;
 		char * options = "";
@@ -6240,6 +6247,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("colorgutter");
 		add_candidate("tohtml");
 		add_candidate("buffers");
+		add_candidate("s/");
 		goto _accept_candidate;
 	}
 
