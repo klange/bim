@@ -5582,14 +5582,20 @@ void convert_to_html(void) {
 			add_string("·");
 		}
 		add_string("';\n");
-		add_string("			background-color: ");
+		add_string("				background-color: ");
 		html_convert_color(COLOR_ALT_BG);
 		add_string("\n");
-		add_string("			color: ");
+		add_string("				color: ");
 		html_convert_color(COLOR_ALT_FG);
 		add_string("\n");
 		add_string("			}\n");
 	}
+	add_string("			.space {\n");
+	add_string("				border-left: 1px solid ");
+	html_convert_color(COLOR_ALT_FG);
+	add_string("\n");
+	add_string("				margin-left: -1px;\n");
+	add_string("			}\n");
 	add_string("		</style>\n");
 	add_string("	</head>\n");
 	add_string("	<body><pre>\n");
@@ -5600,8 +5606,11 @@ void convert_to_html(void) {
 		add_string(tmp);
 		int last_flag = -1;
 		int opened = 0;
+		int all_spaces = 1;
 		for (int j = 0; j < old->lines[i]->actual; ++j) {
 			char_t c = old->lines[i]->text[j];
+
+			if (c.codepoint != ' ') all_spaces = 0;
 
 			if (last_flag == -1 || last_flag != (c.flags & 0x1F)) {
 				if (opened) add_string("</span>");
@@ -5622,6 +5631,8 @@ void convert_to_html(void) {
 				char tmp[100];
 				sprintf(tmp, "<span class=\"tab%d\"><span>	</span></span>",c.display_width);
 				add_string(tmp);
+			} else if (j > 0 && c.codepoint == ' ' && all_spaces && !(j % old->tabstop)) {
+				add_string("<span class=\"space\"> </span>");
 			} else {
 				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
 				to_eight(c.codepoint, tmp);
