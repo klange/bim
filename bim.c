@@ -1930,25 +1930,25 @@ static int syn_markdown_calculate(struct syntax_state * state) {
 				if (charat() == '`' && nextchar() == '`' && charrel(2) == '`') {
 					paint(3, FLAG_STRING);
 					if (match_forward(state, "c")) {
-						nest(syn_c_calculate, 2);
+						nest(syn_c_calculate, 100);
 					} else if (match_forward(state,"c++")) {
-						nest(syn_c_calculate, 2);
+						nest(syn_c_calculate, 100);
 					} else if (match_forward(state,"py") || match_forward(state,"python")) {
-						nest(syn_py_calculate, 5);
+						nest(syn_py_calculate, 200);
 					} else if (match_forward(state, "java")) {
-						nest(syn_java_calculate, 8);
+						nest(syn_java_calculate, 300);
 					} else if (match_forward(state,"json")) {
-						nest(syn_json_calculate, 10);
+						nest(syn_json_calculate, 400);
 					} else if (match_forward(state,"xml")) {
-						nest(syn_xml_calculate, 11);
+						nest(syn_xml_calculate, 500);
 					} else if (match_forward(state,"html")) {
-						nest(syn_xml_calculate, 11); // TODO this will be a different highlighter later
+						nest(syn_xml_calculate, 500); // TODO this will be a different highlighter later
 					} else if (match_forward(state,"make")) {
-						nest(syn_make_calculate, 16);
+						nest(syn_make_calculate, 600);
 					} else if (match_forward(state, "diff")) {
-						nest(syn_diff_calculate, 17);
+						nest(syn_diff_calculate, 700);
 					} else if (match_forward(state, "rust")) {
-						nest(syn_rust_calculate, 18); /* Keep this at the end for now */
+						nest(syn_rust_calculate, 800); /* Keep this at the end for now */
 					}
 					return 1;
 				}
@@ -2003,22 +2003,22 @@ _nope:
 		if (state->state == 1) {
 			while (charat() != -1) paint(1, FLAG_STRING);
 			return 1;
-		} else if (state->state < 5) {
-			nest(syn_c_calculate, 2);
-		} else if (state->state < 8) {
-			nest(syn_py_calculate, 5);
-		} else if (state->state < 10) {
-			nest(syn_java_calculate, 8);
-		} else if (state->state < 11) {
-			nest(syn_json_calculate, 10);
-		} else if (state->state < 16) {
-			nest(syn_xml_calculate, 11);
-		} else if (state->state < 17) {
-			nest(syn_make_calculate, 16);
-		} else if (state->state < 18) {
-			nest(syn_diff_calculate, 17);
+		} else if (state->state < 199) {
+			nest(syn_c_calculate, 100);
+		} else if (state->state < 299) {
+			nest(syn_py_calculate, 200);
+		} else if (state->state < 399) {
+			nest(syn_java_calculate, 300);
+		} else if (state->state < 499) {
+			nest(syn_json_calculate, 400);
+		} else if (state->state < 599) {
+			nest(syn_xml_calculate, 500);
+		} else if (state->state < 699) {
+			nest(syn_make_calculate, 600);
+		} else if (state->state < 799) {
+			nest(syn_diff_calculate, 700);
 		} else {
-			nest(syn_rust_calculate, 18);
+			nest(syn_rust_calculate, 800);
 		}
 	}
 	return -1;
