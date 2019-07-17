@@ -163,8 +163,9 @@ In COL SELECTION mode, you can enter COL INSERT mode to insert characters on mul
 | `:split`           | Split either the current buffer or the first two tabs into a vertical viewing mode             |
 | `:split file`      | Open a new file next to the current buffer                                                     |
 | `:s/A/B/O`         | Replace `A` with `B`; `O` is options (`g` for global, `i` for case-insensitive; no regex yet)  |
+| `:git`             | Print the status of the `git diff` integration setting.                                        |
 | `:git VALUE`       | Enable (1) or disable (0) `git diff` integration.                                              |
-| `:tohtml`          | Created an HTML document with syntax highlighted text from the currently open document         |
+| `:tohtml`          | Create an HTML document with syntax highlighted text from the currently open document          |
 
 ## Additional Bim Functionality
 
