@@ -1034,15 +1034,24 @@ static void paint_c_char(struct syntax_state * state) {
 }
 
 /**
+ * These words can appear in comments and should be highlighted.
+ * Since there are a lot of comment highlighters, let's break them out.
+ */
+static int common_comment_buzzwords(struct syntax_state * state) {
+	if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { return 1; }
+	return 0;
+}
+
+/**
  * Paint a comment until end of line, assumes this comment can not continue.
  * (Some languages have comments that can continue with a \ - don't use this!)
  * Assumes you've already painted your comment start characters.
  */
 static int paint_comment(struct syntax_state * state) {
 	while (charat() != -1) {
-		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
+		if (common_comment_buzzwords(state)) continue;
 		else { paint(1, FLAG_COMMENT); }
 	}
 	return -1;
@@ -1055,9 +1064,7 @@ static int paint_comment(struct syntax_state * state) {
 static int paint_c_comment(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
-		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
+		if (common_comment_buzzwords(state)) continue;
 		else if (last == '*' && charat() == '/') {
 			paint(1, FLAG_COMMENT);
 			return 0;
@@ -1437,9 +1444,7 @@ static int brace_keyword_qualifier(int c) {
 static int paint_java_comment(struct syntax_state * state) {
 	int last = -1;
 	while (charat() != -1) {
-		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
+		if (common_comment_buzzwords(state)) continue;
 		else if (charat() == '@') {
 			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
 				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
@@ -1562,9 +1567,15 @@ static char * diff_ext[] = {".patch",".diff",NULL};
 static int syn_conf_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
 		if (charat() == ';') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
 		} else if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
 		} else if (charat() == '[') {
 			paint(1, FLAG_KEYWORD);
 			while (charat() != ']' && charat() != -1) paint(1, FLAG_KEYWORD);
@@ -1598,9 +1609,7 @@ static char * syn_rust_types[] = {
 
 static int paint_rs_comment(struct syntax_state * state) {
 	while (charat() != -1) {
-		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
+		if (common_comment_buzzwords(state)) continue;
 		else if (charat() == '*' && nextchar() == '/') {
 			paint(2, FLAG_COMMENT);
 			state->state--;
@@ -1686,7 +1695,10 @@ static int syn_bimrc_calculate(struct syntax_state * state) {
 	/* No states */
 	if (state->i == 0) {
 		if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
 		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, c_keyword_qualifier)) {
 			if (charat() == '=') {
 				skip();
@@ -1870,7 +1882,10 @@ static int syn_make_calculate(struct syntax_state * state) {
 			/* Check for functions */
 			while (charat() != -1) {
 				if (charat() == '#') {
-					while (charat() != -1) paint(1, FLAG_COMMENT);
+					while (charat() != -1) {
+						if (common_comment_buzzwords(state)) continue;
+						else paint(1, FLAG_COMMENT);
+					}
 				} else if (find_keywords(state, syn_make_commands, FLAG_KEYWORD, make_command_qualifier)) {
 					continue;
 				} else if (charat() == '$') {
@@ -1883,7 +1898,10 @@ static int syn_make_calculate(struct syntax_state * state) {
 			/* It's a rule */
 			while (charat() != -1) {
 				if (charat() == '#') {
-					while (charat() != -1) paint(1, FLAG_COMMENT);
+					while (charat() != -1) {
+						if (common_comment_buzzwords(state)) continue;
+						else paint(1, FLAG_COMMENT);
+					}
 				} else if (charat() == ':') {
 					paint(1, FLAG_TYPE);
 					make_variable_or_comment(state, FLAG_NONE);
@@ -2157,7 +2175,8 @@ _comment:
 					paint(3, FLAG_COMMENT);
 					return 0;
 				} else {
-					paint(1, FLAG_COMMENT);
+					if (common_comment_buzzwords(state)) continue;
+					else paint(1, FLAG_COMMENT);
 				}
 			}
 			return 4;
@@ -2288,7 +2307,10 @@ static int syn_esh_calculate(struct syntax_state * state) {
 		return paint_esh_string(state);
 	}
 	if (charat() == '#') {
-		while (charat() != -1) paint(1, FLAG_COMMENT);
+		while (charat() != -1) {
+			if (common_comment_buzzwords(state)) continue;
+			else paint(1, FLAG_COMMENT);
+		}
 		return -1;
 	} else if (charat() == '$') {
 		paint(1, FLAG_TYPE);
@@ -2421,7 +2443,10 @@ static int bash_paint_string(struct syntax_state * state, char terminator, int o
 static int syn_bash_calculate(struct syntax_state * state) {
 	if (state->state < 1) {
 		if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
+			while (charat() != -1) {
+				if (common_comment_buzzwords(state)) continue;
+				else paint(1, FLAG_COMMENT);
+			}
 			return -1;
 		} else if (charat() == '\'') {
 			paint(1, FLAG_STRING);
