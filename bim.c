@@ -1034,30 +1034,6 @@ static void paint_c_char(struct syntax_state * state) {
 }
 
 /**
- * Paint a generic C pragma, eg. a #define statement.
- */
-static int paint_c_pragma(struct syntax_state * state) {
-	while (state->i < state->line->actual) {
-		if (charat() == '"') {
-			/* Paint C string */
-			paint_c_string(state);
-		} else if (charat() == '\'') {
-			paint_c_char(state);
-		} else if (charat() == '\\' && state->i == state->line->actual - 1) {
-			paint(1, FLAG_PRAGMA);
-			return 2;
-		} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
-			continue;
-		} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
-			continue;
-		} else {
-			paint(1, FLAG_PRAGMA);
-		}
-	}
-	return 0;
-}
-
-/**
  * Paint a comment until end of line, assumes this comment can not continue.
  * (Some languages have comments that can continue with a \ - don't use this!)
  * Assumes you've already painted your comment start characters.
@@ -1091,6 +1067,34 @@ static int paint_c_comment(struct syntax_state * state) {
 		}
 	}
 	return 1;
+}
+
+/**
+ * Paint a generic C pragma, eg. a #define statement.
+ */
+static int paint_c_pragma(struct syntax_state * state) {
+	while (state->i < state->line->actual) {
+		if (charat() == '"') {
+			/* Paint C string */
+			paint_c_string(state);
+		} else if (charat() == '\'') {
+			paint_c_char(state);
+		} else if (charat() == '\\' && state->i == state->line->actual - 1) {
+			paint(1, FLAG_PRAGMA);
+			return 2;
+		} else if (find_keywords(state, syn_c_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
+			continue;
+		} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
+			continue;
+		} else if (charat() == '/' && nextchar() == '*') {
+			/* C-style comments */
+			if (paint_c_comment(state) == 1) return 3;
+			continue;
+		} else {
+			paint(1, FLAG_PRAGMA);
+		}
+	}
+	return 0;
 }
 
 /**
@@ -1188,6 +1192,10 @@ static int syn_c_calculate(struct syntax_state * state) {
 			return 0;
 		case 2:
 			/* In an unclosed preprocessor statement */
+			return paint_c_pragma(state);
+		case 3:
+			/* In a block comment within an unclosed preprocessor statement */
+			if (paint_c_comment(state) == 1) return 3;
 			return paint_c_pragma(state);
 	}
 	return -1;
