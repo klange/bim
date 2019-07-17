@@ -4846,6 +4846,7 @@ void try_quit(void) {
  * Switch to the previous buffer
  */
 void previous_tab(void) {
+	if (left_buffer) unsplit();
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
@@ -4871,6 +4872,7 @@ void previous_tab(void) {
  * Switch to the next buffer
  */
 void next_tab(void) {
+	if (left_buffer) unsplit();
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
@@ -6095,6 +6097,12 @@ void process_command(char * cmd) {
 			redraw_alt_buffer(right_buffer);
 			update_title();
 		}
+	} else if (!strcmp(argv[0], "split!")) {
+		/* Force split the current buffer; will become unsplit under certain circumstances */
+		left_buffer = env;
+		right_buffer = env;
+		update_split_size();
+		redraw_all();
 	} else if (!strcmp(argv[0], "unsplit")) {
 		unsplit();
 	} else if (!strcmp(argv[0], "syntax")) {
@@ -7211,6 +7219,7 @@ void handle_mouse(void) {
 				char tmp[64];
 				_x += draw_tab_name(_env, tmp);
 				if (_x >= x) {
+					if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
 					env = buffers[i];
 					redraw_all();
 					update_title();
