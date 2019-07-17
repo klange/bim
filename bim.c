@@ -4846,7 +4846,6 @@ void try_quit(void) {
  * Switch to the previous buffer
  */
 void previous_tab(void) {
-	if (left_buffer) unsplit();
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
@@ -4854,11 +4853,13 @@ void previous_tab(void) {
 			if (last) {
 				/* Wrap around */
 				env = last;
+				if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
 				redraw_all();
 				update_title();
 				return;
 			} else {
 				env = buffers[buffers_len-1];
+				if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
 				redraw_all();
 				update_title();
 				return;
@@ -4872,18 +4873,19 @@ void previous_tab(void) {
  * Switch to the next buffer
  */
 void next_tab(void) {
-	if (left_buffer) unsplit();
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
 			if (i != buffers_len - 1) {
 				env = buffers[i+1];
+				if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
 				redraw_all();
 				update_title();
 				return;
 			} else {
 				/* Wrap around */
 				env = buffers[0];
+				if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
 				redraw_all();
 				update_title();
 				return;
@@ -6075,46 +6077,28 @@ void process_command(char * cmd) {
 			}
 		}
 	} else if (!strcmp(argv[0], "split")) {
-		if (argc < 2 && buffers_len == 1) {
-			left_buffer = buffers[0];
-			right_buffer = buffers[0];
-			update_split_size();
-			redraw_all();
-		} else if ((argc < 2 && buffers_len != 2) || (argc == 2 && buffers_len != 1)) {
-			render_error("(splits are experimental and only work with two buffers; sorry!)");
-			return;
-		} else {
-			if (argc == 2) {
-				open_file(argv[1]);
-			}
-			if (buffers_len != 2) return; /* something bad happened when trying to open the new file */
-			left_buffer = buffers[0];
-			right_buffer = buffers[1];
-
-			update_split_size();
-
-			redraw_alt_buffer(left_buffer);
-			redraw_alt_buffer(right_buffer);
-			update_title();
-		}
-	} else if (!strcmp(argv[0], "split!")) {
 		/* Force split the current buffer; will become unsplit under certain circumstances */
+		buffer_t * original = env;
 		if (argc > 1) {
-			int other = atoi(argv[1]);
-			if (other >= buffers_len || other < 0) {
-				render_error("Invalid buffer number: %d", other);
-				return;
+			int is_not_number = 0;
+			for (char * c = argv[1]; *c; ++c) is_not_number |= !isdigit(*c);
+			if (is_not_number) {
+				open_file(argv[1]);
+				right_buffer = buffers[buffers_len-1];
+			} else {
+				int other = atoi(argv[1]);
+				if (other >= buffers_len || other < 0) {
+					render_error("Invalid buffer number: %d", other);
+					return;
+				}
+				right_buffer = buffers[other];
 			}
-			left_buffer = env;
-			right_buffer = buffers[other];
-			update_split_size();
-			redraw_all();
 		} else {
-			left_buffer = env;
-			right_buffer = env;
-			update_split_size();
-			redraw_all();
+			right_buffer = original;
 		}
+		left_buffer = original;
+		update_split_size();
+		redraw_all();
 	} else if (!strcmp(argv[0], "unsplit")) {
 		unsplit();
 	} else if (!strcmp(argv[0], "syntax")) {
@@ -6298,7 +6282,6 @@ void command_tab_complete(char * buffer) {
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
 		add_candidate("split");
-		add_candidate("split!");
 		add_candidate("splitpercent");
 		add_candidate("unsplit");
 		add_candidate("git");

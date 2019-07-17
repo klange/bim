@@ -160,10 +160,9 @@ In COL SELECTION mode, you can enter COL INSERT mode to insert characters on mul
 | `:hlcurrent VALUE` | Enable (1) or disable (0) highlight of the current line                                        |
 | `:smartcase`       | Print the status of the smartcase setting                                                      |
 | `:smartcase VALUE` | Enable (1) or disable (0) smart case sensitivty when searching                                 |
-| `:split`           | Split either the current buffer or the first two tabs into a vertical viewing mode             |
-| `:split file`      | Open a new file next to the current buffer                                                     |
-| `:split!`          | Split the current buffer, regardless of other tabs                                             |
-| `:split BUFID`     | Split the current buffer with another buffer by ID                                             |
+| `:split`           | Split the current buffer so it can be viewed twice.                                            |
+| `:split BUFID`     | Display another buffer next to the current buffer                                              |
+| `:split FILE`      | Open a new file next to the current buffer                                                     |
 | `:s/A/B/O`         | Replace `A` with `B`; `O` is options (`g` for global, `i` for case-insensitive; no regex yet)  |
 | `:git`             | Print the status of the `git diff` integration setting.                                        |
 | `:git VALUE`       | Enable (1) or disable (0) `git diff` integration.                                              |
