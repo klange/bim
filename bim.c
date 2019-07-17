@@ -1042,7 +1042,7 @@ static int paint_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
 		else { paint(1, FLAG_COMMENT); }
 	}
 	return -1;
@@ -1057,7 +1057,7 @@ static int paint_c_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
 		else if (last == '*' && charat() == '/') {
 			paint(1, FLAG_COMMENT);
 			return 0;
@@ -1439,7 +1439,7 @@ static int paint_java_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
 		else if (charat() == '@') {
 			if (!find_keywords(state, syn_java_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
 				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
@@ -1600,7 +1600,7 @@ static int paint_rs_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
 		else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
-		else if (match_and_paint(state, "FIXME", FLAG_NOTICE, c_keyword_qualifier)) { continue; }
+		else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { continue; }
 		else if (charat() == '*' && nextchar() == '/') {
 			paint(2, FLAG_COMMENT);
 			state->state--;
