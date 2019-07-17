@@ -1086,6 +1086,10 @@ static int paint_c_pragma(struct syntax_state * state) {
 			continue;
 		} else if (find_keywords(state, syn_c_types, FLAG_TYPE, c_keyword_qualifier)) {
 			continue;
+		} else if (charat() == '/' && nextchar() == '/') {
+			/* C++-style comments */
+			paint_comment(state);
+			return -1;
 		} else if (charat() == '/' && nextchar() == '*') {
 			/* C-style comments */
 			if (paint_c_comment(state) == 1) return 3;
