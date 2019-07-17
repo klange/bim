@@ -6099,10 +6099,22 @@ void process_command(char * cmd) {
 		}
 	} else if (!strcmp(argv[0], "split!")) {
 		/* Force split the current buffer; will become unsplit under certain circumstances */
-		left_buffer = env;
-		right_buffer = env;
-		update_split_size();
-		redraw_all();
+		if (argc > 1) {
+			int other = atoi(argv[1]);
+			if (other >= buffers_len || other < 0) {
+				render_error("Invalid buffer number: %d", other);
+				return;
+			}
+			left_buffer = env;
+			right_buffer = buffers[other];
+			update_split_size();
+			redraw_all();
+		} else {
+			left_buffer = env;
+			right_buffer = env;
+			update_split_size();
+			redraw_all();
+		}
 	} else if (!strcmp(argv[0], "unsplit")) {
 		unsplit();
 	} else if (!strcmp(argv[0], "syntax")) {
@@ -6286,6 +6298,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
 		add_candidate("split");
+		add_candidate("split!");
 		add_candidate("splitpercent");
 		add_candidate("unsplit");
 		add_candidate("git");
