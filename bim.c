@@ -4214,7 +4214,7 @@ void update_title(void) {
 	getcwd(cwd, 1024);
 
 	for (int i = 1; i < 3; ++i) {
-		printf("\033]%d;%s%s (%s) - BIM\007", i, env->file_name ? env->file_name : "[No Name]", env->modified ? " +" : "", cwd);
+		printf("\033]%d;%s%s (%s) - Bim\007", i, env->file_name ? env->file_name : "[No Name]", env->modified ? " +" : "", cwd);
 	}
 }
 
@@ -6026,7 +6026,11 @@ void process_command(char * cmd) {
 		 */
 		render_commandline_message(""); /* To clear command line */
 		render_commandline_message("\n");
+		#ifdef __toaru__
 		render_commandline_message(" \033[1mbim - The standard ToaruOS Text Editor\033[22m\n");
+		#else
+		render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
+		#endif
 		render_commandline_message("\n");
 		render_commandline_message(" Available commands:\n");
 		render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
