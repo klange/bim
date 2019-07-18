@@ -89,14 +89,13 @@ const char * current_theme = "none";
 #define FLAG_TYPE      4
 #define FLAG_PRAGMA    5
 #define FLAG_NUMERAL   6
-#define FLAG_STRING2   7
+#define FLAG_ERROR     7
 #define FLAG_DIFFPLUS  8
 #define FLAG_DIFFMINUS 9
 #define FLAG_NOTICE    10
 #define FLAG_BOLD      11
 #define FLAG_LINK      12
 #define FLAG_ESCAPE    13
-#define FLAG_ERROR     14
 
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
@@ -110,7 +109,6 @@ const char * flag_to_color(int _flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
 		case FLAG_STRING:
-		case FLAG_STRING2: /* allows python to differentiate " and ' */
 			return COLOR_STRING;
 		case FLAG_COMMENT:
 			return COLOR_COMMENT;
