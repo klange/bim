@@ -1715,7 +1715,7 @@ static int syn_biminfo_calculate(struct syntax_state * state) {
 			skip();
 			while (charat() != -1) paint(1, FLAG_NUMERAL);
 		} else {
-			while (charat() != -1) paint(1, FLAG_DIFFMINUS); /* Add a FLAG_ERROR maybe? */
+			while (charat() != -1) paint(1, FLAG_ERROR);
 		}
 	}
 	return -1;
