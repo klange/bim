@@ -1,4 +1,4 @@
-/* vim: tabstop=4 shiftwidth=4 noexpandtab
+/* Bim - A Text Editor
  *
  * Copyright (C) 2012-2019 K. Lange
  *
@@ -13,14 +13,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * bim - Text editor
- *
- * Bim is inspired by vim, and its name is short for "Bad IMitation".
- *
- * Bim supports syntax highlighting, extensive editing, line selection
- * and copy-paste, undo/redo stack, forward and backward search, and can
- * be built for ToaruOS, Sortix, Linux, macOS, and BSDs.
  */
 #define _XOPEN_SOURCE
 #define _DEFAULT_SOURCE
