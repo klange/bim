@@ -1212,7 +1212,16 @@ static char * syn_py_keywords[] = {
 };
 
 static char * syn_py_types[] = {
-	"object","set","dict","int","str","bytes",
+	/* built-in functions */
+	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
+	"bytearray","callable","compile","complex","delattr",
+	"dict","dir","divmod","enumerate","eval","exec","filter","float",
+	"format","frozenset","getattr","globals","hasattr","hash","help",
+	"hex","id","input","int","isinstance","issubclass","iter","len",
+	"list","locals","map","max","memoryview","min","next","object",
+	"oct","open","ord","pow","print","property","range","repr","reverse",
+	"round","set","setattr","slice","sorted","staticmethod","str","sum",
+	"super","tuple","type","vars","zip",
 	NULL
 };
 
@@ -1360,7 +1369,7 @@ static int syn_py_calculate(struct syntax_state * state) {
 				}
 			} else if (find_keywords(state, syn_py_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 				return 0;
-			} else if (find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
+			} else if (lastchar() != '.' && find_keywords(state, syn_py_types, FLAG_TYPE, c_keyword_qualifier)) {
 				return 0;
 			} else if (find_keywords(state, syn_py_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
