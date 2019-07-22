@@ -2582,7 +2582,10 @@ void recalculate_syntax(line_t * line, int line_no) {
 		line->text[i].flags = 0;
 	}
 
-	if (!env->syntax) return;
+	if (!env->syntax) {
+		rehilight_search(line);
+		return;
+	}
 
 	/* Start from the line's stored in initial state */
 	struct syntax_state state;
