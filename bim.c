@@ -8455,7 +8455,12 @@ void col_insert_mode(void) {
 						}
 				}
 			} else {
-				/* Don't handle escapes */
+				/* Ignore escape sequences for now, but handle them nicely */
+				switch (handle_command_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						return;
+				}
 			}
 		} else if (istate == UTF8_REJECT) {
 			istate = 0;
