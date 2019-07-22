@@ -9248,6 +9248,7 @@ void replace_mode(void) {
 							insert_char(c);
 							redraw_line(env->line_no - env->offset - 1, env->line_no-1);
 						}
+						set_preferred_column();
 						redraw_statusbar();
 						place_cursor_actual();
 						break;
