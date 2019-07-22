@@ -1214,7 +1214,7 @@ static char * syn_py_keywords[] = {
 static char * syn_py_types[] = {
 	/* built-in functions */
 	"abs","all","any","ascii","bin","bool","breakpoint","bytes",
-	"bytearray","callable","compile","complex","delattr",
+	"bytearray","callable","compile","complex","delattr","chr",
 	"dict","dir","divmod","enumerate","eval","exec","filter","float",
 	"format","frozenset","getattr","globals","hasattr","hash","help",
 	"hex","id","input","int","isinstance","issubclass","iter","len",
