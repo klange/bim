@@ -6580,6 +6580,8 @@ void command_mode(void) {
 							timeout++;
 						}
 						break;
+					case 3: /* ^C */
+						return;
 					case ENTER_KEY:
 					case LINE_FEED:
 						/* Enter, run command */
@@ -6885,7 +6887,7 @@ void search_mode(int direction) {
 			continue;
 		}
 		if (!decode(&state, &c, cin)) {
-			if (c == '\033') {
+			if (c == '\033' || c == 3) {
 				/* Cancel search */
 				env->line_no = prev_line;
 				env->col_no  = prev_col;
