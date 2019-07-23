@@ -4496,6 +4496,7 @@ void SIGCONT_handler(int sig) {
 	(void)sig;
 	set_alternate_screen();
 	set_unbuffered();
+	update_screen_size();
 	mouse_enable();
 	redraw_all();
 	signal(SIGCONT, SIGCONT_handler);
