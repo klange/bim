@@ -101,7 +101,7 @@ const char * current_theme = "none";
 #define FLAG_SEARCH    (1 << 6)
 
 /**
- * Convert syntax hilighting flag to color code
+ * Convert syntax highlighting flag to color code
  */
 const char * flag_to_color(int _flag) {
 	int flag = _flag & 0xF;
@@ -177,7 +177,7 @@ struct {
 
 	const char * bimrc_path;
 
-	unsigned int hilight_on_open:1;
+	unsigned int highlight_on_open:1;
 	unsigned int initial_file_is_read_only:1;
 	unsigned int can_scroll:1;
 	unsigned int can_hideshow:1;
@@ -194,7 +194,7 @@ struct {
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
 	unsigned int go_to_line:1;
-	unsigned int hilight_current_line:1;
+	unsigned int highlight_current_line:1;
 	unsigned int shift_scrolling:1;
 	unsigned int check_git:1;
 	unsigned int color_gutter:1;
@@ -213,7 +213,7 @@ struct {
 	0, /* yank is full lines */
 	STDIN_FILENO, /* tty_in */
 	"~/.bimrc", /* bimrc_path */
-	1, /* hilight_on_open */
+	1, /* highlight_on_open */
 	0, /* initial_file_is_read_only */
 	1, /* can scroll */
 	1, /* can hide/show cursor */
@@ -230,7 +230,7 @@ struct {
 	1, /* can use 265 colors */
 	1, /* can use italics (without inverting) */
 	1, /* should go to line when opening file */
-	1, /* hilight the current line */
+	1, /* highlight the current line */
 	1, /* shift scrolling (shifts view rather than moving cursor) */
 	0, /* check git on open and on save */
 	1, /* color the gutter for modified lines */
@@ -248,7 +248,7 @@ void set_preferred_column(void);
 void quit(const char * message);
 void close_buffer(void);
 void set_syntax_by_name(const char * name);
-void rehilight_search(line_t * line);
+void rehighlight_search(line_t * line);
 
 /**
  * Special implementation of getch with a timeout
@@ -2583,7 +2583,7 @@ struct syntax_definition {
 
 
 /**
- * Calculate syntax hilighting for the given line.
+ * Calculate syntax highlighting for the given line.
  */
 void recalculate_syntax(line_t * line, int line_no) {
 	/* Clear syntax for this line first */
@@ -2592,7 +2592,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 	}
 
 	if (!env->syntax) {
-		rehilight_search(line);
+		rehighlight_search(line);
 		return;
 	}
 
@@ -2607,12 +2607,12 @@ void recalculate_syntax(line_t * line, int line_no) {
 		state.state = env->syntax->calculate(&state);
 
 		if (state.state != 0) {
-			rehilight_search(line);
+			rehighlight_search(line);
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
 				if (env->loading) return;
 				recalculate_syntax(env->lines[line_no+1], line_no+1);
-				rehilight_search(env->lines[line_no+1]);
+				rehighlight_search(env->lines[line_no+1]);
 				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
 					redraw_line(line_no + 1 - env->offset, line_no + 1);
 				}
@@ -3513,7 +3513,7 @@ void redraw_tabbar(void) {
 		buffer_t * _env = buffers[i];
 
 		if (_env == env) {
-			/* If this is the active buffer, hilight it */
+			/* If this is the active buffer, highlight it */
 			reset();
 			set_colors(COLOR_FG, COLOR_BG);
 			set_bold();
@@ -3640,7 +3640,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				return;
 			}
 
-			/* Syntax hilighting */
+			/* Syntax highlighting */
 			const char * color = flag_to_color(c.flags);
 			if (c.flags & FLAG_SELECT) {
 				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
@@ -3836,7 +3836,7 @@ void draw_line_number(int x) {
  * Used to highlight the current line after moving the cursor.
  */
 void recalculate_current_line(void) {
-	if (!global_config.hilight_current_line) return;
+	if (!global_config.highlight_current_line) return;
 	for (int i = 0; i < env->line_count; ++i) {
 		if (env->lines[i]->is_current && i != env->line_no-1) {
 			env->lines[i]->is_current = 0;
@@ -4720,7 +4720,7 @@ void open_file(char * file) {
 	}
 
 	if (!f) {
-		if (global_config.hilight_on_open) {
+		if (global_config.highlight_on_open) {
 			env->syntax = match_syntax(file);
 		}
 		env->loading = 0;
@@ -4752,7 +4752,7 @@ void open_file(char * file) {
 		env->lines = remove_line(env->lines, env->line_no-1);
 	}
 
-	if (global_config.hilight_on_open) {
+	if (global_config.highlight_on_open) {
 		env->syntax = match_syntax(file);
 		if (!env->syntax && global_config.syntax_fallback) {
 			set_syntax_by_name(global_config.syntax_fallback);
@@ -6181,10 +6181,10 @@ void process_command(char * cmd) {
 		}
 	} else if (!strcmp(argv[0], "hlcurrent")) {
 		if (argc < 2) {
-			render_status_message("hlcurrent=%d", global_config.hilight_current_line);
+			render_status_message("hlcurrent=%d", global_config.highlight_current_line);
 		} else {
-			global_config.hilight_current_line = atoi(argv[1]);
-			if (!global_config.hilight_current_line) {
+			global_config.highlight_current_line = atoi(argv[1]);
+			if (!global_config.highlight_current_line) {
 				for (int i = 0; i < env->line_count; ++i) {
 					env->lines[i]->is_current = 0;
 				}
@@ -6780,7 +6780,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
  * XXX There's a bunch of code duplication between the (now three) search match functions.
  *     and search should be improved to support regex anyway, so this needs to be fixed.
  */
-void rehilight_search(line_t * line) {
+void rehighlight_search(line_t * line) {
 	if (!global_config.search) return;
 	int j = 0;
 	int ignorecase = smart_case(global_config.search);
@@ -6896,7 +6896,7 @@ void search_mode(int direction) {
 					for (int j = 0; j < env->lines[i]->actual; ++j) {
 						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
 					}
-					rehilight_search(env->lines[i]);
+					rehighlight_search(env->lines[i]);
 				}
 				redraw_all();
 				break;
@@ -9528,7 +9528,7 @@ static void show_usage(char * argv[]) {
 			"        nosyntax    " _s "disable syntax highlighting on load" _e
 			"        notitle     " _s "disable title-setting escapes" _e
 			"        history     " _s "enable experimental undo/redo" _e
-			" -c,-C  " _s "print file to stdout with syntax hilighting" _e
+			" -c,-C  " _s "print file to stdout with syntax highlighting" _e
 			"        " _s "-C includes line numbers, -c does not" _e
 			" -u     " _s "override bimrc file" _e
 			" -?     " _s "show this help text" _e
@@ -9629,9 +9629,9 @@ void load_bimrc(void) {
 			global_config.highlight_parens = atoi(value);
 		}
 
-		/* Disable hilighting of current line */
+		/* Disable highlighting of current line */
 		if (!strcmp(l,"hlcurrent") && value) {
-			global_config.hilight_current_line = atoi(value);
+			global_config.highlight_current_line = atoi(value);
 		}
 
 		if (!strcmp(l,"splitpercent") && value) {
@@ -9764,7 +9764,7 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(optarg,"nounicode"))  global_config.can_unicode = 0;
 				else if (!strcmp(optarg,"nobright"))   global_config.can_bright = 0;
 				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
-				else if (!strcmp(optarg,"nosyntax"))   global_config.hilight_on_open = 0;
+				else if (!strcmp(optarg,"nosyntax"))   global_config.highlight_on_open = 0;
 				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
 				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
 				else if (!strcmp(optarg,"nobce"))      global_config.can_bce = 0;
