@@ -7604,6 +7604,48 @@ _place:
 }
 
 /**
+ * Move cursor to the start of the previous "WORD".
+ */
+void big_word_left(void) {
+	int line_no = env->line_no;
+	int col_no = env->col_no;
+
+	do {
+		col_no--;
+		while (col_no == 0) {
+			line_no--;
+			if (line_no == 0) {
+				goto_line(1);
+				set_preferred_column();
+				return;
+			}
+			col_no = env->lines[line_no-1]->actual;
+		}
+	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	do {
+		col_no--;
+		if (col_no == 0) {
+			col_no = 1;
+			break;
+		}
+		if (col_no == 1) {
+			env->col_no = 1;
+			env->line_no = line_no;
+			set_preferred_column();
+			redraw_statusbar();
+			place_cursor_actual();
+			return;
+		}
+	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	env->col_no = col_no;
+	env->line_no = line_no;
+	set_preferred_column();
+	cursor_right();
+}
+
+/**
  * Word right
  */
 void word_right(void) {
@@ -7642,6 +7684,54 @@ void word_right(void) {
 _place:
 	set_preferred_column();
 	place_cursor_actual();
+}
+
+/**
+ * Word right
+ */
+void big_word_right(void) {
+	int line_no = env->line_no;
+	int col_no = env->col_no;
+
+	do {
+		col_no++;
+		if (col_no > env->lines[line_no-1]->actual) {
+			line_no++;
+			if (line_no > env->line_count) {
+				env->line_no = env->line_count;
+				env->col_no  = env->lines[env->line_no-1]->actual;
+				set_preferred_column();
+				redraw_statusbar();
+				place_cursor_actual();
+				return;
+			}
+			col_no = 0;
+			break;
+		}
+	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	do {
+		col_no++;
+		while (col_no > env->lines[line_no-1]->actual) {
+			line_no++;
+			if (line_no >= env->line_count) {
+				env->col_no = env->lines[env->line_count-1]->actual;
+				env->line_no = env->line_count;
+				set_preferred_column();
+				redraw_statusbar();
+				place_cursor_actual();
+				return;
+			}
+			col_no = 1;
+		}
+	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+
+	env->col_no = col_no;
+	env->line_no = line_no;
+	set_preferred_column();
+	redraw_statusbar();
+	place_cursor_actual();
+	return;
 }
 
 /**
@@ -7848,7 +7938,7 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				break;
 			case 'C': // right
 				if (this_buf[*timeout-1] == '5') {
-					word_right();
+					big_word_right();
 				} else if (this_buf[*timeout-1] == '3') {
 					global_config.split_percent += 1;
 					update_split_size();
@@ -7862,7 +7952,7 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				break;
 			case 'D': // left
 				if (this_buf[*timeout-1] == '5') {
-					word_left();
+					big_word_left();
 				} else if (this_buf[*timeout-1] == '3') {
 					global_config.split_percent -= 1;
 					update_split_size();
@@ -8019,11 +8109,17 @@ void handle_navigation(int c) {
 		case 'l': /* Move cursor right*/
 			cursor_right();
 			break;
-		case 'b': /* Move cursor one word right */
+		case 'b': /* Move cursor one word left */
 			word_left();
 			break;
 		case 'w': /* Move cursor one word right */
 			word_right();
+			break;
+		case 'B': /* Move cursor one WORD left */
+			big_word_left();
+			break;
+		case 'W': /* Move cursor one WORD right */
+			big_word_right();
 			break;
 		case 'G': /* Go to end of file */
 			goto_line(env->line_count);
