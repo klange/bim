@@ -3847,24 +3847,27 @@ void draw_line_number(int x) {
  * Used to highlight the current line after moving the cursor.
  */
 void recalculate_current_line(void) {
-	if (!global_config.highlight_current_line && !global_config.relative_lines) return;
 	int something_changed = 0;
-	for (int i = 0; i < env->line_count; ++i) {
-		if (env->lines[i]->is_current && i != env->line_no-1) {
-			env->lines[i]->is_current = 0;
-			something_changed = 1;
-			if ((i) - env->offset > -1 &&
-				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-				redraw_line((i) - env->offset, i);
-			}
-		} else if (i == env->line_no-1 && !env->lines[i]->is_current) {
-			env->lines[i]->is_current = 1;
-			something_changed = 1;
-			if ((i) - env->offset > -1 &&
-				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-				redraw_line((i) - env->offset, i);
+	if (global_config.highlight_current_line) {
+		for (int i = 0; i < env->line_count; ++i) {
+			if (env->lines[i]->is_current && i != env->line_no-1) {
+				env->lines[i]->is_current = 0;
+				something_changed = 1;
+				if ((i) - env->offset > -1 &&
+					(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+					redraw_line((i) - env->offset, i);
+				}
+			} else if (i == env->line_no-1 && !env->lines[i]->is_current) {
+				env->lines[i]->is_current = 1;
+				something_changed = 1;
+				if ((i) - env->offset > -1 &&
+					(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+					redraw_line((i) - env->offset, i);
+				}
 			}
 		}
+	} else {
+		something_changed = 1;
 	}
 	if (something_changed && global_config.relative_lines) {
 		for (int i = env->offset; i < env->offset + global_config.term_height - global_config.bottom_size - 1; ++i) {
