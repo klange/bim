@@ -7937,13 +7937,15 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				cursor_down();
 				break;
 			case 'C': // right
-				if (this_buf[*timeout-1] == '5') {
+				if (this_buf[*timeout-1] == '5') { // ctrl
 					big_word_right();
-				} else if (this_buf[*timeout-1] == '3') {
+				} else if (this_buf[*timeout-1] == '2') { //shift
+					word_right();
+				} else if (this_buf[*timeout-1] == '3') { //alt
 					global_config.split_percent += 1;
 					update_split_size();
 					redraw_all();
-				} else if (this_buf[*timeout-1] == '4') {
+				} else if (this_buf[*timeout-1] == '4') { // alt shift
 					use_right_buffer();
 					redraw_all();
 				} else {
@@ -7951,13 +7953,15 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 				}
 				break;
 			case 'D': // left
-				if (this_buf[*timeout-1] == '5') {
+				if (this_buf[*timeout-1] == '5') { // ctrl
 					big_word_left();
-				} else if (this_buf[*timeout-1] == '3') {
+				} else if (this_buf[*timeout-1] == '2') { // shift
+					word_left();
+				} else if (this_buf[*timeout-1] == '3') { // alt
 					global_config.split_percent -= 1;
 					update_split_size();
 					redraw_all();
-				} else if (this_buf[*timeout-1] == '4') {
+				} else if (this_buf[*timeout-1] == '4') { // alt-shift
 					use_left_buffer();
 					redraw_all();
 				} else {
