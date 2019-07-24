@@ -55,16 +55,20 @@ The alternate screen is used if available with `^[[?1049h`. This can be disabled
 
 In normal, INSERT, LINE SELECTION, CHAR SELECTION, COL SELECTION, COL INSERT, and REPLACE modes:
 
-| **Key**    | **Action**                                      |
-|------------|-------------------------------------------------|
-| Arrows     | Move the cursor                                 |
-| Page Up    | Scroll up one screenful                         |
-| Page Down  | Scroll down one screenful                       |
-| Home       | Move cursor to start of line                    |
-| End        | Move cursor to end of line (past end in INSERT) |
-| Ctrl-Left  | Move to start of previous word                  |
-| Ctrl-Right | Move to start of next word                      |
-| Escape     | Return to normal mode                           |
+| **Key**     | **Action**                                      |
+|-------------|-------------------------------------------------|
+| Arrows      | Move the cursor                                 |
+| Page Up     | Scroll up one screenful                         |
+| Page Down   | Scroll down one screenful                       |
+| Home        | Move cursor to start of line                    |
+| End         | Move cursor to end of line (past end in INSERT) |
+| Shift-Left  | Move to start of previous word                  |
+| Shift-Right | Move to start of next word                      |
+| Ctrl-Left   | Move to start of previous "big word"            |
+| Ctrl-Right  | Move to start of next "big word"                |
+| Escape      | Return to normal mode                           |
+
+*A "word" is delimiated by non-keyword characters while a "big word" is delimited by spaces. In Vim terminology these are "words" and "WORDS".*
 
 When in normal mode:
 
@@ -92,6 +96,12 @@ When in normal mode:
 | `^` or `0`  | Move the cursor to the beginning of the line                                            |
 | `Pp`        | Paste yanked lines, before or after (respectively)                                      |
 | `u`         | Undo last block of edits                                                                |
+| `w`         | Move to start of next word (Same as Shift-Right)                                        |
+| `b`         | Move to start of previous word (Same as Shift-Left)                                     |
+| `W`         | Move to start of next "big word" (Same as Ctrl-Right)                                   |
+| `B`         | Move to start of previous "big word" (Same as Ctrl-Left)                                |
+| `G`         | Move to the end of the file.                                                            |
+| `*`         | Search for the word under the cursor.                                                   |
 | Ctrl-`R`    | Redo last undone block of edits                                                         |
 | Ctrl-`L`    | Repaint the screen                                                                      |
 
