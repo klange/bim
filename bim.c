@@ -8378,6 +8378,7 @@ void line_selection_mode(void) {
 
 			/* Mark current line */
 			_redraw_line(env->line_no,0);
+			_redraw_line(env->start_line,1);
 
 			/* Properly mark everything in the span we just moved through */
 			if (prev_line < env->line_no) {
