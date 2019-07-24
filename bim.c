@@ -5843,6 +5843,8 @@ void process_command(char * cmd) {
 				recalculate_tabs(env->lines[range_top+i-1]);
 			}
 
+			env->modified = 1;
+
 			/* Close the temporary buffer */
 			buffer_close(new);
 		} else {
