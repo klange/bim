@@ -3870,7 +3870,7 @@ void recalculate_current_line(void) {
 		something_changed = 1;
 	}
 	if (something_changed && global_config.relative_lines) {
-		for (int i = env->offset; i < env->offset + global_config.term_height - global_config.bottom_size - 1; ++i) {
+		for (int i = env->offset; i < env->offset + global_config.term_height - global_config.bottom_size - 1 && i < env->line_count; ++i) {
 			/* Place cursor for line number */
 			place_cursor(2 + env->left, (i)-env->offset+2);
 			draw_line_number(i);
