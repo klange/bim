@@ -7558,94 +7558,90 @@ void redo_history(void) {
 			count_lines, (count_lines == 1) ? "" : "s");
 }
 
+int is_whitespace(int codepoint) {
+	return codepoint == ' ' || codepoint == '\t';
+}
+
+int is_normal(int codepoint) {
+	return isalnum(codepoint) || codepoint == '_';
+}
+
+int is_special(int codepoint) {
+	return !is_normal(codepoint) && !is_whitespace(codepoint);
+}
+
 /**
  * Move the cursor the start of the previous word.
  */
 void word_left(void) {
-	int line_no = env->line_no;
-	int col_no = env->col_no;
+	if (!env->lines[env->line_no-1]) return;
+
+	while (env->col_no > 1 && is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+		env->col_no -= 1;
+	}
+
+	if (env->col_no == 1) {
+		if (env->line_no == 1) goto _place;
+		env->line_no--;
+		env->col_no = env->lines[env->line_no-1]->actual;
+		goto _place;
+	}
+
+	int (*inverse_comparator)(int) = is_special;
+	if (env->col_no > 1 && is_special(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+		inverse_comparator = is_normal;
+	}
 
 	do {
-		col_no--;
-		while (col_no == 0) {
-			line_no--;
-			if (line_no == 0) {
-				goto_line(1);
-				set_preferred_column();
-				return;
-			}
-			col_no = env->lines[line_no-1]->actual;
+		if (env->col_no > 1) {
+			env->col_no -= 1;
 		}
-	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+	} while (env->col_no > 1 && !is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint) && !inverse_comparator(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint));
 
-	do {
-		col_no--;
-		if (col_no == 0) {
-			col_no = 1;
-			break;
-		}
-		if (col_no == 1) {
-			env->col_no = 1;
-			env->line_no = line_no;
-			set_preferred_column();
-			redraw_statusbar();
-			place_cursor_actual();
-			return;
-		}
-	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
-
-	env->col_no = col_no;
-	env->line_no = line_no;
+_place:
 	set_preferred_column();
-	cursor_right();
+	place_cursor_actual();
 }
 
 /**
  * Word right
  */
 void word_right(void) {
-	int line_no = env->line_no;
-	int col_no = env->col_no;
+	if (!env->lines[env->line_no-1]) return;
 
-	do {
-		col_no++;
-		if (col_no > env->lines[line_no-1]->actual) {
-			line_no++;
-			if (line_no > env->line_count) {
-				env->line_no = env->line_count;
-				env->col_no  = env->lines[env->line_no-1]->actual;
-				set_preferred_column();
-				redraw_statusbar();
-				place_cursor_actual();
-				return;
-			}
-			col_no = 0;
-			break;
+	if (env->col_no >= env->lines[env->line_no-1]->actual) {
+		/* next line */
+		if (env->line_no == env->line_count) return;
+		env->line_no++;
+		env->col_no = 0;
+		if (env->col_no >= env->lines[env->line_no-1]->actual) {
+			goto _place;
 		}
-	} while (!isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+	}
 
-	do {
-		col_no++;
-		while (col_no > env->lines[line_no-1]->actual) {
-			line_no++;
-			if (line_no >= env->line_count) {
-				env->col_no = env->lines[env->line_count-1]->actual;
-				env->line_no = env->line_count;
-				set_preferred_column();
-				redraw_statusbar();
-				place_cursor_actual();
-				return;
-			}
-			col_no = 1;
+	if (env->col_no < env->lines[env->line_no-1]->actual && is_whitespace(env->lines[env->line_no-1]->text[env->col_no - 1].codepoint)) {
+		while (env->col_no < env->lines[env->line_no-1]->actual && is_whitespace(env->lines[env->line_no-1]->text[env->col_no - 1].codepoint)) {
+			env->col_no++;
 		}
-	} while (isspace(env->lines[line_no-1]->text[col_no-1].codepoint));
+		goto _place;
+	}
 
-	env->col_no = col_no;
-	env->line_no = line_no;
+	int (*inverse_comparator)(int) = is_special;
+	if (is_special(env->lines[env->line_no - 1]->text[env->col_no - 1].codepoint)) {
+		inverse_comparator = is_normal;
+	}
+
+	while (env->col_no < env->lines[env->line_no-1]->actual && !is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 1].codepoint) && !inverse_comparator(env->lines[env->line_no - 1]->text[env->col_no - 1].codepoint)) {
+		env->col_no++;
+	}
+
+	while (env->col_no < env->lines[env->line_no-1]->actual && is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 1].codepoint)) {
+		env->col_no++;
+	}
+
+_place:
 	set_preferred_column();
-	redraw_statusbar();
 	place_cursor_actual();
-	return;
 }
 
 /**
@@ -7671,18 +7667,6 @@ void delete_at_cursor(void) {
 		redraw_statusbar();
 		place_cursor_actual();
 	}
-}
-
-int is_whitespace(int codepoint) {
-	return codepoint == ' ' || codepoint == '\t';
-}
-
-int is_normal(int codepoint) {
-	return isalnum(codepoint) || codepoint == '_';
-}
-
-int is_special(int codepoint) {
-	return !is_normal(codepoint) && !is_whitespace(codepoint);
 }
 
 /**
