@@ -199,6 +199,7 @@ struct {
 	unsigned int check_git:1;
 	unsigned int color_gutter:1;
 	unsigned int relative_lines:1;
+	unsigned int break_from_selection:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -236,6 +237,7 @@ struct {
 	0, /* check git on open and on save */
 	1, /* color the gutter for modified lines */
 	0, /* relative line numbers */
+	1, /* status bit for whether command should NOT break from selection */
 	/* Things below this are outside of the simple on-off bitmap */
 	4, /* cursor padding */
 	50, /* split percentage */
@@ -4146,7 +4148,7 @@ void redraw_commandline(void) {
 		set_bold();
 		printf("-- CHAR SELECTION -- ");
 		clear_to_end();
-		reset();
+		unset_bold();
 	} else {
 		clear_to_end();
 	}
@@ -6249,11 +6251,14 @@ void process_command(char * cmd) {
 		bim_unget(c);
 		redraw_all();
 	} else if (argv[0][0] == '-' && isdigit(argv[0][1])) {
+		global_config.break_from_selection = 1;
 		goto_line(env->line_no-atoi(&argv[0][1]));
 	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
+		global_config.break_from_selection = 1;
 		goto_line(env->line_no+atoi(&argv[0][1]));
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
+		global_config.break_from_selection = 1;
 		goto_line(atoi(argv[0]));
 	} else {
 		/* Unrecognized command */
@@ -8390,7 +8395,9 @@ void line_selection_mode(void) {
 						set_modified();
 						goto _leave_select_line;
 					case ':': /* Handle command mode specially for redraw */
+						global_config.break_from_selection = 0;
 						command_mode();
+						if (global_config.break_from_selection) break;
 						goto _leave_select_line;
 					default:
 						handle_navigation(c);
@@ -8665,7 +8672,9 @@ void col_selection_mode(void) {
 						col_insert_mode();
 						goto _leave_select_col;
 					case ':':
+						global_config.break_from_selection = 0;
 						command_mode();
+						if (global_config.break_from_selection) break;
 						goto _leave_select_col;
 					default:
 						handle_navigation(c);
@@ -8894,7 +8903,9 @@ void char_selection_mode(void) {
 						set_modified();
 						goto _leave_select_char;
 					case ':':
+						global_config.break_from_selection = 0;
 						command_mode();
+						if (global_config.break_from_selection) break;
 						goto _leave_select_char;
 					default:
 						handle_navigation(c);
