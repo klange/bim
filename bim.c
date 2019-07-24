@@ -8284,7 +8284,7 @@ void adjust_indent(int start_line, int direction) {
 		lines_to_cover = start_line - env->line_no + 1;
 	}
 	for (int i = 0; i < lines_to_cover; ++i) {
-		if ((direction == -1) && env->lines[start_point + i]->actual < 1) continue;
+		if (env->lines[start_point + i]->actual < 1) continue;
 		if (direction == -1) {
 			if (env->tabs) {
 				if (env->lines[start_point + i]->text[0].codepoint == '\t') {
