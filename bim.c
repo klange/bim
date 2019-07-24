@@ -7426,6 +7426,7 @@ void handle_mouse(void) {
 		env->col_no = col_no;
 		set_history_break();
 		set_preferred_column();
+		redraw_statusbar();
 		place_cursor_actual();
 	}
 	return;
