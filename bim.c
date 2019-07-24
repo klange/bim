@@ -198,6 +198,7 @@ struct {
 	unsigned int shift_scrolling:1;
 	unsigned int check_git:1;
 	unsigned int color_gutter:1;
+	unsigned int relative_lines:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -234,6 +235,8 @@ struct {
 	1, /* shift scrolling (shifts view rather than moving cursor) */
 	0, /* check git on open and on save */
 	1, /* color the gutter for modified lines */
+	0, /* relative line numbers */
+	/* Things below this are outside of the simple on-off bitmap */
 	4, /* cursor padding */
 	50, /* split percentage */
 	5, /* how many lines to scroll on mouse wheel */
@@ -1688,7 +1691,7 @@ static char * rust_ext[] = {".rs",NULL};
 
 static char * syn_bimrc_keywords[] = {
 	"history","padding","hlparen","hlcurrent","splitpercent",
-	"shiftscrolling","scrollamount","git","colorgutter",
+	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
 	NULL
 };
 
@@ -3827,6 +3830,10 @@ void draw_line_number(int x) {
 	} else {
 		set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
 	}
+	if (global_config.relative_lines && x+1 != env->line_no) {
+		x = x+1 - env->line_no;
+		x = ((x < 0) ? -x : x)-1;
+	}
 	int num_size = num_width();
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
@@ -3851,6 +3858,13 @@ void recalculate_current_line(void) {
 			if ((i) - env->offset > -1 &&
 				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
 				redraw_line((i) - env->offset, i);
+			}
+		} else if (global_config.relative_lines) {
+			if ((i) - env->offset > -1 &&
+				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+				/* Place cursor for line number */
+				place_cursor(2 + env->left, (i)-env->offset+2);
+				draw_line_number(i);
 			}
 		}
 	}
@@ -6209,6 +6223,19 @@ void process_command(char * cmd) {
 			redraw_text();
 			place_cursor_actual();
 		}
+	} else if (!strcmp(argv[0], "relativenumber")) {
+		if (argc < 2) {
+			render_status_message("relativenumber=%d", global_config.relative_lines);
+		} else {
+			global_config.relative_lines = atoi(argv[1]);
+			if (!global_config.relative_lines) {
+				for (int i = 0; i < env->line_count; ++i) {
+					env->lines[i]->is_current = 0;
+				}
+			}
+			redraw_text();
+			place_cursor_actual();
+		}
 	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
 		convert_to_html();
 	} else if (!strcmp(argv[0],"buffers")) {
@@ -6302,6 +6329,7 @@ void command_tab_complete(char * buffer) {
 		add_candidate("padding");
 		add_candidate("hlparen");
 		add_candidate("hlcurrent");
+		add_candidate("relativenumber");
 		add_candidate("cursorcolumn");
 		add_candidate("smartcase");
 		add_candidate("split");
@@ -9738,6 +9766,11 @@ void load_bimrc(void) {
 		/* Disable highlighting of current line */
 		if (!strcmp(l,"hlcurrent") && value) {
 			global_config.highlight_current_line = atoi(value);
+		}
+
+		/* Relative line numbers */
+		if (!strcmp(l,"relativenumber") && value) {
+			global_config.relative_lines = atoi(value);
 		}
 
 		if (!strcmp(l,"splitpercent") && value) {
