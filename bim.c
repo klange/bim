@@ -5763,23 +5763,107 @@ void process_command(char * cmd) {
 	insert_command_history(cmd);
 
 	if (*cmd == '!') {
-		/* Reset and draw some line feeds */
-		reset();
-		printf("\n\n");
+		if (env->mode == MODE_LINE_SELECTION) {
+			int range_top, range_bot;
+			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
 
-		/* Set buffered for shell application */
-		set_buffered();
+			int in[2];
+			pipe(in);
+			int out[2];
+			pipe(out);
+			int child = fork();
 
-		/* Call the shell and wait for completion */
-		system(&cmd[1]);
+			/* Open child process and set up pipes */
+			if (child == 0) {
+				FILE * dev_null = fopen("/dev/null","w"); /* for stderr */
+				close(out[0]);
+				close(in[1]);
+				dup2(out[1], STDOUT_FILENO);
+				dup2(in[0], STDIN_FILENO);
+				dup2(fileno(dev_null), STDERR_FILENO);
+				system(&cmd[1]); /* Yes we can just do this */
+				exit(1);
+			} else if (child < 0) {
+				render_error("Failed to fork");
+				return;
+			}
+			close(out[1]);
+			close(in[0]);
 
-		/* Return to the editor, wait for user to press enter. */
-		set_unbuffered();
-		printf("\n\nPress ENTER to continue.");
-		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+			/* Write lines to child process */
+			FILE * f = fdopen(in[1],"w");
+			for (int i = range_top; i <= range_bot; ++i) {
+				line_t * line = env->lines[i-1];
+				for (int j = 0; j < line->actual; j++) {
+					char_t c = line->text[j];
+					if (c.codepoint == 0) {
+						char buf[1] = {0};
+						fwrite(buf, 1, 1, f);
+					} else {
+						char tmp[8] = {0};
+						int i = to_eight(c.codepoint, tmp);
+						fwrite(tmp, i, 1, f);
+					}
+				}
+				fputc('\n', f);
+			}
+			fclose(f);
+			close(in[1]);
 
-		/* Redraw the screen */
-		redraw_all();
+			/* Read results from child process into a new buffer */
+			FILE * result = fdopen(out[0],"r");
+			buffer_t * old = env;
+			env = buffer_new();
+			setup_buffer(env);
+			env->loading = 1;
+			uint8_t buf[BLOCK_SIZE];
+			state = 0;
+			while (!feof(result) && !ferror(result)) {
+				size_t r = fread(buf, 1, BLOCK_SIZE, result);
+				add_buffer(buf, r);
+			}
+			if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
+				env->lines = remove_line(env->lines, env->line_no-1);
+			}
+			fclose(result);
+			env->loading = 0;
+
+			/* Return to the original buffer and replace the selected lines with the output */
+			buffer_t * new = env;
+			env = old;
+			for (int i = range_top; i <= range_bot; ++i) {
+				/* Remove the existing lines */
+				env->lines = remove_line(env->lines, range_top-1);
+			}
+			for (int i = 0; i < new->line_count; ++i) {
+				/* Add the new lines */
+				env->lines = add_line(env->lines, range_top + i - 1);
+				replace_line(env->lines, range_top + i - 1, new->lines[i]);
+				recalculate_tabs(env->lines[range_top+i-1]);
+			}
+
+			/* Close the temporary buffer */
+			buffer_close(new);
+		} else {
+			/* Reset and draw some line feeds */
+			reset();
+			printf("\n\n");
+
+			/* Set buffered for shell application */
+			set_buffered();
+
+			/* Call the shell and wait for completion */
+			system(&cmd[1]);
+
+			/* Return to the editor, wait for user to press enter. */
+			set_unbuffered();
+			printf("\n\nPress ENTER to continue.");
+			while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+
+			/* Redraw the screen */
+			redraw_all();
+		}
 
 		/* Done processing command */
 		return;
