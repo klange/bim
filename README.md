@@ -32,8 +32,8 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Persistent cursor location between sessions.
 - Git integration, shows `git diff` status in-line, along with unsaved changes.
 - Convert syntax highlighted code to an HTML document.
-- (experimental) Split viewports to view multiple files or different parts of the same file.
-- (experimental) Autocompletion using ctags.
+- Split viewports to view multiple files or different parts of the same file.
+- Simple autocompletions using ctags.
 
 ## Prerequisites
 
