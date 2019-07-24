@@ -250,6 +250,17 @@ For the vast majority of applications in ToaruOS, this limitation is entirely re
 Bim is by far the largest application in the OS; the window compositor comes in second at a much smaller ~3000 lines.
 As Bim has grown, the question has come up several times as to whether it should be broken up into logical units in separate files, but being a single large file still has its benefits.
 
+## Bim is not Vim
+
+Some interactions in Bim work differently from Vim, and sometimes this is intentional.
+Bim's primary interactions are built around a selection, while Vim has verbs and navigation nouns.
+`CHAR SELECTION` does not let the cursor move past the end of the line, unlike `VISUAL` mode in Vim.
+
+## Bim wants to be more like Vim
+
+Some interactions in Bim work differently from Vim, and sometimes this is unintentional.
+Bim is missing many features I would like to implement, like regular expression search (and replacement).
+
 ## License
 
 Bim is released under the terms of the ISC license, which is a simple BSD-style license. See [LICENSE](LICENSE) for details.
