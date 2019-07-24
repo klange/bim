@@ -7820,6 +7820,7 @@ void insert_line_feed(void) {
 	} else {
 		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
 	}
+	env->coffset = 0;
 	env->col_no = 1;
 	env->line_no += 1;
 	set_preferred_column();
