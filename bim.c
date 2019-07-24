@@ -8035,6 +8035,9 @@ void handle_navigation(int c) {
 		case 'l': /* Move cursor right*/
 			cursor_right();
 			break;
+		case 'b': /* Move cursor one word right */
+			word_left();
+			break;
 		case 'w': /* Move cursor one word right */
 			word_right();
 			break;
