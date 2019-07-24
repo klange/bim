@@ -6248,6 +6248,10 @@ void process_command(char * cmd) {
 		while ((c = bim_getch())== -1);
 		bim_unget(c);
 		redraw_all();
+	} else if (argv[0][0] == '-' && isdigit(argv[0][1])) {
+		goto_line(env->line_no-atoi(&argv[0][1]));
+	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
+		goto_line(env->line_no+atoi(&argv[0][1]));
 	} else if (isdigit(*argv[0])) {
 		/* Go to line number */
 		goto_line(atoi(argv[0]));
