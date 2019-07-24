@@ -249,6 +249,7 @@ void quit(const char * message);
 void close_buffer(void);
 void set_syntax_by_name(const char * name);
 void rehighlight_search(line_t * line);
+void try_to_center();
 
 /**
  * Special implementation of getch with a timeout
@@ -475,6 +476,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 
 			if (buf->line_no > buf->line_count) buf->line_no = buf->line_count;
 			if (buf->col_no > buf->lines[buf->line_no-1]->actual) buf->col_no = buf->lines[buf->line_no-1]->actual;
+			try_to_center();
 			return 0;
 		}
 	}
@@ -4503,6 +4505,15 @@ void SIGCONT_handler(int sig) {
 	signal(SIGTSTP, SIGTSTP_handler);
 }
 
+void try_to_center() {
+	int half_a_screen = (global_config.term_height - 3) / 2;
+	if (half_a_screen < env->line_no) {
+		env->offset = env->line_no - half_a_screen;
+	} else {
+		env->offset = 0;
+	}
+}
+
 /**
  * Move the cursor to a specific line.
  */
@@ -4514,9 +4525,14 @@ void goto_line(int line) {
 
 	/* Move the cursor / text region offsets */
 	env->coffset = 0;
-	env->offset = line - 1;
 	env->line_no = line;
 	env->col_no  = 1;
+
+	if (line > env->offset && line < env->offset + global_config.term_height - global_config.bottom_size) {
+		place_cursor_actual();
+	} else {
+		try_to_center();
+	}
 	redraw_most();
 }
 
