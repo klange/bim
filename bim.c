@@ -376,6 +376,13 @@ buffer_t * left_buffer;
 buffer_t * right_buffer;
 
 /**
+ * A buffer for holding a number (line, repetition count)
+ */
+#define NAV_BUFFER_MAX 10
+static char nav_buf[NAV_BUFFER_MAX+1];
+static int nav_buffer = 0;
+
+/**
  * Editor modes (like in vim)
  */
 #define MODE_NORMAL 0
@@ -4098,6 +4105,19 @@ void redraw_statusbar(void) {
 }
 
 /**
+ * Redraw the navigation numbers on the right side of the command line
+ */
+void redraw_nav_buffer() {
+	if (nav_buffer) {
+		printf("\0337");
+		place_cursor(global_config.term_width - nav_buffer - 2, global_config.term_height);
+		printf("%s", nav_buf);
+		clear_to_end();
+		printf("\0338");
+	}
+}
+
+/**
  * Draw the command line
  *
  * The command line either has input from the user (:quit, :!make, etc.)
@@ -4159,6 +4179,8 @@ void redraw_commandline(void) {
 	} else {
 		clear_to_end();
 	}
+
+	redraw_nav_buffer();
 }
 
 /**
@@ -4188,6 +4210,8 @@ void render_commandline_message(char * message, ...) {
 
 	/* Clear the rest of the status bar */
 	clear_to_end();
+
+	redraw_nav_buffer();
 }
 
 /**
@@ -8256,19 +8280,12 @@ void find_character(int type, int c) {
 }
 
 /**
- * A buffer for holding a number (line, repetition count)
- */
-#define NAV_BUFFER_MAX 10
-static char nav_buf[NAV_BUFFER_MAX+1];
-static int nav_buffer = 0;
-
-/**
  * Clear the navigation number buffer
  */
 void reset_nav_buffer(int c) {
 	if (nav_buffer && (c < '0' || c > '9')) {
-		render_commandline_message("");
 		nav_buffer = 0;
+		redraw_commandline();
 	}
 }
 
@@ -8340,10 +8357,10 @@ void handle_navigation(int c) {
 		case 'W': /* Move cursor one WORD right */
 			with_reps(big_word_right());
 			break;
-		case 'f':
-		case 'F':
-		case 't':
-		case 'T':
+		case 'f': /* Find character forward */
+		case 'F': /* ... backward */
+		case 't': /* ... forward but stop before */
+		case 'T': /* ... backwards but stop before */
 			{
 				char tmp[2] = {c,'\0'};
 				int cin = read_one_character(tmp);
@@ -8353,7 +8370,7 @@ void handle_navigation(int c) {
 				redraw_commandline();
 			}
 			break;
-		case 'G': /* Go to end of file */
+		case 'G': /* Go to line or end of file */
 			if (nav_buffer) {
 				goto_line(atoi(nav_buf));
 				reset_nav_buffer(0);
@@ -8433,12 +8450,16 @@ void handle_navigation(int c) {
 			redraw_statusbar();
 			break;
 	}
+
+	/* Otherwise, numbers go into the number buffer */
 	if ((c >= '1' && c <= '9') || (c == '0' && nav_buffer)) {
 		if (nav_buffer < NAV_BUFFER_MAX) {
+			/* Up to NAV_BUFFER_MAX=10 characters; that should be enough for most tasks */
 			nav_buf[nav_buffer] = c;
 			nav_buf[nav_buffer+1] = 0;
 			nav_buffer++;
-			render_commandline_message(nav_buf);
+			/* Print the number buffer */
+			redraw_commandline();
 		}
 	}
 }
