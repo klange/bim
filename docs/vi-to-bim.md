@@ -52,7 +52,7 @@
 | `Z`         | part of save-and-exit | *unbound*                 |
 | `0`         | start of line         | same                      |
 | `1`-`9`     | enter line prefix     | *unbound*                 |
-| (space)     | move right            | **jump forward several lines** |
+| (space)     | move right            | jump forward several lines |
 | `!`         | shell command         | *needs command mode*      |
 | `@`         | eval                  | *unbound*                 |
 | `#`         | *unbound*             | *unbound*                 |
@@ -63,7 +63,7 @@
 | `*`         | *unbound*             | search for word under cursor |
 | `(`         | previous sentence     | *unbound*                 |
 | `)`         | next sentence         | *unbound*                 |
-| `\\`        | *unbound*             | *unbound*                 |
+| `\`         | *unbound*             | *unbound*                 |
 | `|`         | start of line         | *unbound, will implement* |
 | `-`         | first non-whitespace of previous line | *unbound* |
 | `_`         | same as `^`?          | *unbound*                 |
@@ -75,7 +75,7 @@
 | `}`         | next blank line       | same                      |
 | `;`         | repeat last `fFtT`    | *unbound*                 |
 | `'`         | move to first non-whitespace on marked line | *unbound* |
-| `\``        | move to memorized column on marked line | *unbound* |
+| `````       | move to memorized column on marked line | *unbound* |
 | `:`         | command mode          | same                      |
 | `"`         | numbered buffer       | *unbound; not sure what this does in vim* |
 | `~`         | swap case, move forward | *unbound*               |
@@ -110,7 +110,7 @@
 | `^X`        | *unbound*             | *unbound*                 |
 | `^Y`        | scroll down           | *unbound*                 |
 | `^[`        | cancel                | same                      |
-| `^\\`       | leave visual          | *unbound*                 |
+| `^\`        | leave visual          | *unbound*                 |
 | `^]`        | lookup tags (go to definition) | *unbound, try `^O` in insert* |
 | `^^`        | switch file buffers   | *unbound*                 |
 | `^_`        | *unbound*             | *unbound*                 |
