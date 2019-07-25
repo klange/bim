@@ -255,6 +255,7 @@ void close_buffer(void);
 void set_syntax_by_name(const char * name);
 void rehighlight_search(line_t * line);
 void try_to_center();
+int read_one_character(char * message);
 
 /**
  * Special implementation of getch with a timeout
@@ -8233,22 +8234,8 @@ void search_under_cursor(void) {
  */
 void find_character(int type) {
 	char tmp[2] = {type,'\0'};
-	render_commandline_message(tmp);
-	uint32_t state = 0;
-	int cin;
-	uint32_t c;
-	while ((cin = bim_getch())) {
-		if (cin == -1) continue;
-		if (!decode(&state, &c, cin)) {
-			if (c == '\033') {
-				goto _done;
-			} else {
-				goto _find_character;
-			}
-		}
-	}
-	goto _done;
-_find_character:
+	int c = read_one_character(tmp);
+	if (c == -1) goto _done;
 	if (type == 'f' || type == 't') {
 		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
@@ -8267,7 +8254,7 @@ _find_character:
 		}
 	}
 _done:
-	render_commandline_message("");
+	redraw_commandline();
 }
 
 /**
@@ -8540,6 +8527,20 @@ void line_selection_mode(void) {
 						}
 						set_preferred_column();
 						set_modified();
+						goto _leave_select_line;
+					case 'r':
+						{
+							int c = read_one_character("LINE SELECTION r");
+							if (c == -1) break;
+							char_t _c = {codepoint_width(c), 0, c};
+							int start_point = env->start_line < env->line_no ? env->start_line : env->line_no;
+							int end_point = env->start_line < env->line_no ? env->line_no : env->start_line;
+							for (int line = start_point; line <= end_point; ++line) {
+								for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+									line_replace(env->lines[line-1], _c, i, line-1);
+								}
+							}
+						}
 						goto _leave_select_line;
 					case ':': /* Handle command mode specially for redraw */
 						global_config.break_from_selection = 0;
@@ -9048,6 +9049,48 @@ void char_selection_mode(void) {
 						}
 						set_preferred_column();
 						set_modified();
+						goto _leave_select_char;
+					case 'r':
+						{
+							int c = read_one_character("CHAR SELECTION r");
+							if (c == -1) break;
+							char_t _c = {codepoint_width(c), 0, c};
+							/* This should probably be a function line "do_over_range" or something */
+							if (start_line == env->line_no) {
+								int s = (start_col < env->col_no) ? start_col : env->col_no;
+								int e = (start_col < env->col_no) ? env->col_no : start_col;
+								for (int i = s; i <= e; ++i) {
+									line_replace(env->lines[start_line-1], _c, i-1, start_line-1);
+								}
+								redraw_text();
+							} else {
+								if (start_line < env->line_no) {
+									for (int s = start_col-1; s < env->lines[start_line-1]->actual; ++s) {
+										line_replace(env->lines[start_line-1], _c, s, start_line-1);
+									}
+									for (int line = start_line + 1; line < env->line_no; ++line) {
+										for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+											line_replace(env->lines[line-1], _c, i, line-1);
+										}
+									}
+									for (int s = 0; s < env->col_no; ++s) {
+										line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
+									}
+								} else {
+									for (int s = env->col_no-1; s < env->lines[env->line_no-1]->actual; ++s) {
+										line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
+									}
+									for (int line = env->line_no + 1; line < start_line; ++line) {
+										for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+											line_replace(env->lines[line-1], _c, i, line-1);
+										}
+									}
+									for (int s = 0; s < start_col; ++s) {
+										line_replace(env->lines[start_line-1], _c, s, start_line-1);
+									}
+								}
+							}
+						}
 						goto _leave_select_char;
 					case ':':
 						global_config.break_from_selection = 0;
@@ -9587,10 +9630,13 @@ void replace_mode(void) {
  * can replace a character with complex input. Also
  * handles ^V so we can replace with escape sequences
  * we would otherwise gobble up.
+ *
+ * Does not actually do the replacement; returns -1
+ * or the codepoint to replace with.
  */
-void replace_one(void) {
+int read_one_character(char * message) {
 	/* Read one character and replace */
-	render_commandline_message("r");
+	render_commandline_message(message);
 	uint32_t state = 0;
 	int cin;
 	uint32_t c;
@@ -9598,19 +9644,24 @@ void replace_one(void) {
 		if (cin == -1) continue;
 		if (!decode(&state, &c, cin)) {
 			if (c == '\033') {
-				return;
+				c = -1;
+				goto _done;
 			} else if (c == 22) { /* ctrl-v */
-				render_commandline_message("r ^V");
+				render_commandline_message(message);
+				printf(" ^V");
+				fflush(stdout);
 				while ((cin = bim_getch()) == -1);
-				replace_char(cin);
-				return;
+				c = cin;
+				goto _done;
 			} else {
-				replace_char(c);
-				return;
+				goto _done;
 			}
 		}
 	}
-	return;
+
+_done:
+	redraw_commandline();
+	return c;
 }
 
 /**
@@ -9758,8 +9809,12 @@ void normal_mode(void) {
 						}
 						break;
 					case 'r': /* Replace with next */
-						replace_one();
-						redraw_commandline();
+						{
+							int c = read_one_character("r");
+							if (c != -1) {
+								replace_char(c);
+							}
+						}
 						break;
 					case 'u': /* Undo one block of history */
 						undo_history();
