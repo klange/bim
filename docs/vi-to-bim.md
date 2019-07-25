@@ -75,7 +75,7 @@
 | `}`         | next blank line       | same                      |
 | `;`         | repeat last `fFtT`    | *unbound*                 |
 | `'`         | move to first non-whitespace on marked line | *unbound* |
-| `&#96;`     | move to memorized column on marked line | *unbound* |
+| backtick    | move to memorized column on marked line | *unbound* |
 | `:`         | command mode          | same                      |
 | `"`         | numbered buffer       | *unbound; not sure what this does in vim* |
 | `~`         | swap case, move forward | *unbound*               |
