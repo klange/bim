@@ -4551,12 +4551,16 @@ void goto_line(int line) {
 	env->line_no = line;
 	env->col_no  = 1;
 
-	if (line > env->offset && line < env->offset + global_config.term_height - global_config.bottom_size) {
-		place_cursor_actual();
+	if (!env->loading) {
+		if (line > env->offset && line < env->offset + global_config.term_height - global_config.bottom_size) {
+			place_cursor_actual();
+		} else {
+			try_to_center();
+		}
+		redraw_most();
 	} else {
 		try_to_center();
 	}
-	redraw_most();
 }
 
 
@@ -8257,16 +8261,41 @@ _done:
 	redraw_commandline();
 }
 
+#define NAV_BUFFER_MAX 10
+static char nav_buf[NAV_BUFFER_MAX+1];
+static int nav_buffer = 0;
+
+void reset_nav_buffer(int c) {
+	if (nav_buffer && (c < '0' || c > '9')) {
+		render_commandline_message("");
+		nav_buffer = 0;
+	}
+}
+
+
+#define with_reps(stuff) \
+	if (reps) { \
+		env->loading = 1; \
+		for (int i = 0; i < reps; ++i) { \
+			stuff; \
+		} \
+		env->loading = 0; \
+		redraw_all(); \
+	} else { \
+		stuff; \
+	}
+
 /**
  * Standard navigation shared by normal, line, and char selection.
  */
 void handle_navigation(int c) {
+	int reps = (nav_buffer) ? atoi(nav_buf) : 1;
 	switch (c) {
 		case 2: /* ctrl-b = page up */
-			goto_line(env->line_no - (global_config.term_height - 6));
+			with_reps(goto_line(env->line_no - (global_config.term_height - 6)));
 			break;
 		case 6: /* ctrl-f = page down */
-			goto_line(env->line_no + global_config.term_height - 6);
+			with_reps(goto_line(env->line_no + global_config.term_height - 6));
 			break;
 		case ':': /* Switch to command mode */
 			command_mode();
@@ -8278,34 +8307,34 @@ void handle_navigation(int c) {
 			search_mode(0);
 			break;
 		case 'n': /* Jump to next search result */
-			search_next();
+			with_reps(search_next());
 			break;
 		case 'N': /* Jump backwards to previous search result */
-			search_prev();
+			with_reps(search_prev());
 			break;
 		case 'j': /* Move cursor down */
-			cursor_down();
+			with_reps(cursor_down());
 			break;
 		case 'k': /* Move cursor up */
-			cursor_up();
+			with_reps(cursor_up());
 			break;
 		case 'h': /* Move cursor left */
-			cursor_left();
+			with_reps(cursor_left());
 			break;
 		case 'l': /* Move cursor right*/
-			cursor_right();
+			with_reps(cursor_right());
 			break;
 		case 'b': /* Move cursor one word left */
-			word_left();
+			with_reps(word_left());
 			break;
 		case 'w': /* Move cursor one word right */
-			word_right();
+			with_reps(word_right());
 			break;
 		case 'B': /* Move cursor one WORD left */
-			big_word_left();
+			with_reps(big_word_left());
 			break;
 		case 'W': /* Move cursor one WORD right */
-			big_word_right();
+			with_reps(big_word_right());
 			break;
 		case 'f':
 		case 'F':
@@ -8314,13 +8343,18 @@ void handle_navigation(int c) {
 			find_character(c);
 			break;
 		case 'G': /* Go to end of file */
-			goto_line(env->line_count);
+			if (nav_buffer) {
+				goto_line(atoi(nav_buf));
+				reset_nav_buffer(0);
+			} else {
+				goto_line(env->line_count);
+			}
 			break;
 		case '*': /* Search for word under cursor */
 			search_under_cursor();
 			break;
 		case ' ': /* Jump forward several lines */
-			goto_line(env->line_no + global_config.term_height - 6);
+			with_reps(goto_line(env->line_no + global_config.term_height - 6));
 			break;
 		case '%': /* Jump to matching brace/bracket */
 			if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) {
@@ -8366,6 +8400,7 @@ void handle_navigation(int c) {
 			break;
 		case '|':
 		case '0': /* Move cursor to beginning of line */
+			if (c == '0' && nav_buffer) break;
 			cursor_home();
 			break;
 		case '\r': /* first non-whitespace of next line */
@@ -8386,6 +8421,14 @@ void handle_navigation(int c) {
 			set_preferred_column();
 			redraw_statusbar();
 			break;
+	}
+	if ((c >= '1' && c <= '9') || (c == '0' && nav_buffer)) {
+		if (nav_buffer < NAV_BUFFER_MAX) {
+			nav_buf[nav_buffer] = c;
+			nav_buf[nav_buffer+1] = 0;
+			nav_buffer++;
+			render_commandline_message(nav_buf);
+		}
 	}
 }
 
@@ -8589,6 +8632,8 @@ void line_selection_mode(void) {
 						break;
 				}
 			}
+
+			reset_nav_buffer(c);
 
 			/* Mark current line */
 			_redraw_line(env->line_no,0);
@@ -8863,6 +8908,8 @@ void col_selection_mode(void) {
 				}
 			}
 		}
+
+		reset_nav_buffer(c);
 
 		_redraw_line_col(env->line_no, 0);
 		/* Properly mark everything in the span we just moved through */
@@ -9149,6 +9196,8 @@ void char_selection_mode(void) {
 						goto _leave_select_char;
 				}
 			}
+
+			reset_nav_buffer(c);
 
 			/* Mark current line */
 			_redraw_line_char(env->line_no,1);
@@ -9905,6 +9954,7 @@ _readonly:
 			} else {
 				handle_escape(this_buf,&timeout,c);
 			}
+			reset_nav_buffer(c);
 			place_cursor_actual();
 		}
 	}

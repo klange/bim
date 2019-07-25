@@ -32,7 +32,7 @@
 | `D`         | delete to end of line | *unbound*                 |
 | `E`         | move to end of word   | *unbound*                 |
 | `F`         | backwards `f`         | same                      |
-| `G`         | go to line or eof     | end of file only          |
+| `G`         | go to line or eof     | same                      |
 | `H`         | first line on screen  | *unbound*                 |
 | `I`         | insert before first space | *unbound*             |
 | `J`         | join line with next   | *unbound*                 |
@@ -51,7 +51,7 @@
 | `Y`         | yank line             | *unbound*                 |
 | `Z`         | part of save-and-exit | *unbound*                 |
 | `0`         | start of line         | same                      |
-| `1`-`9`     | enter line prefix     | *unbound*                 |
+| `1`-`9`     | enter line prefix     | same                      |
 | (space)     | move right            | jump forward several lines |
 | `!`         | shell command         | *needs command mode*      |
 | `@`         | eval                  | *unbound*                 |
