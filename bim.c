@@ -8223,6 +8223,54 @@ void search_under_cursor(void) {
 }
 
 /**
+ * Handler for f,F,t,T
+ * Read one character to search for, then find it
+ * based on the parameters specified.
+ * f: forward, stop on character
+ * F: backward, stop on character
+ * t: forward, stop before character
+ * T: backward, stop after character
+ */
+void find_character(int type) {
+	char tmp[2] = {type,'\0'};
+	render_commandline_message(tmp);
+	uint32_t state = 0;
+	int cin;
+	uint32_t c;
+	while ((cin = bim_getch())) {
+		if (cin == -1) continue;
+		if (!decode(&state, &c, cin)) {
+			if (c == '\033') {
+				goto _done;
+			} else {
+				goto _find_character;
+			}
+		}
+	}
+	goto _done;
+_find_character:
+	if (type == 'f' || type == 't') {
+		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
+			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+				env->col_no = i - !!(type == 't');
+				place_cursor_actual();
+				goto _done;
+			}
+		}
+	} else if (type == 'F' || type == 'T') {
+		for (int i = env->col_no; i >= 1; --i) {
+			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+				env->col_no = i + !!(type == 'T');
+				place_cursor_actual();
+				goto _done;
+			}
+		}
+	}
+_done:
+	render_commandline_message("");
+}
+
+/**
  * Standard navigation shared by normal, line, and char selection.
  */
 void handle_navigation(int c) {
@@ -8271,6 +8319,12 @@ void handle_navigation(int c) {
 			break;
 		case 'W': /* Move cursor one WORD right */
 			big_word_right();
+			break;
+		case 'f':
+		case 'F':
+		case 't':
+		case 'T':
+			find_character(c);
 			break;
 		case 'G': /* Go to end of file */
 			goto_line(env->line_count);
