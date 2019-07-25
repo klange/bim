@@ -9761,7 +9761,7 @@ int read_one_character(char * message) {
 	render_commandline_message(message);
 	uint32_t state = 0;
 	int cin;
-	uint32_t c;
+	uint32_t c = -1;
 	while ((cin = bim_getch())) {
 		if (cin == -1) continue;
 		if (!decode(&state, &c, cin)) {
