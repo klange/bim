@@ -8261,6 +8261,7 @@ void find_character(int type, int c) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i - !!(type == 't');
 				place_cursor_actual();
+				set_preferred_column();
 				return;
 			}
 		}
@@ -8269,6 +8270,7 @@ void find_character(int type, int c) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i + !!(type == 'T');
 				place_cursor_actual();
+				set_preferred_column();
 				return;
 			}
 		}
