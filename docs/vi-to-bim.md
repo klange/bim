@@ -5,7 +5,7 @@
 | `b`         | back word             | same                      |
 | `c`         | change command        | *unbound*                 |
 | `d`         | delete command        | *only with selection*     |
-| `f`         | find character        | *unbound, will implement* |
+| `f`         | find character        | same                      |
 | `g`         | *unbound*             | *unbound*                 |
 | `h`         | move left             | same                      |
 | `i`         | enter INSERT before   | same                      |
@@ -18,20 +18,20 @@
 | `p`         | put buffer after      | same                      |
 | `q`         | *unbound*             | *unbound*                 |
 | `r`         | replace one character | same                      |
-| `s`         | delete and insert     | *unbound, will implement* |
-| `t`         | `f` but move before   | *unbound, will implement* |
+| `s`         | delete and insert     | same                      |
+| `t`         | `f` but move before   | same                      |
 | `u`         | undo                  | same                      |
 | `v`         | *unbound*             | select characters         |
 | `w`         | forward one word      | same                      |
-| `x`         | delete one character  | *unbound, will implement* |
+| `x`         | delete one character  | same                      |
 | `y`         | yank                  | *only with selection*     |
 | `z`         | position current line | *unbound*                 |
-| `A`         | insert at end         | *unbound, will implement* |
+| `A`         | insert at end         | same                      |
 | `B`         | back one WORD         | same                      |
 | `C`         | change to end of line | *unbound*                 |
 | `D`         | delete to end of line | *unbound*                 |
 | `E`         | move to end of word   | *unbound*                 |
-| `F`         | backwards `f`         | *unbound*                 |
+| `F`         | backwards `f`         | same                      |
 | `G`         | go to line or eof     | end of file only          |
 | `H`         | first line on screen  | *unbound*                 |
 | `I`         | insert before first space | *unbound*             |
@@ -45,7 +45,7 @@
 | `Q`         | leave visual          | *unbound*                 |
 | `R`         | replace mode          | same                      |
 | `S`         | delete line, enter insert | *unbound*             |
-| `T`         | `t` but backwards     | *unbound*                 |
+| `T`         | `t` but backwards     | same                      |
 | `U`         | restore cursor        | *unbound*                 |
 | `V`         | *unbound*             | select lines              |
 | `Y`         | yank line             | *unbound*                 |
@@ -58,13 +58,13 @@
 | `#`         | *unbound*             | *unbound*                 |
 | `$`         | end of line           | same                      |
 | `%`         | jump to closest brace on line, or its match | *only jump to matching brace* |
-| `^`         | first non whitespace  | *unbound, will implement* |
+| `^`         | first non whitespace  | same                      |
 | `&`         | repeat last substitution | *unbound*              |
 | `*`         | *unbound*             | search for word under cursor |
 | `(`         | previous sentence     | *unbound*                 |
 | `)`         | next sentence         | *unbound*                 |
 | `\`         | *unbound*             | *unbound*                 |
-| `|`         | start of line         | *unbound, will implement* |
+| `|`         | start of line         | same                      |
 | `-`         | first non-whitespace of previous line | *unbound* |
 | `_`         | same as `^`?          | *unbound*                 |
 | `=`         | *unbound*             | *unbound*                 |
@@ -97,7 +97,7 @@
 | `^J`        | line down             | *unbound; is that not the same as regular j?* |
 | `^K`        | *unbound*             | *unbound; vim deletes to end* |
 | `^L`        | refresh screen        | same                      |
-| `^M` (cr)   | first whitespace of next line | *unbound, could implement* |
+| `^M` (cr)   | first non-whitespace of next line | same          |
 | `^N`        | down one line         | *unbound*                 |
 | `^O`        | *unbound*             | *unbound*                 |
 | `^Q`        | XON                   | *unbound*                 |
@@ -115,4 +115,3 @@
 | `^^`        | switch file buffers   | *unbound*                 |
 | `^_`        | *unbound*             | *unbound*                 |
 | `^?` (del)  | *unbound*             | *unbound; vim deletes and enters insert?* |
-

@@ -8364,9 +8364,27 @@ void handle_navigation(int c) {
 		case '$': /* Move cursor to end of line */
 			cursor_end();
 			break;
-		case '^':
+		case '|':
 		case '0': /* Move cursor to beginning of line */
 			cursor_home();
+			break;
+		case '\r': /* first non-whitespace of next line */
+			if (env->line_no < env->line_count) {
+				env->line_no++;
+				env->col_no = 1;
+			} else {
+				break;
+			}
+			/* fall through */
+		case '^': /* first non-whitespace */
+			for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+				if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
+					env->col_no = i + 1;
+					break;
+				}
+			}
+			set_preferred_column();
+			redraw_statusbar();
 			break;
 	}
 }
@@ -8505,6 +8523,8 @@ void line_selection_mode(void) {
 						goto _leave_select_line;
 					case 'D':
 					case 'd':
+					case 'x':
+					case 's':
 						if (env->readonly) goto _readonly;
 						yank_lines(env->start_line, env->line_no);
 						if (env->start_line <= env->line_no) {
@@ -8527,6 +8547,12 @@ void line_selection_mode(void) {
 						}
 						set_preferred_column();
 						set_modified();
+						if (c == 's') {
+							env->lines = add_line(env->lines, env->line_no-1);
+							redraw_text();
+							env->mode = MODE_INSERT;
+							return;
+						}
 						goto _leave_select_line;
 					case 'r':
 						{
@@ -9000,6 +9026,8 @@ void char_selection_mode(void) {
 						goto _leave_select_char;
 					case 'D':
 					case 'd':
+					case 'x':
+					case 's':
 						if (env->readonly) goto _readonly;
 						{
 							int end_line = env->line_no;
@@ -9049,6 +9077,11 @@ void char_selection_mode(void) {
 						}
 						set_preferred_column();
 						set_modified();
+						if (c == 's') {
+							redraw_text();
+							env->mode = MODE_INSERT;
+							return; /* When returning from char selection mode, normal mode will check for MODE_INSERT */
+						}
 						goto _leave_select_char;
 					case 'r':
 						{
@@ -9092,6 +9125,14 @@ void char_selection_mode(void) {
 							}
 						}
 						goto _leave_select_char;
+					case 'A':
+						for (int i = 0; i < env->line_count; ++i) {
+							recalculate_syntax(env->lines[i],i);
+						}
+						redraw_text();
+						env->col_no = env->col_no > start_col ? env->col_no + 1 : start_col + 1;
+						env->mode = MODE_INSERT;
+						return;
 					case ':':
 						global_config.break_from_selection = 0;
 						command_mode();
@@ -9703,9 +9744,11 @@ void normal_mode(void) {
 						break;
 					case 'V': /* Enter LINE SELECTION mode */
 						line_selection_mode();
+						if (env->mode == MODE_INSERT) goto _insert;
 						break;
 					case 'v': /* Enter CHAR SELECTION mode */
 						char_selection_mode();
+						if (env->mode == MODE_INSERT) goto _insert;
 						break;
 					case 22: /* ctrl-v, enter COL SELECTION mode */
 						set_preferred_column();
@@ -9744,6 +9787,15 @@ void normal_mode(void) {
 							env->col_no += 1;
 						}
 						goto _insert;
+					case 's':
+					case 'x':
+						if (env->col_no <= env->lines[env->line_no-1]->actual) {
+							line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
+							redraw_text();
+						}
+						if (c == 's') goto _insert;
+						set_history_break();
+						break;
 					case 'P': /* Paste before */
 					case 'p': /* Paste after */
 						if (env->readonly) goto _readonly;
@@ -9816,6 +9868,9 @@ void normal_mode(void) {
 							}
 						}
 						break;
+					case 'A':
+						env->col_no = env->lines[env->line_no-1]->actual+1;
+						goto _insert;
 					case 'u': /* Undo one block of history */
 						undo_history();
 						break;
