@@ -64,7 +64,7 @@
 | `(`         | previous sentence     | *unbound*                 |
 | `)`         | next sentence         | *unbound*                 |
 | `\`         | *unbound*             | *unbound*                 |
-| `|`         | start of line         | same                      |
+| pipe        | start of line         | same                      |
 | `-`         | first non-whitespace of previous line | *unbound* |
 | `_`         | same as `^`?          | *unbound*                 |
 | `=`         | *unbound*             | *unbound*                 |
