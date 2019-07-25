@@ -7801,10 +7801,6 @@ void big_word_left(void) {
 	do {
 		col_no--;
 		if (col_no == 0) {
-			col_no = 1;
-			break;
-		}
-		if (col_no == 1) {
 			env->col_no = 1;
 			env->line_no = line_no;
 			set_preferred_column();
