@@ -8229,23 +8229,19 @@ void search_under_cursor(void) {
 
 /**
  * Handler for f,F,t,T
- * Read one character to search for, then find it
- * based on the parameters specified.
+ * Find the selected character based on the search requirement:
  * f: forward, stop on character
  * F: backward, stop on character
  * t: forward, stop before character
  * T: backward, stop after character
  */
-void find_character(int type) {
-	char tmp[2] = {type,'\0'};
-	int c = read_one_character(tmp);
-	if (c == -1) goto _done;
+void find_character(int type, int c) {
 	if (type == 'f' || type == 't') {
 		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i - !!(type == 't');
 				place_cursor_actual();
-				goto _done;
+				return;
 			}
 		}
 	} else if (type == 'F' || type == 'T') {
@@ -8253,18 +8249,22 @@ void find_character(int type) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i + !!(type == 'T');
 				place_cursor_actual();
-				goto _done;
+				return;
 			}
 		}
 	}
-_done:
-	redraw_commandline();
 }
 
+/**
+ * A buffer for holding a number (line, repetition count)
+ */
 #define NAV_BUFFER_MAX 10
 static char nav_buf[NAV_BUFFER_MAX+1];
 static int nav_buffer = 0;
 
+/**
+ * Clear the navigation number buffer
+ */
 void reset_nav_buffer(int c) {
 	if (nav_buffer && (c < '0' || c > '9')) {
 		render_commandline_message("");
@@ -8272,7 +8272,11 @@ void reset_nav_buffer(int c) {
 	}
 }
 
-
+/**
+ * Performs action with repitions if nav_buffer is set;
+ * otherwise once. With reps, set loading so that actions
+ * don't redraw screen several times.
+ */
 #define with_reps(stuff) \
 	if (reps) { \
 		env->loading = 1; \
@@ -8340,7 +8344,14 @@ void handle_navigation(int c) {
 		case 'F':
 		case 't':
 		case 'T':
-			find_character(c);
+			{
+				char tmp[2] = {c,'\0'};
+				int cin = read_one_character(tmp);
+				if (cin != -1) {
+					with_reps(find_character(c, cin));
+				}
+				redraw_commandline();
+			}
 			break;
 		case 'G': /* Go to end of file */
 			if (nav_buffer) {
