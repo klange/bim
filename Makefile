@@ -1,5 +1,7 @@
 TARGET=bim
-CFLAGS=-g -std=c99 -Wvla -pedantic -Wall -Wextra
+CFLAGS=-g -std=c99 -Wvla -pedantic -Wall -Wextra -Werror
+SOURCES=src/bim.c  src/biminfo.c  src/buffer.c  src/history.c  src/line.c  src/syntax.c  src/themes.c  src/utf8.c  src/util.c  src/terminal.c  src/display.c
+OBJECTS=src/bim.o  src/biminfo.o  src/buffer.o  src/history.o  src/line.o  src/syntax.o  src/themes.o  src/utf8.o  src/util.o  src/terminal.o  src/display.o
 
 prefix=/usr/local
 exec_prefix=$(prefix)
@@ -12,8 +14,12 @@ INSTALL_PROGRAM=$(INSTALL)
 
 all: $(TARGET)
 
+bim: $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
+
 clean:
 	-rm -f $(TARGET)
+	-rm -f $(OBJECTS)
 
 distclean: clean
 
@@ -27,5 +33,5 @@ install-strip: all
 uninstall:
 	rm -f $(DESTDIR)$(bindir)/$(TARGET)
 
-tags: bim.c
+tags: $(SOURCES)
 	ctags --c-kinds=+lx bim.c
