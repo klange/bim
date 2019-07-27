@@ -9934,6 +9934,15 @@ void normal_mode(void) {
 									}
 								}
 							}
+							if (global_config.yank_is_full_lines) {
+								env->col_no = 1;
+								for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+									if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
+										env->col_no = i + 1;
+										break;
+									}
+								}
+							}
 							set_history_break();
 							set_modified();
 							redraw_all();
