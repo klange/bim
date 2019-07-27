@@ -105,6 +105,7 @@
 | `^R`        | *unbound*             | redo from history         |
 | `^S`        | XOFF                  | *unbound*                 |
 | `^T`        | go to last tag jump   | *unbound*                 |
+| `^U`        | up one screen         | *unbound*                 |
 | `^V`        | *unbound*             | *unbound*                 |
 | `^W`        | *unbound*             | *unbound*                 |
 | `^X`        | *unbound*             | *unbound*                 |
