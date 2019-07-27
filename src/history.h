@@ -56,5 +56,7 @@ typedef struct history {
 
 extern void recursive_history_free(history_t * root);
 extern void set_history_break(void);
+extern void undo_history(void);
+extern void redo_history(void);
 
 #endif // _BIM_HISTORY_H

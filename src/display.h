@@ -27,5 +27,6 @@ extern void use_left_buffer(void);
 extern void use_right_buffer(void);
 extern void render_status_message(char * message, ...);
 extern void render_error(char * message, ...);
+extern void update_split_size(void);
 
 #endif // _BIM_DISPLAY_H

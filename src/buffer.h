@@ -61,5 +61,12 @@ extern buffer_t ** buffers;
 extern buffer_t * buffer_new(void);
 extern buffer_t * buffer_close(buffer_t * buf);
 extern void setup_buffer(buffer_t * env);
+extern void set_modified(void);
+extern void close_buffer(void);
+extern void write_file(char * file);
+extern void add_buffer(uint8_t * buf, int size);
+extern void open_file(char * file);
+extern void quit(const char * message);
+extern void try_quit(void);
 
 #endif // _BIM_BUFFER_H

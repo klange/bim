@@ -1821,3 +1821,57 @@ void recalculate_tabs(line_t * line) {
 		j += line->text[i].display_width;
 	}
 }
+
+/**
+ * Find a syntax highlighter for the given filename.
+ */
+struct syntax_definition * match_syntax(char * file) {
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		for (char ** ext = s->ext; *ext; ++ext) {
+			int i = strlen(file);
+			int j = strlen(*ext);
+
+			do {
+				if (file[i] != (*ext)[j]) break;
+				if (j == 0) return s;
+				if (i == 0) break;
+				i--;
+				j--;
+			} while (1);
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Set the syntax configuration by the name of the syntax highlighter.
+ */
+void set_syntax_by_name(const char * name) {
+	if (!strcmp(name,"none")) {
+		for (int i = 0; i < env->line_count; ++i) {
+			env->lines[i]->istate = 0;
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags = 0;
+			}
+		}
+		redraw_all();
+		return;
+	}
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		if (!strcmp(name,s->name)) {
+			env->syntax = s;
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->istate = 0;
+			}
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_all();
+			return;
+		}
+	}
+	render_error("unrecognized syntax type");
+}
+
+

@@ -1,6 +1,11 @@
 #ifndef _BIM_TERMINAL_H
 #define _BIM_TERMINAL_H
 
+#define ENTER_KEY     '\r'
+#define LINE_FEED     '\n'
+#define BACKSPACE_KEY 0x08
+#define DELETE_KEY    0x7F
+
 extern void get_initial_termios(void);
 extern void set_unbuffered(void);
 extern void set_buffered(void);
@@ -24,5 +29,7 @@ extern void shift_down(int amount);
 extern void set_alternate_screen(void);
 extern void unset_alternate_screen(void);
 extern void update_title(void);
+extern void init_terminal(void);
+extern void detect_weird_terminals(void);
 
 #endif // _BIM_TERMINAL_H

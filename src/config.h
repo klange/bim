@@ -53,6 +53,7 @@ struct bim_config {
 };
 
 extern struct bim_config global_config;
+extern void load_bimrc(void);
 
 /**
  * Editor modes (like in vim)

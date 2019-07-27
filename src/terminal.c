@@ -2,11 +2,17 @@
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <signal.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+
 #include "themes.h"
 #include "buffer.h"
 #include "config.h"
+#include "display.h"
 
 /**
  * Toggle buffered / unbuffered modes
@@ -234,5 +240,124 @@ void update_title(void) {
 	for (int i = 1; i < 3; ++i) {
 		printf("\033]%d;%s%s (%s) - Bim\007", i, env->file_name ? env->file_name : "[No Name]", env->modified ? " +" : "", cwd);
 	}
+}
+
+/**
+ * Update screen size
+ */
+void update_screen_size(void) {
+	struct winsize w;
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	global_config.term_width = w.ws_col;
+	global_config.term_height = w.ws_row;
+	if (env) {
+		if (left_buffer) {
+			update_split_size();
+		} else if (env != left_buffer && env != right_buffer) {
+			env->width = w.ws_col;
+		}
+	}
+	for (int i = 0; i < buffers_len; ++i) {
+		if (buffers[i] != left_buffer && buffers[i] != right_buffer) {
+			buffers[i]->width = w.ws_col;
+		}
+	}
+}
+
+/**
+ * Handle terminal size changes
+ */
+void SIGWINCH_handler(int sig) {
+	(void)sig;
+	update_screen_size();
+	redraw_all();
+
+	signal(SIGWINCH, SIGWINCH_handler);
+}
+
+/**
+ * Handle suspend
+ */
+void SIGTSTP_handler(int sig) {
+	(void)sig;
+	mouse_disable();
+	set_buffered();
+	reset();
+	clear_screen();
+	show_cursor();
+	unset_alternate_screen();
+	fflush(stdout);
+
+	signal(SIGTSTP, SIG_DFL);
+	raise(SIGTSTP);
+}
+
+void SIGCONT_handler(int sig) {
+	(void)sig;
+	set_alternate_screen();
+	set_unbuffered();
+	update_screen_size();
+	mouse_enable();
+	redraw_all();
+	signal(SIGCONT, SIGCONT_handler);
+	signal(SIGTSTP, SIGTSTP_handler);
+}
+
+
+
+/**
+ * Initialize terminal for editor display.
+ */
+void init_terminal(void) {
+	if (!isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) {
+		global_config.tty_in = STDERR_FILENO;
+	}
+	set_alternate_screen();
+	update_screen_size();
+	get_initial_termios();
+	set_unbuffered();
+	mouse_enable();
+
+	signal(SIGWINCH, SIGWINCH_handler);
+	signal(SIGCONT,  SIGCONT_handler);
+	signal(SIGTSTP,  SIGTSTP_handler);
+}
+
+/**
+ * Set some default values when certain terminals are detected.
+ */
+void detect_weird_terminals(void) {
+
+	char * term = getenv("TERM");
+	if (term && !strcmp(term,"linux")) {
+		/* Linux VTs can't scroll. */
+		global_config.can_scroll = 0;
+	}
+	if (term && !strcmp(term,"cons25")) {
+		/* Dragonfly BSD console */
+		global_config.can_hideshow = 0;
+		global_config.can_altscreen = 0;
+		global_config.can_mouse = 0;
+		global_config.can_unicode = 0;
+		global_config.can_bright = 0;
+	}
+	if (term && !strcmp(term,"sortix")) {
+		/* sortix will spew title escapes to the screen, no good */
+		global_config.can_title = 0;
+	}
+	if (term && strstr(term,"tmux") == term) {
+		global_config.can_scroll = 0;
+		global_config.can_bce = 0;
+	}
+	if (term && strstr(term,"screen") == term) {
+		/* unfortunately */
+		global_config.can_24bit = 0;
+		global_config.can_italic = 0;
+	}
+	if (term && strstr(term,"toaru-vga") == term) {
+		global_config.can_24bit = 0; /* Also not strictly true */
+		global_config.can_256color = 0; /* Not strictly true */
+	}
+
 }
 

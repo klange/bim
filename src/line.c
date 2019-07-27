@@ -3,8 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "buffer.h"
-#include "history.h"
 #include "config.h"
+#include "display.h"
+#include "history.h"
+#include "line.h"
+#include "navigation.h"
+#include "util.h"
+#include "utf8.h"
 
 /**
  * Insert a character into an existing line.
@@ -458,6 +463,210 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 		if (changed) {
 			recalculate_syntax(env->lines[new_line],new_line);
 		}
+	}
+}
+
+/**
+ * Append a character at the current cursor point.
+ */
+void insert_char(unsigned int c) {
+	if (!c) {
+		render_error("Inserted nil byte?");
+		return;
+	}
+	char_t _c;
+	_c.codepoint = c;
+	_c.flags = 0;
+	_c.display_width = codepoint_width(c);
+	line_t * line  = env->lines[env->line_no - 1];
+	line_t * nline = line_insert(line, _c, env->col_no - 1, env->line_no - 1);
+	if (line != nline) {
+		env->lines[env->line_no - 1] = nline;
+	}
+	env->col_no += 1;
+	set_modified();
+}
+
+/**
+ * Replace a single character at the current cursor point
+ */
+void replace_char(unsigned int c) {
+	if (env->col_no < 1 || env->col_no > env->lines[env->line_no-1]->actual) return;
+
+	char_t _c;
+	_c.codepoint = c;
+	_c.flags = 0;
+	_c.display_width = codepoint_width(c);
+
+	line_replace(env->lines[env->line_no-1], _c, env->col_no-1, env->line_no-1);
+
+	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	set_modified();
+}
+
+/**
+ * Backspace from the current cursor position.
+ */
+void delete_at_cursor(void) {
+	if (env->col_no > 1) {
+		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+		env->col_no -= 1;
+		if (env->coffset > 0) env->coffset--;
+		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	} else if (env->line_no > 1) {
+		int tmp = env->lines[env->line_no - 2]->actual;
+		merge_lines(env->lines, env->line_no - 1);
+		env->line_no -= 1;
+		env->col_no = tmp+1;
+		set_preferred_column();
+		redraw_text();
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+/**
+ * Delete a "word"; the logic here is a bit complex, but it attempts to do
+ * what vim does when you hit ^W (and it's what we bind ^W to as well)
+ */
+void delete_word(void) {
+	if (!env->lines[env->line_no-1]) return;
+	if (env->col_no > 1) {
+
+		/* Start by deleting whitespace */
+		while (env->col_no > 1 && is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+			line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+			env->col_no -= 1;
+			if (env->coffset > 0) env->coffset--;
+		}
+
+		int (*inverse_comparator)(int) = is_special;
+		if (env->col_no > 1 && is_special(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
+			inverse_comparator = is_normal;
+		}
+
+		do {
+			if (env->col_no > 1) {
+				line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
+				env->col_no -= 1;
+				if (env->coffset > 0) env->coffset--;
+			}
+		} while (env->col_no > 1 && !is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint) && !inverse_comparator(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint));
+
+		set_preferred_column();
+		redraw_text();
+		set_modified();
+		redraw_statusbar();
+		place_cursor_actual();
+	}
+}
+
+/**
+ * Break the current line in two at the current cursor position.
+ */
+void insert_line_feed(void) {
+	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
+		env->lines = add_line(env->lines, env->line_no);
+	} else {
+		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
+	}
+	env->coffset = 0;
+	env->col_no = 1;
+	env->line_no += 1;
+	set_preferred_column();
+	add_indent(env->line_no-1,env->line_no-2,0);
+	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+		env->offset += 1;
+	}
+	set_modified();
+}
+
+/**
+ * Yank lines between line start and line end (which may be in either order)
+ */
+void yank_lines(int start, int end) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank;
+	int start_point;
+	if (start <= end) {
+		lines_to_yank = end - start + 1;
+		start_point = start - 1;
+	} else {
+		lines_to_yank = start - end + 1;
+		start_point = end - 1;
+	}
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 1;
+	for (int i = 0; i < lines_to_yank; ++i) {
+		global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+		global_config.yanks[i]->available = env->lines[start_point+i]->available;
+		global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+		global_config.yanks[i]->istate = 0;
+		memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+		for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+			global_config.yanks[i]->text[j].flags = 0;
+		}
+	}
+}
+
+/**
+ * Helper to yank part of a line into a new yank line.
+ */
+void yank_partial_line(int yank_no, int line_no, int start_off, int count) {
+	global_config.yanks[yank_no] = malloc(sizeof(line_t) + sizeof(char_t) * (count + 1));
+	global_config.yanks[yank_no]->available = count + 1; /* ensure extra space */
+	global_config.yanks[yank_no]->actual = count;
+	global_config.yanks[yank_no]->istate = 0;
+	memcpy(&global_config.yanks[yank_no]->text, &env->lines[line_no]->text[start_off], sizeof(char_t) * count);
+	for (int i = 0; i < count; ++i) {
+		global_config.yanks[yank_no]->text[i].flags = 0;
+	}
+}
+
+/**
+ * Yank text...
+ */
+void yank_text(int start_line, int start_col, int end_line, int end_col) {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+	}
+	int lines_to_yank = end_line - start_line + 1;
+	int start_point = start_line - 1;
+	global_config.yanks = malloc(sizeof(line_t *) * lines_to_yank);
+	global_config.yank_count = lines_to_yank;
+	global_config.yank_is_full_lines = 0;
+	if (lines_to_yank == 1) {
+		yank_partial_line(0, start_point, start_col - 1, (end_col - start_col + 1));
+	} else {
+		yank_partial_line(0, start_point, start_col - 1, (env->lines[start_point]->actual - start_col + 1));
+		/* Yank middle lines */
+		for (int i = 1; i < lines_to_yank - 1; ++i) {
+			global_config.yanks[i] = malloc(sizeof(line_t) + sizeof(char_t) * (env->lines[start_point+i]->available));
+			global_config.yanks[i]->available = env->lines[start_point+i]->available;
+			global_config.yanks[i]->actual = env->lines[start_point+i]->actual;
+			global_config.yanks[i]->istate = 0;
+			memcpy(&global_config.yanks[i]->text, &env->lines[start_point+i]->text, sizeof(char_t) * (env->lines[start_point+i]->actual));
+
+			for (int j = 0; j < global_config.yanks[i]->actual; ++j) {
+				global_config.yanks[i]->text[j].flags = 0;
+			}
+		}
+		/* Yank end line */
+		yank_partial_line(lines_to_yank-1, end_line - 1, 0, end_col);
 	}
 }
 

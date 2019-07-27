@@ -862,3 +862,33 @@ void render_error(char * message, ...) {
 	printf("%s", buf);
 }
 
+/**
+ * If the screen is split, update the split sizes based
+ * on the new terminal width and the user's split_percent setting.
+ */
+void update_split_size(void) {
+	if (!left_buffer) return;
+	if (left_buffer == right_buffer) {
+		if (left_buffer->left == 0) {
+			left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+		} else {
+			right_buffer->left = global_config.term_width * global_config.split_percent / 100;
+			right_buffer->width = global_config.term_width - right_buffer->left;
+		}
+		return;
+	}
+	left_buffer->left = 0;
+	left_buffer->width = global_config.term_width * global_config.split_percent / 100;
+	right_buffer->left = left_buffer->width;
+	right_buffer->width = global_config.term_width - left_buffer->width;
+}
+
+void try_to_center() {
+	int half_a_screen = (global_config.term_height - 3) / 2;
+	if (half_a_screen < env->line_no) {
+		env->offset = env->line_no - half_a_screen;
+	} else {
+		env->offset = 0;
+	}
+}
+

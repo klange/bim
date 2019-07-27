@@ -53,4 +53,7 @@ extern struct syntax_definition syntaxes[];
 extern void recalculate_syntax(line_t * line, int line_no);
 extern void recalculate_tabs(line_t * line);
 
+extern struct syntax_definition * match_syntax(char * file);
+extern void set_syntax_by_name(const char * name);
+
 #endif // _BIM_SYNTAX_H

@@ -40,5 +40,13 @@ extern line_t ** split_line(line_t ** lines, int line, int split);
 extern int line_ends_with_brace(line_t * line);
 extern int line_is_comment(line_t * line);
 extern void add_indent(int new_line, int old_line, int ignore_brace);
+extern void insert_char(unsigned int c);
+extern void replace_char(unsigned int c);
+void delete_at_cursor(void);
+void delete_word(void);
+void insert_line_feed(void);
+void yank_lines(int start, int end);
+void yank_partial_line(int yank_no, int line_no, int start_off, int count);
+void yank_text(int start_line, int start_col, int end_line, int end_col);
 
 #endif // _BIM_LINE_H
