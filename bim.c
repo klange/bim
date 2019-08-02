@@ -865,6 +865,15 @@ struct syntax_state {
 	int i;
 };
 
+struct syntax_definition {
+	char * name;
+	char ** ext;
+	int (*calculate)(struct syntax_state *);
+	int prefers_spaces;
+};
+
+struct syntax_definition syntaxes[];
+
 #define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
 #define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)
 #define nextchar() (state->i + 1 < state->line->actual ? state->line->text[(state->i+1)].codepoint : -1)
@@ -2575,12 +2584,60 @@ int syn_ctags_calculate(struct syntax_state * state) {
 
 static char * ctags_ext[] = { "tags", NULL };
 
-struct syntax_definition {
-	char * name;
-	char ** ext;
-	int (*calculate)(struct syntax_state *);
-	int prefers_spaces;
-} syntaxes[] = {
+static char * syn_bimcmd_keywords[] = {
+	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
+	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
+	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
+	"smartcase","split","splitpercent","unsplit","git","colorgutter",
+	"tohtml","buffers","s/","e","w","q","qa","q!","qa!",
+	NULL
+};
+
+static int cmd_qualifier(int c) { return c != -1 && c != ' '; }
+
+static int syn_bimcmd_calculate(struct syntax_state * state) {
+	if (state->i == 0) {
+		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct theme_def * s = themes; s->name; ++s) {
+				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) break;
+			}
+		} else if (match_and_paint(state, "syntax", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) break;
+			}
+		} else if (charat() == 's' && !isalpha(nextchar())) {
+			paint(1, FLAG_KEYWORD);
+			char special = charat();
+			paint(1, FLAG_TYPE);
+			while (charat() != -1 && charat() != special) {
+				skip();
+			}
+			if (charat() == special) paint(1, FLAG_TYPE);
+			while (charat() != -1 && charat() != special) {
+				skip();
+			}
+			if (charat() == special) paint(1, FLAG_TYPE);
+			while (charat() != -1) paint(1, FLAG_NUMERAL);
+		} else if (find_keywords(state, syn_bimcmd_keywords, FLAG_KEYWORD, cmd_qualifier)) {
+			return -1;
+		} else if (charat() == '!') {
+			paint(1, FLAG_NUMERAL);
+			nest(syn_bash_calculate, 1);
+		} else if (isdigit(charat()) || charat() == '-' || charat() == '+') {
+			paint(1, FLAG_NUMERAL);
+			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			return -1;
+		}
+	}
+	return -1;
+}
+
+static char * bimcmd_ext[] = {NULL}; /* no files */
+
+struct syntax_definition syntaxes[] = {
 	{"c",c_ext,syn_c_calculate,0},
 	{"python",py_ext,syn_py_calculate,1},
 	{"java",java_ext,syn_java_calculate,1},
@@ -2599,6 +2656,7 @@ struct syntax_definition {
 	{"toarush",esh_ext,syn_esh_calculate,0},
 	{"bash",bash_ext,syn_bash_calculate,0},
 	{"ctags",ctags_ext,syn_ctags_calculate,0},
+	{"bim-command",bimcmd_ext,syn_bimcmd_calculate,0},
 	{NULL,NULL,NULL,0},
 };
 
@@ -2629,6 +2687,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 
 		if (state.state != 0) {
 			rehighlight_search(line);
+			if (line_no == -1) return;
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
 				if (env->loading) return;
@@ -2717,7 +2776,7 @@ void set_history_break(void) {
  */
 line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
-	if (!env->loading && global_config.history_enabled) {
+	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_INSERT;
 		e->contents.insert_delete_replace.lineno = lineno;
@@ -2765,7 +2824,7 @@ void line_delete(line_t * line, int offset, int lineno) {
 	/* Can't delete character before start of line. */
 	if (offset == 0) return;
 
-	if (!env->loading && global_config.history_enabled) {
+	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_DELETE;
 		e->contents.insert_delete_replace.lineno = lineno;
@@ -2792,7 +2851,7 @@ void line_delete(line_t * line, int offset, int lineno) {
  */
 void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 
-	if (!env->loading && global_config.history_enabled) {
+	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REPLACE;
 		e->contents.insert_delete_replace.lineno = lineno;
@@ -6448,35 +6507,9 @@ void command_tab_complete(char * buffer) {
 
 	if (arg == 0) {
 		/* Complete command names */
-		add_candidate("help");
-		add_candidate("recalc");
-		add_candidate("syntax");
-		add_candidate("tabn");
-		add_candidate("tabp");
-		add_candidate("tabnew");
-		add_candidate("theme");
-		add_candidate("colorscheme");
-		add_candidate("tabs");
-		add_candidate("tabstop");
-		add_candidate("spaces");
-		add_candidate("noh");
-		add_candidate("clearyank");
-		add_candidate("indent");
-		add_candidate("noindent");
-		add_candidate("padding");
-		add_candidate("hlparen");
-		add_candidate("hlcurrent");
-		add_candidate("relativenumber");
-		add_candidate("cursorcolumn");
-		add_candidate("smartcase");
-		add_candidate("split");
-		add_candidate("splitpercent");
-		add_candidate("unsplit");
-		add_candidate("git");
-		add_candidate("colorgutter");
-		add_candidate("tohtml");
-		add_candidate("buffers");
-		add_candidate("s/");
+		for (char ** c = syn_bimcmd_keywords; *c; ++c) {
+			add_candidate(*c);
+		}
 		goto _accept_candidate;
 	}
 
@@ -6717,160 +6750,6 @@ int handle_command_escape(int * this_buf, int * timeout, int c) {
 
 }
 
-
-/**
- * Command mode
- *
- * Accept a user command and then process it and
- * return to normal mode.
- *
- * TODO: We only have basic line editing here; it might be
- *       nice to add more advanced line editing, like cursor
- *       movement, tab completion, etc. This is easier than
- *       with the shell since we have a lot more control over
- *       where the command input bar is rendered.
- */
-void command_mode(void) {
-	int c;
-	char buffer[1024] = {0};
-	int  buffer_len = 0;
-	int _redraw_on_byte = 0;
-
-	int timeout = 0;
-	int this_buf[20];
-
-	redraw_commandline();
-	printf(":");
-	show_cursor();
-
-	int history_point = -1;
-
-	while ((c = bim_getch())) {
-		if (c == -1) {
-			if (timeout && this_buf[timeout-1] == '\033') {
-				return;
-			}
-			timeout = 0;
-			continue;
-		} else {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						/* Escape, cancel command */
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case 3: /* ^C */
-						return;
-					case ENTER_KEY:
-					case LINE_FEED:
-						/* Enter, run command */
-						process_command(buffer);
-						return;
-					case '\t':
-						/* Handle tab completion */
-						command_tab_complete(buffer);
-						buffer_len = strlen(buffer);
-						break;
-					case BACKSPACE_KEY:
-					case DELETE_KEY:
-						/* Backspace, delete last character in command buffer */
-						if (buffer_len > 0) {
-							do {
-								buffer_len--;
-								if ((buffer[buffer_len] & 0xC0) != 0x80) {
-									buffer[buffer_len] = '\0';
-									break;
-								}
-							} while (1);
-							goto _redraw_buffer;
-						} else {
-							/* If backspaced through entire command, cancel command mode */
-							redraw_commandline();
-							return;
-						}
-						break;
-					case 23:
-						while (buffer_len >0 &&
-								(buffer[buffer_len-1] == ' ' ||
-								 buffer[buffer_len-1] == '/')) {
-							buffer_len--;
-							buffer[buffer_len] = '\0';
-						}
-						while (buffer_len > 0 &&
-								buffer[buffer_len-1] != ' ' &&
-								buffer[buffer_len-1] != '/') {
-							buffer_len--;
-							buffer[buffer_len] = '\0';
-						}
-						goto _redraw_buffer;
-					default:
-						/* Regular character */
-						buffer[buffer_len] = c;
-						buffer_len++;
-						if ((c & 0xC0) == 0xC0) {
-							/* This is the start of a UTF-8 character; how many bytes do we need? */
-							int i = 1;
-							int j = c;
-							while (j & 0x20) {
-								i += 1;
-								j <<= 1;
-							}
-							_redraw_on_byte = i;
-						} else if ((c & 0xC0) == 0x80 && _redraw_on_byte) {
-							_redraw_on_byte--;
-							if (_redraw_on_byte == 0) {
-								goto _redraw_buffer;
-							}
-						} else {
-							printf("%c", c);
-						}
-						break;
-				}
-			} else {
-				switch (handle_command_escape(this_buf,&timeout,c)) {
-					case 1:
-						bim_unget(c);
-						return;
-					case 'A':
-						/* Load from history */
-						if (command_history[history_point+1]) {
-							memcpy(buffer, command_history[history_point+1], strlen(command_history[history_point+1])+1);
-							history_point++;
-							buffer_len = strlen(buffer);
-						}
-						goto _redraw_buffer;
-					case 'B':
-						if (history_point > 0) {
-							history_point--;
-							memcpy(buffer, command_history[history_point], strlen(command_history[history_point])+1);
-						} else {
-							history_point = -1;
-							memset(buffer, 0, 1000);
-						}
-						buffer_len = strlen(buffer);
-						goto _redraw_buffer;
-					case 'C':
-					case 'D':
-					case 'H':
-					case 'F':
-						render_status_message("line editing not supported in command mode (sorry)");
-						goto _redraw_buffer;
-				}
-			}
-
-			show_cursor();
-			continue;
-
-_redraw_buffer:
-			redraw_commandline();
-			printf(":%s", buffer);
-			show_cursor();
-		}
-	}
-}
 
 /**
  * Determine whether a string should be searched
@@ -8331,6 +8210,261 @@ void reset_nav_buffer(int c) {
 		nav_buffer = 0;
 		redraw_commandline();
 	}
+}
+
+#define _syn_command() do { env->syntax = _syn_bim; } while (0)
+#define _syn_restore() do { env->syntax = _syn; } while (0)
+#define _place_cursor() do { \
+	int x = 2 + _left_gutter - offset; \
+	for (int i = 0; i < col_no - 1; ++i) { \
+		char_t * c = &command_buffer->text[i]; \
+		x += c->display_width; \
+	} \
+	if (x > _command_width - 1) { \
+		int diff = x - (_command_width - 1); \
+		offset += diff; \
+		x -= diff; \
+		redraw = 1; \
+	} \
+	if (x < 2 + _left_gutter) { \
+		int diff = (2 + _left_gutter) - x; \
+		offset -= diff; \
+		x += diff; \
+		redraw = 1; \
+	} \
+	place_cursor(40, global_config.term_height); \
+	place_cursor(x, global_config.term_height); \
+	show_cursor(); \
+} while (0)
+
+#define _restore_history(point) do { \
+	char * t = command_history[point]; \
+	col_no = 1; \
+	command_buffer->actual = 0; \
+	_syn_command(); \
+	while (*t) { \
+		if (!decode(&state, &c, *t)) { \
+			char_t _c = {codepoint_width(c), 0, c}; \
+			line_insert(command_buffer, _c, col_no - 1, -1); \
+			col_no++; \
+		} \
+		t++; \
+	} \
+	_syn_restore(); \
+} while (0)
+
+#define _set_cmdline() do { \
+	place_cursor(1, global_config.term_height); \
+	paint_line(COLOR_BG); \
+	set_colors(COLOR_FG, COLOR_BG); \
+	_left_gutter = 0; \
+	if (env->mode == MODE_LINE_SELECTION) { \
+		set_bold(); \
+		_left_gutter = printf("(LINE %d:%d)", \
+			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
+			(env->start_line < env->line_no) ? env->line_no : env->start_line); \
+		unset_bold(); \
+	} else if (env->mode == MODE_COL_SELECTION) { \
+		set_bold(); \
+		_left_gutter = printf("(COL %d:%d %d)", \
+			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
+			(env->start_line < env->line_no) ? env->line_no : env->start_line, \
+			(env->sel_col)); \
+		unset_bold(); \
+	} else if (env->mode == MODE_CHAR_SELECTION) { \
+		set_bold(); \
+		_left_gutter = printf("(CHAR)"); \
+		unset_bold(); \
+	} \
+	printf(":"); \
+	render_line(command_buffer, _command_width-1-_left_gutter, offset, -1); \
+	redraw = 0; \
+	_place_cursor(); \
+} while (0)
+
+void command_mode(void) {
+	int offset = 0;
+	int col_no = 1;
+	int redraw = 0;
+	int _command_width = global_config.term_width;
+	int _left_gutter;
+
+	line_t * command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	command_buffer->available = 32;
+
+	_set_cmdline();
+
+	struct syntax_definition * _syn = env->syntax;
+	struct syntax_definition * _syn_bim = NULL;
+	for (struct syntax_definition * s = syntaxes; s->name; ++s) {
+		if (!strcmp(s->name,"bim-command")) {
+			_syn_bim = s;
+			break;
+		}
+	}
+
+	int cin;
+	uint32_t c;
+	int timeout = 0;
+	int this_buf[20];
+	uint32_t istate = 0;
+
+	int history_point = -1;
+
+	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
+		if (cin == -1) {
+			if (redraw) {
+				_set_cmdline();
+			}
+			if (timeout && this_buf[timeout-1] == '\033') {
+				goto _leave;
+			}
+			timeout = 0;
+			continue;
+		}
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						break;
+					case 3:
+						goto _leave;
+					case DELETE_KEY:
+					case BACKSPACE_KEY:
+						if (col_no <= 1) {
+							if (command_buffer->actual == 0) goto _leave;
+							else break;
+						}
+						_syn_command();
+						line_delete(command_buffer, col_no - 1, -1);
+						_syn_restore();
+						col_no--;
+						offset = 0;
+						redraw = 1;
+						break;
+					case ENTER_KEY:
+					case LINE_FEED:
+						{
+							/* First count how many bytes we need */
+							size_t size = 0;
+							for (int i = 0; i < command_buffer->actual; ++i) {
+								char tmp[8] = {0};
+								size += to_eight(command_buffer->text[i].codepoint, tmp);
+							}
+							char * tmp = malloc(size + 1); /* for the nil */
+							char * t = tmp;
+							for (int i = 0; i < command_buffer->actual; ++i) {
+								t += to_eight(command_buffer->text[i].codepoint, t);
+							}
+							free(command_buffer);
+							process_command(tmp);
+							free(tmp);
+						}
+						return;
+					case 23: /* ^W */
+						_syn_command();
+						while (col_no > 1 &&
+						       (command_buffer->text[col_no-1].codepoint == ' ' ||
+						        command_buffer->text[col_no-1].codepoint == '/')) {
+							line_delete(command_buffer, col_no - 1, -1);
+							col_no--;
+						}
+						while (col_no > 1 &&
+						       command_buffer->text[col_no-1].codepoint != ' ' &&
+						       command_buffer->text[col_no-1].codepoint != '/') {
+							line_delete(command_buffer, col_no - 1, -1);
+							col_no--;
+						}
+						_syn_restore();
+						redraw = 1;
+						break;
+					case '\t':
+						{
+							char * tmp = calloc(1024,1);
+							char * t = tmp;
+							for (int i = 0; i < col_no-1; ++i) {
+								t += to_eight(command_buffer->text[i].codepoint, t);
+							}
+							_syn_command();
+							while (col_no > 1) {
+								line_delete(command_buffer, col_no - 1, -1);
+								col_no--;
+							}
+							command_tab_complete(tmp);
+							uint32_t state = 0, c= 0;
+							t = tmp;
+							while (*t) {
+								if (!decode(&state, &c, *t)) {
+									char_t _c = {codepoint_width(c), 0, c};
+									line_insert(command_buffer, _c, col_no - 1, -1);
+									col_no++;
+								}
+								t++;
+							}
+							_syn_restore();
+							free(tmp);
+							redraw = 1;
+						}
+						break;
+					default:
+						{
+							char_t _c = {codepoint_width(c), 0, c};
+							_syn_command();
+							command_buffer = line_insert(command_buffer, _c, col_no - 1, -1);
+							_syn_restore();
+							col_no++;
+						}
+						redraw = 1;
+						break;
+				}
+			} else {
+				switch (handle_command_escape(this_buf,&timeout,c)) {
+					case 1:
+						bim_unget(c);
+						goto _leave;
+					case 'A':
+						/* Load from history */
+						if (command_history[history_point+1]) {
+							_restore_history(history_point+1);
+							history_point++;
+							redraw = 1;
+						}
+						break;
+					case 'B':
+						if (history_point > 0) {
+							history_point--;
+							_restore_history(history_point);
+							redraw = 1;
+						} else {
+							history_point = -1;
+							col_no = 1;
+							command_buffer->actual = 0;
+							redraw = 1;
+						}
+						break;
+					case 'D':
+						if (col_no > 1) col_no--;
+						redraw = 1;
+						break;
+					case 'C':
+						if (col_no < command_buffer->actual+1) col_no++;
+						redraw = 1;
+						break;
+				}
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+
+_leave:
+	free(command_buffer);
+	redraw_all();
+	place_cursor_actual();
 }
 
 /**
