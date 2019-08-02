@@ -3215,6 +3215,7 @@ void set_unbuffered(void) {
 	new.c_iflag &= (~ICRNL);
 	new.c_lflag &= (~ICANON) & (~ECHO);
 	new.c_cc[VINTR] = 0;
+	new.c_cc[VLNEXT] = 0;
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
