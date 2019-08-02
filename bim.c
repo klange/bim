@@ -8394,7 +8394,9 @@ void command_mode(void) {
 								line_delete(command_buffer, col_no - 1, -1);
 								col_no--;
 							}
+							_syn_restore();
 							command_tab_complete(tmp);
+							_syn_command();
 							uint32_t state = 0, c= 0;
 							t = tmp;
 							while (*t) {
