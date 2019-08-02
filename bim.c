@@ -2589,7 +2589,7 @@ static char * syn_bimcmd_keywords[] = {
 	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
 	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
 	"smartcase","split","splitpercent","unsplit","git","colorgutter",
-	"tohtml","buffers","s/","e","w","q","qa","q!","qa!",
+	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history",
 	NULL
 };
 
