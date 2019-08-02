@@ -1329,12 +1329,12 @@ static int paint_py_numeral(struct syntax_state * state) {
 	return 0;
 }
 
-static void paint_py_format_string(struct syntax_state * state) {
+static void paint_py_format_string(struct syntax_state * state, char type) {
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '"') {
+		if (charat() == '\\' && nextchar() == type) {
 			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '"') {
+		} else if (charat() == type) {
 			paint(1, FLAG_STRING);
 			return;
 		} else if (charat() == '\\') {
@@ -1376,7 +1376,7 @@ static int syn_py_calculate(struct syntax_state * state) {
 					/* I don't like backtracking like this, but it makes this parse easier */
 					state->i--;
 					paint(1,FLAG_TYPE);
-					paint_py_format_string(state);
+					paint_py_format_string(state,'"');
 					return 0;
 				} else {
 					paint_simple_string(state);
@@ -1392,6 +1392,12 @@ static int syn_py_calculate(struct syntax_state * state) {
 				if (nextchar() == '\'' && charrel(2) == '\'') {
 					paint(3, FLAG_STRING);
 					return paint_py_triple_single(state);
+				} else if (lastchar() == 'f') {
+					/* I don't like backtracking like this, but it makes this parse easier */
+					state->i--;
+					paint(1,FLAG_TYPE);
+					paint_py_format_string(state,'\'');
+					return 0;
 				} else {
 					return paint_py_single_string(state);
 				}
