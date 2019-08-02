@@ -8312,7 +8312,7 @@ void find_character(int type, int c) {
 			}
 		}
 	} else if (type == 'F' || type == 'T') {
-		for (int i = env->col_no; i >= 1; --i) {
+		for (int i = env->col_no-1; i >= 1; --i) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
 				env->col_no = i + !!(type == 'T');
 				place_cursor_actual();
