@@ -8078,6 +8078,45 @@ void yank_text(int start_line, int start_col, int end_line, int end_col) {
 }
 
 /**
+ * Delete forward in the column selection or insert modes.
+ */
+void delete_at_column(int direction) {
+	if (direction == -1 && env->sel_col <= 0) return;
+
+	int prev_width = 0;
+	for (int i = env->line_no; i <= env->start_line; i++) {
+		line_t * line = env->lines[i - 1];
+
+		int _x = 0;
+		int col = 1;
+
+		int j = 0;
+		for (; j < line->actual; ++j) {
+			char_t * c = &line->text[j];
+			_x += c->display_width;
+			col = j+1;
+			if (_x > env->sel_col) break;
+			prev_width = c->display_width;
+		}
+
+		if ((direction == -1) && (_x == env->sel_col && j == line->actual)) {
+			line_delete(line, line->actual, i - 1);
+			set_modified();
+		} else if (_x > env->sel_col) {
+			line_delete(line, col - (direction == -1 ? 1 : 0), i - 1);
+			set_modified();
+		}
+	}
+
+	if (direction == -1) {
+		env->sel_col -= prev_width;
+		env->col_no--;
+	}
+	redraw_text();
+}
+
+
+/**
  * Handle shared escape keys (mostly navigation)
  */
 int handle_escape(int * this_buf, int * timeout, int c) {
@@ -8777,36 +8816,7 @@ void col_insert_mode(void) {
 						return;
 					case DELETE_KEY:
 					case BACKSPACE_KEY:
-						if (env->sel_col > 0) {
-							int prev_width = 0;
-							for (int i = env->line_no; i <= env->start_line; i++) {
-								line_t * line = env->lines[i - 1];
-
-								int _x = 0;
-								int col = 1;
-
-								int j = 0;
-								for (; j < line->actual; ++j) {
-									char_t * c = &line->text[j];
-									_x += c->display_width;
-									col = j+1;
-									if (_x > env->sel_col) break;
-									prev_width = c->display_width;
-								}
-
-								if ((_x == env->sel_col && j == line->actual)) {
-									line_delete(line, line->actual, i - 1);
-									set_modified();
-								} else if (_x > env->sel_col) {
-									line_delete(line, col - 1, i - 1);
-									set_modified();
-								}
-							}
-
-							env->sel_col -= prev_width;
-							env->col_no--;
-							redraw_text();
-						}
+						delete_at_column(-1);
 						break;
 					case ENTER_KEY:
 					case LINE_FEED:
@@ -8925,6 +8935,14 @@ void col_selection_mode(void) {
 						env->sel_col += 1;
 						redraw_text();
 						col_insert_mode();
+						goto _leave_select_col;
+					case 'd':
+						if (env->start_line < env->line_no) {
+							int tmp = env->line_no;
+							env->line_no = env->start_line;
+							env->start_line = tmp;
+						}
+						delete_at_column(1);
 						goto _leave_select_col;
 					case ':':
 						global_config.break_from_selection = 0;
