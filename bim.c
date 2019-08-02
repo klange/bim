@@ -6702,7 +6702,7 @@ done:
  * This allows us to not muck up the command input and also
  * handle things like up/down arrow keys to go through history.
  */
-int handle_command_escape(int * this_buf, int * timeout, int c) {
+int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
 		this_buf[*timeout] = c;
 		(*timeout)++;
@@ -6727,6 +6727,7 @@ int handle_command_escape(int * this_buf, int * timeout, int c) {
 	}
 	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 		int out = 0;
+		if (*timeout >= 3) *arg = this_buf[*timeout-1];
 		switch (c) {
 			case 'M':
 				out = 2;
@@ -8424,10 +8425,17 @@ void command_mode(void) {
 						break;
 				}
 			} else {
-				switch (handle_command_escape(this_buf,&timeout,c)) {
+				int arg = 0;
+				switch (handle_command_escape(this_buf,&timeout,c,&arg)) {
 					case 1:
 						bim_unget(c);
 						goto _leave;
+					case 2:
+						/* It would be nice to handle the mouse here... */
+						bim_getch();
+						bim_getch();
+						bim_getch();
+						break;
 					case 'A':
 						/* Load from history */
 						if (command_history[history_point+1]) {
@@ -8449,12 +8457,41 @@ void command_mode(void) {
 						}
 						break;
 					case 'D':
-						if (col_no > 1) col_no--;
-						redraw = 1;
+						if (arg == '5') {
+							if (col_no > 1) {
+								redraw = 1;
+								do {
+									col_no--;
+								} while (isspace(command_buffer->text[col_no-1].codepoint) && col_no > 1);
+								if (col_no == 1) break;
+								do {
+									col_no--;
+								} while (!isspace(command_buffer->text[col_no-1].codepoint) && col_no > 1);
+								if (isspace(command_buffer->text[col_no-1].codepoint) && col_no < command_buffer->actual) col_no++;
+							}
+						} else {
+							if (col_no > 1) col_no--;
+							redraw = 1;
+						}
 						break;
 					case 'C':
-						if (col_no < command_buffer->actual+1) col_no++;
-						redraw = 1;
+						if (arg == '5') {
+							if (col_no < command_buffer->actual) {
+								redraw = 1;
+								do {
+									col_no++;
+									if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; break; }
+								} while (!isspace(command_buffer->text[col_no-1].codepoint) && col_no <= command_buffer->actual);
+								do {
+									col_no++;
+									if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; break; }
+								} while (isspace(command_buffer->text[col_no-1].codepoint) && col_no <= command_buffer->actual);
+								if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; }
+							}
+						} else {
+							if (col_no < command_buffer->actual+1) col_no++;
+							redraw = 1;
+						}
 						break;
 				}
 			}
@@ -9017,7 +9054,8 @@ void col_insert_mode(void) {
 				}
 			} else {
 				/* Ignore escape sequences for now, but handle them nicely */
-				switch (handle_command_escape(this_buf,&timeout,c)) {
+				int arg = 0;
+				switch (handle_command_escape(this_buf,&timeout,c,&arg)) {
 					case 1:
 						bim_unget(c);
 						return;
