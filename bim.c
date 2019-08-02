@@ -6688,11 +6688,7 @@ _reject:
 		free(candidates[i]);
 	}
 
-	/* Redraw command line */
 done:
-	redraw_commandline();
-	printf(":%s", buffer);
-
 	free(candidates);
 	free(buf);
 }
@@ -8390,6 +8386,7 @@ void command_mode(void) {
 							for (int i = 0; i < col_no-1; ++i) {
 								t += to_eight(command_buffer->text[i].codepoint, t);
 							}
+							*t = '\0';
 							_syn_command();
 							while (col_no > 1) {
 								line_delete(command_buffer, col_no - 1, -1);
@@ -8403,7 +8400,7 @@ void command_mode(void) {
 							while (*t) {
 								if (!decode(&state, &c, *t)) {
 									char_t _c = {codepoint_width(c), 0, c};
-									line_insert(command_buffer, _c, col_no - 1, -1);
+									command_buffer = line_insert(command_buffer, _c, col_no - 1, -1);
 									col_no++;
 								}
 								t++;
