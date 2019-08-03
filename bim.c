@@ -8209,6 +8209,9 @@ void reset_nav_buffer(int c) {
 	}
 }
 
+/**
+ * Macros for use in command mode.
+ */
 #define _syn_command() do { env->syntax = _syn_bim; } while (0)
 #define _syn_restore() do { env->syntax = _syn; } while (0)
 #define _place_cursor() do { \
@@ -8250,35 +8253,42 @@ void reset_nav_buffer(int c) {
 	_syn_restore(); \
 } while (0)
 
+/**
+ * Draw the command buffer and any prefix.
+ */
 #define _set_cmdline() do { \
 	place_cursor(1, global_config.term_height); \
 	paint_line(COLOR_BG); \
-	set_colors(COLOR_FG, COLOR_BG); \
+	set_colors(COLOR_ALT_FG, COLOR_BG); \
 	_left_gutter = 0; \
 	if (env->mode == MODE_LINE_SELECTION) { \
-		set_bold(); \
 		_left_gutter = printf("(LINE %d:%d)", \
 			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
 			(env->start_line < env->line_no) ? env->line_no : env->start_line); \
-		unset_bold(); \
 	} else if (env->mode == MODE_COL_SELECTION) { \
-		set_bold(); \
 		_left_gutter = printf("(COL %d:%d %d)", \
 			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
 			(env->start_line < env->line_no) ? env->line_no : env->start_line, \
 			(env->sel_col)); \
-		unset_bold(); \
 	} else if (env->mode == MODE_CHAR_SELECTION) { \
-		set_bold(); \
 		_left_gutter = printf("(CHAR)"); \
-		unset_bold(); \
 	} \
+	set_colors(COLOR_FG, COLOR_BG); \
 	printf(":"); \
 	render_line(command_buffer, _command_width-1-_left_gutter, offset, -1); \
 	redraw = 0; \
 	_place_cursor(); \
 } while (0)
 
+/**
+ * Command Mode
+ *
+ * Accept a command to run.
+ * !-prefixed commands will be run with the system shell.
+ *
+ * Supports tab completion of filenames, arguments, etc.
+ * Full line editing with syntax highlighting.
+ */
 void command_mode(void) {
 	int offset = 0;
 	int col_no = 1;
