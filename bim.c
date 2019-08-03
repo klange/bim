@@ -8352,11 +8352,12 @@ void command_mode(void) {
 								char tmp[8] = {0};
 								size += to_eight(command_buffer->text[i].codepoint, tmp);
 							}
-							char * tmp = malloc(size + 1); /* for the nil */
+							char * tmp = malloc(size + 8); /* for overflow from to_eight */
 							char * t = tmp;
 							for (int i = 0; i < command_buffer->actual; ++i) {
 								t += to_eight(command_buffer->text[i].codepoint, t);
 							}
+							*t = '\0';
 							free(command_buffer);
 							process_command(tmp);
 							free(tmp);
@@ -8489,6 +8490,14 @@ void command_mode(void) {
 							if (col_no < command_buffer->actual+1) col_no++;
 							redraw = 1;
 						}
+						break;
+					case 'H':
+						col_no = 1;
+						redraw = 1;
+						break;
+					case 'F':
+						col_no = command_buffer->actual + 1;
+						redraw = 1;
 						break;
 				}
 			}
