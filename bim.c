@@ -8366,14 +8366,14 @@ void command_mode(void) {
 					case 23: /* ^W */
 						_syn_command();
 						while (col_no > 1 &&
-						       (command_buffer->text[col_no-1].codepoint == ' ' ||
-						        command_buffer->text[col_no-1].codepoint == '/')) {
+						       (command_buffer->text[col_no-2].codepoint == ' ' ||
+						        command_buffer->text[col_no-2].codepoint == '/')) {
 							line_delete(command_buffer, col_no - 1, -1);
 							col_no--;
 						}
 						while (col_no > 1 &&
-						       command_buffer->text[col_no-1].codepoint != ' ' &&
-						       command_buffer->text[col_no-1].codepoint != '/') {
+						       command_buffer->text[col_no-2].codepoint != ' ' &&
+						       command_buffer->text[col_no-2].codepoint != '/') {
 							line_delete(command_buffer, col_no - 1, -1);
 							col_no--;
 						}
