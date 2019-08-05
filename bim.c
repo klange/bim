@@ -6758,8 +6758,8 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 		char_t * c = &command_buffer->text[i]; \
 		x += c->display_width; \
 	} \
-	if (x > _command_width - 1) { \
-		int diff = x - (_command_width - 1); \
+	if (x > global_config.term_width - 1) { \
+		int diff = x - (global_config.term_width - 1); \
 		offset += diff; \
 		x -= diff; \
 		redraw = 1; \
@@ -6814,7 +6814,7 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	} \
 	set_colors(COLOR_FG, COLOR_BG); \
 	printf(":"); \
-	render_line(command_buffer, _command_width-1-_left_gutter, offset, -1); \
+	render_line(command_buffer, global_config.term_width-1-_left_gutter, offset, -1); \
 	redraw = 0; \
 	_place_cursor(); \
 } while (0)
@@ -6832,7 +6832,6 @@ void command_mode(void) {
 	int offset = 0;
 	int col_no = 1;
 	int redraw = 0;
-	int _command_width = global_config.term_width;
 	int _left_gutter;
 
 	line_t * command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
