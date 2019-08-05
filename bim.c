@@ -5548,7 +5548,7 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 }
 
 #define COMMAND_HISTORY_MAX 255
-char * command_history[COMMAND_HISTORY_MAX] = {NULL};
+unsigned char * command_history[COMMAND_HISTORY_MAX] = {NULL};
 
 /**
  * Add a command to the history. If that command was
@@ -5560,7 +5560,7 @@ void insert_command_history(char * cmd) {
 	/* See if this is already in the history. */
 	size_t amount_to_shift = COMMAND_HISTORY_MAX - 1;
 	for (int i = 0; i < COMMAND_HISTORY_MAX && command_history[i]; ++i) {
-		if (!strcmp(command_history[i], cmd)) {
+		if (!strcmp((char*)command_history[i], cmd)) {
 			free(command_history[i]);
 			amount_to_shift = i;
 			break;
@@ -5575,7 +5575,7 @@ void insert_command_history(char * cmd) {
 	/* Roll the history */
 	memmove(&command_history[1], &command_history[0], sizeof(char *) * (amount_to_shift));
 
-	command_history[0] = strdup(cmd);
+	command_history[0] = (unsigned char*)strdup(cmd);
 }
 
 /**
@@ -6776,16 +6776,17 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 } while (0)
 
 #define _restore_history(point) do { \
-	char * t = command_history[point]; \
+	unsigned char * t = command_history[point]; \
 	col_no = 1; \
 	command_buffer->actual = 0; \
 	_syn_command(); \
+	state = 0; \
 	while (*t) { \
 		if (!decode(&state, &c, *t)) { \
 			char_t _c = {codepoint_width(c), 0, c}; \
 			line_insert(command_buffer, _c, col_no - 1, -1); \
 			col_no++; \
-		} \
+		} else if (state == UTF8_REJECT) state = 0; \
 		t++; \
 	} \
 	_syn_restore(); \
