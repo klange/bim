@@ -6812,8 +6812,13 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	} else if (env->mode == MODE_CHAR_SELECTION) { \
 		_left_gutter = printf("(CHAR)"); \
 	} \
-	set_colors(COLOR_FG, COLOR_BG); \
-	printf(":"); \
+	if (offset) { \
+		set_colors(COLOR_ALT_FG, COLOR_ALT_BG); \
+		printf("<"); \
+	} else { \
+		set_colors(COLOR_FG, COLOR_BG); \
+		printf(":"); \
+	} \
 	render_line(command_buffer, global_config.term_width-1-_left_gutter, offset, -1); \
 	redraw = 0; \
 	_place_cursor(); \
