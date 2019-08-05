@@ -2686,8 +2686,8 @@ void recalculate_syntax(line_t * line, int line_no) {
 		state.state = env->syntax->calculate(&state);
 
 		if (state.state != 0) {
-			rehighlight_search(line);
 			if (line_no == -1) return;
+			rehighlight_search(line);
 			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 				env->lines[line_no+1]->istate = state.state;
 				if (env->loading) return;
