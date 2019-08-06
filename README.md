@@ -177,6 +177,8 @@ In COL SELECTION mode, you can enter COL INSERT mode to insert characters on mul
 | `:git`             | Print the status of the `git diff` integration setting.                                        |
 | `:git VALUE`       | Enable (1) or disable (0) `git diff` integration.                                              |
 | `:tohtml`          | Create an HTML document with syntax highlighted text from the currently open document          |
+| `:!COMMAND`        | Call a shell command and wait for it to finish. With a selection, pipes and replaces text      |
+| `:` BACKTICK `COMMAND` | Runs Python code snippet, same as above.                                                   |
 
 ## Additional Bim Functionality
 
