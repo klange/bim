@@ -340,8 +340,9 @@ typedef struct _env {
 	unsigned short modified:1;
 	unsigned short readonly:1;
 	unsigned short indent:1;
-	unsigned short highlighting_paren:1;
 	unsigned short checkgitstatusonwrite:1;
+
+	int highlighting_paren;
 
 	short  mode;
 	short  tabstop;
@@ -425,6 +426,7 @@ buffer_t * buffer_new(void) {
 	memset(buffers[buffers_len], 0x00, sizeof(buffer_t));
 	buffers[buffers_len]->left = 0;
 	buffers[buffers_len]->width = global_config.term_width;
+	buffers[buffers_len]->highlighting_paren = -1;
 	buffers_len++;
 
 	return buffers[buffers_len-1];
@@ -4443,33 +4445,41 @@ void highlight_matching_paren(void) {
 	if (env->line_no <= env->line_count && env->col_no <= env->lines[env->line_no-1]->actual &&
 		is_paren(env->lines[env->line_no-1]->text[env->col_no-1].codepoint)) {
 		find_matching_paren(&line, &col, 1);
-		if (line != -1) env->highlighting_paren = 1;
 	} else if (env->line_no <= env->line_count && env->col_no > 1 && is_paren(env->lines[env->line_no-1]->text[env->col_no-2].codepoint)) {
 		find_matching_paren(&line, &col, 2);
-		if (line != -1) env->highlighting_paren = 1;
 	}
-	if (!env->highlighting_paren) return;
-	for (int i = 0; i < env->line_count; ++i) {
-		int redraw = 0;
+	if (env->highlighting_paren == -1 && line == -1) return;
+	if (env->highlighting_paren > 0) {
+		int i = env->highlighting_paren - 1;
 		for (int j = 0; j < env->lines[i]->actual; ++j) {
 			if (i == line-1 && j == col-1) {
 				env->lines[line-1]->text[col-1].flags |= FLAG_SELECT;
-				redraw = 1;
 				continue;
+			} else {
+				env->lines[i]->text[j].flags &= (~FLAG_SELECT);
 			}
-			if (env->lines[i]->text[j].flags & FLAG_SELECT) {
-				redraw = 1;
-			}
-			env->lines[i]->text[j].flags &= (~FLAG_SELECT);
 		}
-		if (redraw) {
-			if ((i) - env->offset > -1 &&
-				(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-				redraw_line((i) - env->offset, i);
-			}
+		if ((i) - env->offset > -1 &&
+			(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+			redraw_line((i) - env->offset, i);
 		}
 	}
-	if (line == -1) env->highlighting_paren = 0;
+	if (env->highlighting_paren != line && line != -1) {
+		int i = line - 1;
+		for (int j = 0; j < env->lines[i]->actual; ++j) {
+			if (i == line-1 && j == col-1) {
+				env->lines[line-1]->text[col-1].flags |= FLAG_SELECT;
+				continue;
+			} else {
+				env->lines[i]->text[j].flags &= (~FLAG_SELECT);
+			}
+		}
+		if ((i) - env->offset > -1 &&
+			(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
+			redraw_line((i) - env->offset, i);
+		}
+	}
+	env->highlighting_paren = line;
 }
 
 /**
