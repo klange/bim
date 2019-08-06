@@ -2626,6 +2626,9 @@ static int syn_bimcmd_calculate(struct syntax_state * state) {
 		} else if (charat() == '!') {
 			paint(1, FLAG_NUMERAL);
 			nest(syn_bash_calculate, 1);
+		} else if (charat() == '`') {
+			paint(1, FLAG_NUMERAL);
+			nest(syn_py_calculate, 1);
 		} else if (isdigit(charat()) || charat() == '-' || charat() == '+') {
 			paint(1, FLAG_NUMERAL);
 			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
@@ -5857,7 +5860,7 @@ void process_command(char * cmd) {
 	/* Add command to history */
 	insert_command_history(cmd);
 
-	if (*cmd == '!') {
+	if (*cmd == '!' || *cmd == '`') {
 		if (env->mode == MODE_LINE_SELECTION) {
 			int range_top, range_bot;
 			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
@@ -5877,7 +5880,12 @@ void process_command(char * cmd) {
 				dup2(out[1], STDOUT_FILENO);
 				dup2(in[0], STDIN_FILENO);
 				dup2(fileno(dev_null), STDERR_FILENO);
-				system(&cmd[1]); /* Yes we can just do this */
+				if (*cmd == '!') {
+					system(&cmd[1]); /* Yes we can just do this */
+				} else {
+					char * const args[] = {"python3","-c",&cmd[1],NULL};
+					execvp("python3",args);
+				}
 				exit(1);
 			} else if (child < 0) {
 				render_error("Failed to fork");
@@ -5951,7 +5959,12 @@ void process_command(char * cmd) {
 			set_buffered();
 
 			/* Call the shell and wait for completion */
-			system(&cmd[1]);
+			if (*cmd == '!') {
+				system(&cmd[1]);
+			} else {
+				setenv("PYCMD",&cmd[1],1);
+				system("python3 -c \"$PYCMD\"");
+			}
 
 			/* Return to the editor, wait for user to press enter. */
 			set_unbuffered();
