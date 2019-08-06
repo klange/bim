@@ -4432,6 +4432,21 @@ int is_paren(int c) {
 	return 0;
 }
 
+#define _rehighlight_parens() do { \
+	for (int j = 0; j < env->lines[i]->actual; ++j) { \
+		if (i == line-1 && j == col-1) { \
+			env->lines[line-1]->text[col-1].flags |= FLAG_SELECT; \
+			continue; \
+		} else { \
+			env->lines[i]->text[j].flags &= (~FLAG_SELECT); \
+		} \
+	} \
+	if ((i) - env->offset > -1 && \
+		(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) { \
+		redraw_line((i) - env->offset, i); \
+	} \
+} while (0)
+
 /**
  * If the config option is enabled, find the matching
  * paren character and highlight it with the SELECT
@@ -4452,33 +4467,11 @@ void highlight_matching_paren(void) {
 	if (env->highlighting_paren == -1 && line == -1) return;
 	if (env->highlighting_paren > 0) {
 		int i = env->highlighting_paren - 1;
-		for (int j = 0; j < env->lines[i]->actual; ++j) {
-			if (i == line-1 && j == col-1) {
-				env->lines[line-1]->text[col-1].flags |= FLAG_SELECT;
-				continue;
-			} else {
-				env->lines[i]->text[j].flags &= (~FLAG_SELECT);
-			}
-		}
-		if ((i) - env->offset > -1 &&
-			(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-			redraw_line((i) - env->offset, i);
-		}
+		_rehighlight_parens();
 	}
 	if (env->highlighting_paren != line && line != -1) {
 		int i = line - 1;
-		for (int j = 0; j < env->lines[i]->actual; ++j) {
-			if (i == line-1 && j == col-1) {
-				env->lines[line-1]->text[col-1].flags |= FLAG_SELECT;
-				continue;
-			} else {
-				env->lines[i]->text[j].flags &= (~FLAG_SELECT);
-			}
-		}
-		if ((i) - env->offset > -1 &&
-			(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-			redraw_line((i) - env->offset, i);
-		}
+		_rehighlight_parens();
 	}
 	env->highlighting_paren = line;
 }
