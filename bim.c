@@ -15,6 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #define _XOPEN_SOURCE 700
+#define _DARWIN_C_SOURCE
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
