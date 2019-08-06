@@ -14,7 +14,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -335,12 +335,12 @@ typedef struct history {
  * line buffers.
  */
 typedef struct _env {
-	unsigned short loading:1;
-	unsigned short tabs:1;
-	unsigned short modified:1;
-	unsigned short readonly:1;
-	unsigned short indent:1;
-	unsigned short checkgitstatusonwrite:1;
+	unsigned int loading:1;
+	unsigned int tabs:1;
+	unsigned int modified:1;
+	unsigned int readonly:1;
+	unsigned int indent:1;
+	unsigned int checkgitstatusonwrite:1;
 
 	int highlighting_paren;
 
