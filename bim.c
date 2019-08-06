@@ -2669,39 +2669,46 @@ struct syntax_definition syntaxes[] = {
  */
 void recalculate_syntax(line_t * line, int line_no) {
 	/* Clear syntax for this line first */
-	for (int i = 0; i < line->actual; ++i) {
-		line->text[i].flags = 0;
-	}
-
-	if (!env->syntax) {
-		rehighlight_search(line);
-		return;
-	}
-
-	/* Start from the line's stored in initial state */
-	struct syntax_state state;
-	state.line = line;
-	state.line_no = line_no;
-	state.state = line->istate;
-	state.i = 0;
-
+	int is_original = 1;
 	while (1) {
-		state.state = env->syntax->calculate(&state);
-
-		if (state.state != 0) {
-			if (line_no == -1) return;
-			rehighlight_search(line);
-			if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
-				env->lines[line_no+1]->istate = state.state;
-				if (env->loading) return;
-				recalculate_syntax(env->lines[line_no+1], line_no+1);
-				rehighlight_search(env->lines[line_no+1]);
-				if (line_no + 1 >= env->offset && line_no + 1 < env->offset + global_config.term_height - global_config.bottom_size - 1) {
-					redraw_line(line_no + 1 - env->offset, line_no + 1);
-				}
-			}
-			break;
+		for (int i = 0; i < line->actual; ++i) {
+			line->text[i].flags = 0;
 		}
+
+		if (!env->syntax) {
+			rehighlight_search(line);
+			return;
+		}
+
+		/* Start from the line's stored in initial state */
+		struct syntax_state state;
+		state.line = line;
+		state.line_no = line_no;
+		state.state = line->istate;
+		state.i = 0;
+
+		while (1) {
+			state.state = env->syntax->calculate(&state);
+
+			if (state.state != 0) {
+				if (line_no == -1) return;
+				rehighlight_search(line);
+				if (!is_original && line_no >= env->offset && line_no < env->offset + global_config.term_height - global_config.bottom_size - 1) {
+					redraw_line(line_no - env->offset, line_no);
+				}
+				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
+					line_no++;
+					line = env->lines[line_no];
+					line->istate = state.state;
+					if (env->loading) return;
+					is_original = 0;
+					goto _next;
+				}
+				return;
+			}
+		}
+_next:
+		(void)0;
 	}
 }
 
@@ -4761,7 +4768,7 @@ struct syntax_definition * match_syntax(char * file) {
 void set_syntax_by_name(const char * name) {
 	if (!strcmp(name,"none")) {
 		for (int i = 0; i < env->line_count; ++i) {
-			env->lines[i]->istate = 0;
+			env->lines[i]->istate = -1;
 			for (int j = 0; j < env->lines[i]->actual; ++j) {
 				env->lines[i]->text[j].flags = 0;
 			}
@@ -4773,7 +4780,7 @@ void set_syntax_by_name(const char * name) {
 		if (!strcmp(name,s->name)) {
 			env->syntax = s;
 			for (int i = 0; i < env->line_count; ++i) {
-				env->lines[i]->istate = 0;
+				env->lines[i]->istate = -1;
 			}
 			for (int i = 0; i < env->line_count; ++i) {
 				recalculate_syntax(env->lines[i],i);
@@ -6348,7 +6355,7 @@ void process_command(char * cmd) {
 		set_syntax_by_name(argv[1]);
 	} else if (!strcmp(argv[0], "recalc")) {
 		for (int i = 0; i < env->line_count; ++i) {
-			env->lines[i]->istate = 0;
+			env->lines[i]->istate = -1;
 		}
 		env->loading = 1;
 		for (int i = 0; i < env->line_count; ++i) {
