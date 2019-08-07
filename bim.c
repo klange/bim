@@ -8246,6 +8246,7 @@ void insert_line_feed(void) {
 	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 		env->offset += 1;
 	}
+	if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
 	set_modified();
 }
 
@@ -10112,6 +10113,7 @@ void normal_mode(void) {
 							env->lines = add_line(env->lines, env->line_no-1);
 							env->col_no = 1;
 							add_indent(env->line_no-1,env->line_no,0);
+							if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
 							redraw_text();
 							set_preferred_column();
 							set_modified();
@@ -10129,6 +10131,7 @@ void normal_mode(void) {
 							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
 								env->offset += 1;
 							}
+							if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
 							redraw_text();
 							set_modified();
 							place_cursor_actual();
