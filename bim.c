@@ -3514,6 +3514,20 @@ void show_cursor(void) {
 }
 
 /**
+ * Store the cursor position
+ */
+void store_cursor(void) {
+	printf("\0337");
+}
+
+/**
+ * Restore the cursor position.
+ */
+void restore_cursor(void) {
+	printf("\0338");
+}
+
+/**
  * Request mouse events
  */
 void mouse_enable(void) {
@@ -4188,11 +4202,11 @@ void redraw_statusbar(void) {
  */
 void redraw_nav_buffer() {
 	if (nav_buffer) {
-		printf("\0337");
+		store_cursor();
 		place_cursor(global_config.term_width - nav_buffer - 2, global_config.term_height);
 		printf("%s", nav_buf);
 		clear_to_end();
-		printf("\0338");
+		restore_cursor();
 	}
 }
 
@@ -7272,7 +7286,7 @@ void search_mode(int direction) {
 	redraw_commandline();
 	printf(direction == 1 ? "/" : "?");
 	if (global_config.search) {
-		printf("\0337");
+		store_cursor();
 		set_colors(COLOR_ALT_FG, COLOR_BG);
 		uint32_t * c = global_config.search;
 		while (*c) {
@@ -7281,7 +7295,7 @@ void search_mode(int direction) {
 			printf("%s", tmp);
 			c++;
 		}
-		printf("\0338");
+		restore_cursor();
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 	show_cursor();
