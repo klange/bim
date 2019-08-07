@@ -8395,6 +8395,29 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 		(*timeout)++;
 		return 1;
 	}
+	if (*timeout >= 1 && this_buf[0] == '\033' && c == 'O') {
+		this_buf[*timeout] = c;
+		(*timeout)++;
+		return 0;
+	}
+	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
+		switch (c) {
+			case 'P': /* F1 */
+				/* Toggle display of line numbers */
+				global_config.numbers = !global_config.numbers;
+				redraw_all();
+				place_cursor_actual();
+				break;
+			case 'Q': /* F2 */
+				/* Toggle indent mode (why F2? personal vim config) */
+				env->indent = !env->indent;
+				redraw_statusbar();
+				place_cursor_actual();
+				break;
+		}
+		*timeout = 0;
+		return 0;
+	}
 	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
 		*timeout = 0;
 		bim_unget(c);
