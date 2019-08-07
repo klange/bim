@@ -85,6 +85,7 @@ struct {
 	{KEY_TAB, "<tab>"},
 	{' ', "<space>"},
 	{KEY_DELETE, "<del>"},
+	{KEY_MOUSE, "<mouse>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
 	{KEY_HOME,"<home>"},{KEY_END,"<end>"},{KEY_PAGE_UP,"<page-up>"},{KEY_PAGE_DOWN,"<page-down>"},
 	{KEY_UP, "<up>"},{KEY_DOWN, "<down>"},{KEY_RIGHT, "<right>"},{KEY_LEFT, "<left>"},
@@ -10726,10 +10727,21 @@ int bim_getkey(int read_timeout) {
 	return KEY_TIMEOUT;
 }
 
+static void read_mouse(int * buttons, int * x, int * y) {
+	*buttons = bim_getch() - 32;
+	*x = bim_getch() - 32;
+	*y = bim_getch() - 32;
+}
+
 static void demo_keys(void) {
 	while (1) {
 		int key = bim_getkey(200);
 		fprintf(stderr, "%d %s\n", key, name_from_key(key));
+		if (key == KEY_MOUSE) {
+			int buttons, x, y;
+			read_mouse(&buttons,&x,&y);
+			fprintf(stderr, "        [buttons: 0x%02x, x: %d, y: %d]\n", buttons, x, y);
+		}
 	}
 }
 
