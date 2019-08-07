@@ -2696,7 +2696,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 			if (state.state != 0) {
 				if (line_no == -1) return;
 				rehighlight_search(line);
-				if (!is_original && line_no >= env->offset && line_no < env->offset + global_config.term_height - global_config.bottom_size - 1) {
+				if (!is_original) {
 					redraw_line(line_no);
 				}
 				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
