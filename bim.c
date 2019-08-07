@@ -6478,6 +6478,13 @@ void process_command(char * cmd) {
 }
 
 /**
+ * Wrap strcmp for use with qsort.
+ */
+int compare_str(const void * a, const void * b) {
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+
+/**
  * Tab completion for command mode.
  */
 void command_tab_complete(char * buffer) {
@@ -6638,6 +6645,8 @@ _accept_candidate:
 		}
 		*cstart = '\0';
 	} else {
+		/* Sort candidates */
+		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_str);
 		/* Print candidates in status bar */
 		char * tmp = malloc(global_config.term_width+1);
 		memset(tmp, 0, global_config.term_width+1);
