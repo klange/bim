@@ -2596,7 +2596,7 @@ static char * syn_bimcmd_keywords[] = {
 	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
 	"smartcase","split","splitpercent","unsplit","git","colorgutter",
 	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
-	"numbers",
+	"numbers","version",
 	NULL
 };
 
@@ -6316,6 +6316,7 @@ void process_command(char * cmd) {
 		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
 		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
 		render_commandline_message("\n");
+		render_commandline_message(" Bim %s\n", BIM_VERSION);
 		render_commandline_message(" %s\n", BIM_COPYRIGHT);
 		render_commandline_message("\n");
 		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
@@ -6331,6 +6332,8 @@ void process_command(char * cmd) {
 		 * upper few lines of text on screen again
 		 */
 		redraw_all();
+	} else if (!strcmp(argv[0], "version")) {
+		render_status_message("Bim %s", BIM_VERSION);
 	} else if (!strcmp(argv[0], "theme") || !strcmp(argv[0],"colorscheme")) {
 		if (argc < 2) {
 			render_status_message("theme=%s", current_theme);
