@@ -2616,11 +2616,11 @@ static int syn_bimcmd_calculate(struct syntax_state * state) {
 			char special = charat();
 			paint(1, FLAG_TYPE);
 			while (charat() != -1 && charat() != special) {
-				skip();
+				paint(1, FLAG_DIFFMINUS);
 			}
 			if (charat() == special) paint(1, FLAG_TYPE);
 			while (charat() != -1 && charat() != special) {
-				skip();
+				paint(1, FLAG_DIFFPLUS);
 			}
 			if (charat() == special) paint(1, FLAG_TYPE);
 			while (charat() != -1) paint(1, FLAG_NUMERAL);
