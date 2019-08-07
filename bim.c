@@ -247,7 +247,7 @@ struct {
 	NULL, /* search text */
 };
 
-void redraw_line(int j, int x);
+void redraw_line(int x);
 int git_examine(char * filename);
 void search_next(void);
 void set_preferred_column(void);
@@ -2697,7 +2697,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 				if (line_no == -1) return;
 				rehighlight_search(line);
 				if (!is_original && line_no >= env->offset && line_no < env->offset + global_config.term_height - global_config.bottom_size - 1) {
-					redraw_line(line_no - env->offset, line_no);
+					redraw_line(line_no);
 				}
 				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
 					line_no++;
@@ -3954,17 +3954,11 @@ void recalculate_current_line(void) {
 			if (env->lines[i]->is_current && i != env->line_no-1) {
 				env->lines[i]->is_current = 0;
 				something_changed = 1;
-				if ((i) - env->offset > -1 &&
-					(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-					redraw_line((i) - env->offset, i);
-				}
+				redraw_line(i);
 			} else if (i == env->line_no-1 && !env->lines[i]->is_current) {
 				env->lines[i]->is_current = 1;
 				something_changed = 1;
-				if ((i) - env->offset > -1 &&
-					(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) {
-					redraw_line((i) - env->offset, i);
-				}
+				redraw_line(i);
 			}
 		}
 	} else {
@@ -3983,10 +3977,18 @@ void recalculate_current_line(void) {
  * Redraw line.
  *
  * This draws the line number as well as the actual text.
- * j = screen-relative line offset.
  */
-void redraw_line(int j, int x) {
+void redraw_line(int x) {
 	if (env->loading) return;
+
+	/* Determine if this line is visible. */
+	if (x - env->offset < 0 || x - env->offset > global_config.term_height - global_config.bottom_size - 2) {
+		return;
+	}
+
+	/* Calculate offset in screen */
+	int j = x - env->offset;
+
 	/* Hide cursor when drawing */
 	hide_cursor();
 
@@ -4063,7 +4065,7 @@ void redraw_text(void) {
 
 	/* Draw each line */
 	for (int x = env->offset; j < l && x < env->line_count; x++) {
-		redraw_line(j,x);
+		redraw_line(x);
 		j++;
 	}
 
@@ -4455,10 +4457,7 @@ int is_paren(int c) {
 			env->lines[i]->text[j].flags &= (~FLAG_SELECT); \
 		} \
 	} \
-	if ((i) - env->offset > -1 && \
-		(i) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 2) { \
-		redraw_line((i) - env->offset, i); \
-	} \
+	redraw_line(i); \
 } while (0)
 
 /**
@@ -5322,7 +5321,7 @@ void cursor_down(void) {
 				/* A new line appears on screen at the bottom, draw it */
 				int l = global_config.term_height - global_config.bottom_size - 1;
 				if (env->offset + l < env->line_count + 1) {
-					redraw_line(l-1, env->offset + l-1);
+					redraw_line(env->offset + l-1);
 				} else {
 					draw_excess_line(l - 1);
 				}
@@ -5410,7 +5409,7 @@ void cursor_up(void) {
 				 * The line at the top of the screen should always be real
 				 * so we can just call redraw_line here
 				 */
-				redraw_line(0,env->offset);
+				redraw_line(env->offset);
 			} else {
 				redraw_text();
 			}
@@ -7576,7 +7575,7 @@ void handle_mouse(void) {
 			if (global_config.can_scroll && !left_buffer) {
 				shift_down(shifted);
 				for (int i = 0; i < shifted; ++i) {
-					redraw_line(i,env->offset+i);
+					redraw_line(env->offset+i);
 				}
 			} else {
 				redraw_text();
@@ -7613,7 +7612,7 @@ void handle_mouse(void) {
 				int l = global_config.term_height - global_config.bottom_size - 1;
 				for (int i = 0; i < shifted; ++i) {
 					if (env->offset + l - i < env->line_count + 1) {
-						redraw_line(l-1-i, env->offset + l-1-i);
+						redraw_line(env->offset + l-1-i);
 					} else {
 						draw_excess_line(l - 1 - i);
 					}
@@ -7744,7 +7743,7 @@ void replace_char(unsigned int c) {
 
 	line_replace(env->lines[env->line_no-1], _c, env->col_no-1, env->line_no-1);
 
-	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	redraw_line(env->line_no-1);
 	set_modified();
 }
 
@@ -8160,7 +8159,7 @@ void delete_at_cursor(void) {
 		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
 		env->col_no -= 1;
 		if (env->coffset > 0) env->coffset--;
-		redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+		redraw_line(env->line_no-1);
 		set_modified();
 		redraw_statusbar();
 		place_cursor_actual();
@@ -8454,7 +8453,7 @@ int handle_escape(int * this_buf, int * timeout, int c) {
 						if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) {
 							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
 								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
-								redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+								redraw_line(env->line_no-1);
 								set_modified();
 								redraw_statusbar();
 								place_cursor_actual();
@@ -8769,10 +8768,7 @@ void handle_navigation(int c) {
 				env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
 			} \
 		} \
-		if ((line) - env->offset + 1 > 1 && \
-			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
-			redraw_line((line) - env->offset - 1, (line)-1); \
-		} \
+		redraw_line((line)-1); \
 	} while (0)
 
 /**
@@ -8849,7 +8845,7 @@ void line_selection_mode(void) {
 	for (int j = 0; j < env->lines[env->line_no-1]->actual; ++j) {
 		env->lines[env->line_no-1]->text[j].flags |= FLAG_SELECT;
 	}
-	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	redraw_line(env->line_no-1);
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
@@ -8993,10 +8989,7 @@ _leave_select_line:
 			} \
 			break; \
 		} \
-		if ((line) - env->offset + 1 > 1 && \
-			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
-			redraw_line((line) - env->offset - 1, (line)-1); \
-		} \
+		redraw_line((line)-1); \
 	} while (0)
 
 /**
@@ -9032,7 +9025,7 @@ void col_insert_mode(void) {
 				if (redraw & 2) {
 					redraw_text();
 				} else {
-					redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+					redraw_line(env->line_no-1);
 				}
 				redraw_statusbar();
 				place_cursor_actual();
@@ -9299,10 +9292,7 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 				} \
 			} \
 		} \
-		if ((line) - env->offset + 1 > 1 && \
-			(line) - env->offset - 1< global_config.term_height - global_config.bottom_size - 1) { \
-			redraw_line((line) - env->offset - 1, (line)-1); \
-		} \
+		redraw_line((line)-1); \
 	} while (0)
 
 /**
@@ -9322,7 +9312,7 @@ void char_selection_mode(void) {
 
 	/* Select single character */
 	env->lines[env->line_no-1]->text[env->col_no-1].flags |= FLAG_SELECT;
-	redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+	redraw_line(env->line_no-1);
 
 	while ((c = bim_getch())) {
 		if (c == -1) {
@@ -9773,7 +9763,7 @@ void insert_mode(void) {
 				if (redraw & 2) {
 					redraw_text();
 				} else {
-					redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+					redraw_line(env->line_no-1);
 				}
 				redraw_statusbar();
 				place_cursor_actual();
@@ -9990,7 +9980,7 @@ void replace_mode(void) {
 							env->col_no += 1;
 						} else {
 							insert_char(c);
-							redraw_line(env->line_no - env->offset - 1, env->line_no-1);
+							redraw_line(env->line_no-1);
 						}
 						set_preferred_column();
 						redraw_statusbar();
