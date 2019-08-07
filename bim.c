@@ -342,6 +342,7 @@ typedef struct _env {
 	unsigned int readonly:1;
 	unsigned int indent:1;
 	unsigned int checkgitstatusonwrite:1;
+	unsigned int crnl:1;
 
 	int highlighting_paren;
 
@@ -2592,7 +2593,7 @@ static char * syn_bimcmd_keywords[] = {
 	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
 	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
 	"smartcase","split","splitpercent","unsplit","git","colorgutter",
-	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history",
+	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
 	NULL
 };
 
@@ -4154,7 +4155,9 @@ void redraw_statusbar(void) {
 		s += snprintf(s, 6, "[ro]");
 	}
 
-	s += snprintf(s, 2, " ");
+	if (env->crnl) {
+		s += snprintf(s, 7, "[crnl]");
+	}
 
 	if (env->tabs) {
 		s += snprintf(s, 20, "[tabs]");
@@ -4736,9 +4739,15 @@ void add_buffer(uint8_t * buf, int size) {
 		if (!decode(&state, &codepoint_r, buf[i])) {
 			uint32_t c = codepoint_r;
 			if (c == '\n') {
+				if (!env->crnl && env->lines[env->line_no-1]->actual && env->lines[env->line_no-1]->text[env->lines[env->line_no-1]->actual-1].codepoint == '\r') {
+					env->lines[env->line_no-1]->actual--;
+					env->crnl = 1;
+				}
 				env->lines = add_line(env->lines, env->line_no);
 				env->col_no = 1;
 				env->line_no += 1;
+			} else if (env->crnl && c == '\r') {
+				continue;
 			} else {
 				char_t _c;
 				_c.codepoint = (uint32_t)c;
@@ -5190,6 +5199,7 @@ void write_file(char * file) {
 				fwrite(tmp, i, 1, f);
 			}
 		}
+		if (env->crnl) fputc('\r', f);
 		fputc('\n', f);
 	}
 	fclose(f);
@@ -6448,6 +6458,13 @@ void process_command(char * cmd) {
 			}
 			redraw_text();
 			place_cursor_actual();
+		}
+	} else if (!strcmp(argv[0], "crnl")) {
+		if (argc < 2) {
+			render_status_message("crnl=%d", env->crnl);
+		} else {
+			env->crnl = !!atoi(argv[1]);
+			redraw_statusbar();
 		}
 	} else if (!strcmp(argv[0], "relativenumber")) {
 		if (argc < 2) {
