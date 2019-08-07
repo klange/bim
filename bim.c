@@ -44,6 +44,35 @@
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
 
+enum Key {
+	KEY_TIMEOUT = -1,
+	KEY_CTRL_AT = 0, /* Base */
+	KEY_CTRL_A, KEY_CTRL_B, KEY_CTRL_C, KEY_CTRL_D, KEY_CTRL_E, KEY_CTRL_F, KEY_CTRL_G, KEY_CTRL_H,
+	KEY_CTRL_I, KEY_CTRL_J, KEY_CTRL_K, KEY_CTRL_L, KEY_CTRL_M, KEY_CTRL_N, KEY_CTRL_O, KEY_CTRL_P,
+	KEY_CTRL_Q, KEY_CTRL_R, KEY_CTRL_S, KEY_CTRL_T, KEY_CTRL_U, KEY_CTRL_V, KEY_CTRL_W, KEY_CTRL_X,
+	KEY_CTRL_Y, KEY_CTRL_Z, /* Note we keep ctrl-z mapped in termios as suspend */
+	KEY_CTRL_OPEN, KEY_CTRL_BACKSLASH, KEY_CTRL_CLOSE, KEY_CTRL_CARAT, KEY_CTRL_UNDERSCORE,
+	/* Space... */
+	/* Some of these are equivalent to things above */
+	KEY_BACKSPACE = 0x08,
+	KEY_LINEFEED = '\n',
+	KEY_ENTER = '\r',
+	KEY_TAB = '\t',
+	/* Basic printable characters go here. */
+	/* Delete is special */
+	KEY_DELETE = 0x7F,
+	/* Unicode codepoints go here */
+	KEY_ESCAPE = 0x400000, /* Escape would normally be 27, but is special because reasons */
+	KEY_F1, KEY_F2, KEY_F3, KEY_F4, /* TODO other F keys */
+	KEY_MOUSE, /* Must be followed with a 3-byte mouse read */
+	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT, KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
+	KEY_SHIFT_UP, KEY_SHIFT_DOWN, KEY_SHIFT_RIGHT, KEY_SHIFT_LEFT,
+	KEY_CTRL_UP, KEY_CTRL_DOWN, KEY_CTRL_RIGHT, KEY_CTRL_LEFT,
+	KEY_ALT_UP, KEY_ALT_DOWN, KEY_ALT_RIGHT, KEY_ALT_LEFT,
+	KEY_ALT_SHIFT_UP, KEY_ALT_SHIFT_DOWN, KEY_ALT_SHIFT_RIGHT, KEY_ALT_SHIFT_LEFT,
+	KEY_SHIFT_TAB,
+};
+
 /**
  * Theming data
  *
@@ -8767,7 +8796,8 @@ void handle_navigation(int c) {
 			if (c == '0' && nav_buffer) break;
 			cursor_home();
 			break;
-		case '\r': /* first non-whitespace of next line */
+		case ENTER_KEY: /* first non-whitespace of next line */
+		case LINE_FEED:
 			if (env->line_no < env->line_count) {
 				env->line_no++;
 				env->col_no = 1;
@@ -10543,6 +10573,114 @@ void init_terminal(void) {
 	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
+int bim_getkey(int read_timeout) {
+
+	int timeout = 0;
+	int this_buf[20];
+
+	int cin;
+	uint32_t c;
+	uint32_t istate = 0;
+
+	while ((cin = bim_getch_timeout(read_timeout))) {
+		if (cin == -1) {
+			if (timeout && this_buf[timeout-1] == '\033')
+				return KEY_ESCAPE;
+			return KEY_TIMEOUT;
+		}
+
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						continue;
+					case KEY_LINEFEED: return KEY_ENTER;
+					case KEY_DELETE: return KEY_BACKSPACE;
+				}
+				return c;
+			} else {
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c == '\033') {
+					bim_unget(c);
+					timeout = 0;
+					return KEY_ESCAPE;
+				}
+				if (timeout >= 1 && this_buf[0] == '\033' && c == 'O') {
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
+					switch (c) {
+						case 'P': timeout = 0; return KEY_F1;
+						case 'Q': timeout = 0; return KEY_F2;
+						case 'R': timeout = 0; return KEY_F3;
+						case 'S': timeout = 0; return KEY_F4;
+					}
+					timeout = 0;
+					continue;
+				}
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c != '[') {
+					timeout = 0;
+					bim_unget(c);
+					return KEY_ESCAPE;
+				}
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c == '[') {
+					timeout = 1;
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+				    (isdigit(c) || (c == ';'))) {
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+					switch (c) {
+						case 'M': timeout = 0; return KEY_MOUSE;
+						case 'A': timeout = 0; return KEY_UP;
+						case 'B': timeout = 0; return KEY_DOWN;
+						case 'C': timeout = 0; return KEY_RIGHT;
+						case 'D': timeout = 0; return KEY_LEFT;
+						case 'H': timeout = 0; return KEY_HOME;
+						case 'F': timeout = 0; return KEY_END;
+						case 'I': timeout = 0; return KEY_PAGE_UP;
+						case 'G': timeout = 0; return KEY_PAGE_DOWN;
+						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
+						case '~':
+							switch (this_buf[timeout-1]) {
+								case '1': timeout = 0; return KEY_HOME;
+								case '3': timeout = 0; return KEY_DELETE;
+								case '4': timeout = 0; return KEY_END;
+								case '5': timeout = 0; return KEY_PAGE_UP;
+								case '6': timeout = 0; return KEY_PAGE_DOWN;
+							}
+							break;
+					}
+				}
+				timeout = 0;
+				continue;
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+
+	return KEY_TIMEOUT;
+}
+
+static void demo_keys(void) {
+	while (1) {
+		int key = bim_getkey(200);
+		fprintf(stderr, "%d\n", key);
+	}
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
@@ -10619,6 +10757,8 @@ int main(int argc, char * argv[]) {
 	/* Set up terminal */
 	initialize();
 	init_terminal();
+
+	//demo_keys();
 
 	/* Open file */
 	if (argc > optind) {
