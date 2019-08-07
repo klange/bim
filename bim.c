@@ -65,13 +65,51 @@ enum Key {
 	KEY_ESCAPE = 0x400000, /* Escape would normally be 27, but is special because reasons */
 	KEY_F1, KEY_F2, KEY_F3, KEY_F4, /* TODO other F keys */
 	KEY_MOUSE, /* Must be followed with a 3-byte mouse read */
-	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT, KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
+	KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
+	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT,
 	KEY_SHIFT_UP, KEY_SHIFT_DOWN, KEY_SHIFT_RIGHT, KEY_SHIFT_LEFT,
 	KEY_CTRL_UP, KEY_CTRL_DOWN, KEY_CTRL_RIGHT, KEY_CTRL_LEFT,
 	KEY_ALT_UP, KEY_ALT_DOWN, KEY_ALT_RIGHT, KEY_ALT_LEFT,
 	KEY_ALT_SHIFT_UP, KEY_ALT_SHIFT_DOWN, KEY_ALT_SHIFT_RIGHT, KEY_ALT_SHIFT_LEFT,
 	KEY_SHIFT_TAB,
 };
+
+struct {
+	enum Key keycode;
+	char * name;
+} KeyNames[] = {
+	{KEY_TIMEOUT, "[timeout]"},
+	{KEY_BACKSPACE, "<backspace>"},
+	{KEY_ENTER, "<enter>"},
+	{KEY_ESCAPE, "<escape>"},
+	{KEY_TAB, "<tab>"},
+	{' ', "<space>"},
+	{KEY_DELETE, "<del>"},
+	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
+	{KEY_HOME,"<home>"},{KEY_END,"<end>"},{KEY_PAGE_UP,"<page-up>"},{KEY_PAGE_DOWN,"<page-down>"},
+	{KEY_UP, "<up>"},{KEY_DOWN, "<down>"},{KEY_RIGHT, "<right>"},{KEY_LEFT, "<left>"},
+	{KEY_SHIFT_UP, "<shift-up>"},{KEY_SHIFT_DOWN, "<shift-down>"},{KEY_SHIFT_RIGHT, "<shift-right>"},{KEY_SHIFT_LEFT, "<shift-left>"},
+	{KEY_CTRL_UP, "<ctrl-up>"},{KEY_CTRL_DOWN, "<ctrl-down>"},{KEY_CTRL_RIGHT, "<ctrl-right>"},{KEY_CTRL_LEFT, "<ctrl-left>"},
+	{KEY_ALT_UP, "<alt-up>"},{KEY_ALT_DOWN, "<alt-down>"},{KEY_ALT_RIGHT, "<alt-right>"},{KEY_ALT_LEFT, "<alt-left>"},
+	{KEY_ALT_SHIFT_UP, "<alt-shift-up>"},{KEY_ALT_SHIFT_DOWN, "<alt-shift-down>"},{KEY_ALT_SHIFT_RIGHT, "<alt-shift-right>"},{KEY_ALT_SHIFT_LEFT, "<alt-shift-left>"},
+	{KEY_SHIFT_TAB,"<shift-tab>"},
+};
+
+int to_eight(uint32_t codepoint, char * out);
+char * name_from_key(enum Key keycode) {
+	for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+		if (KeyNames[i].keycode == keycode) return KeyNames[i].name;
+	}
+	static char keyNameTmp[8] = {0};
+	if (keycode <= KEY_CTRL_UNDERSCORE) {
+		keyNameTmp[0] = '^';
+		keyNameTmp[1] = '@' + keycode;
+		keyNameTmp[2] = 0;
+		return keyNameTmp;
+	}
+	to_eight(keycode, keyNameTmp);
+	return keyNameTmp;
+}
 
 /**
  * Theming data
@@ -10573,6 +10611,20 @@ void init_terminal(void) {
 	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
+#define shift_key(i) _shift_key((i), this_buf, &timeout);
+int _shift_key(int i, int this_buf[20], int *timeout) {
+	int thing = this_buf[*timeout-1];
+	(*timeout) = 0;
+	switch (thing) {
+		/* There are other combinations we can handle... */
+		case '2': return i + 4;
+		case '5': return i + 8;
+		case '3': return i + 12;
+		case '4': return i + 16;
+		default: return i;
+	}
+}
+
 int bim_getkey(int read_timeout) {
 
 	int timeout = 0;
@@ -10643,10 +10695,10 @@ int bim_getkey(int read_timeout) {
 				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 					switch (c) {
 						case 'M': timeout = 0; return KEY_MOUSE;
-						case 'A': timeout = 0; return KEY_UP;
-						case 'B': timeout = 0; return KEY_DOWN;
-						case 'C': timeout = 0; return KEY_RIGHT;
-						case 'D': timeout = 0; return KEY_LEFT;
+						case 'A': return shift_key(KEY_UP);
+						case 'B': return shift_key(KEY_DOWN);
+						case 'C': return shift_key(KEY_RIGHT);
+						case 'D': return shift_key(KEY_LEFT);
 						case 'H': timeout = 0; return KEY_HOME;
 						case 'F': timeout = 0; return KEY_END;
 						case 'I': timeout = 0; return KEY_PAGE_UP;
@@ -10677,7 +10729,7 @@ int bim_getkey(int read_timeout) {
 static void demo_keys(void) {
 	while (1) {
 		int key = bim_getkey(200);
-		fprintf(stderr, "%d\n", key);
+		fprintf(stderr, "%d %s\n", key, name_from_key(key));
 	}
 }
 
@@ -10758,7 +10810,7 @@ int main(int argc, char * argv[]) {
 	initialize();
 	init_terminal();
 
-	//demo_keys();
+	demo_keys();
 
 	/* Open file */
 	if (argc > optind) {
