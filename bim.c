@@ -201,6 +201,7 @@ struct {
 	unsigned int color_gutter:1;
 	unsigned int relative_lines:1;
 	unsigned int break_from_selection:1;
+	unsigned int numbers:1;
 
 	int cursor_padding;
 	int split_percent;
@@ -239,6 +240,7 @@ struct {
 	1, /* color the gutter for modified lines */
 	0, /* relative line numbers */
 	1, /* status bit for whether command should NOT break from selection */
+	1, /* whether to show line numbers */
 	/* Things below this are outside of the simple on-off bitmap */
 	4, /* cursor padding */
 	50, /* split percentage */
@@ -1719,7 +1721,7 @@ static int syn_rust_calculate(struct syntax_state * state) {
 static char * rust_ext[] = {".rs",NULL};
 
 static char * syn_bimrc_keywords[] = {
-	"history","padding","hlparen","hlcurrent","splitpercent",
+	"history","padding","hlparen","hlcurrent","splitpercent","numbers",
 	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
 	NULL
 };
@@ -2594,6 +2596,7 @@ static char * syn_bimcmd_keywords[] = {
 	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
 	"smartcase","split","splitpercent","unsplit","git","colorgutter",
 	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
+	"numbers",
 	NULL
 };
 
@@ -3919,6 +3922,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
  * Get the width of the line number region
  */
 int num_width(void) {
+	if (!global_config.numbers) return -2; /* Accounts for the padding */
 	int w = log_base_10(env->line_count) + 1;
 	if (w < 2) return 2;
 	return w;
@@ -3928,6 +3932,7 @@ int num_width(void) {
  * Draw the gutter and line numbers.
  */
 void draw_line_number(int x) {
+	if (!global_config.numbers) return;
 	/* Draw the line number */
 	if (env->lines[x]->is_current) {
 		set_colors(COLOR_NUMBER_BG, COLOR_NUMBER_FG);
@@ -6465,6 +6470,13 @@ void process_command(char * cmd) {
 		} else {
 			env->crnl = !!atoi(argv[1]);
 			redraw_statusbar();
+		}
+	} else if (!strcmp(argv[0], "numbers")) {
+		if (argc < 2) {
+			render_status_message("numbers=%d", global_config.numbers);
+		} else {
+			global_config.numbers = !!atoi(argv[1]);
+			redraw_all();
 		}
 	} else if (!strcmp(argv[0], "relativenumber")) {
 		if (argc < 2) {
@@ -10428,6 +10440,10 @@ void load_bimrc(void) {
 
 		if (!strcmp(l,"colorgutter") && value) {
 			global_config.color_gutter = !!atoi(value);
+		}
+
+		if (!strcmp(l,"numbers") && value) {
+			global_config.numbers = !!atoi(value);
 		}
 	}
 
