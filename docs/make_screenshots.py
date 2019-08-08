@@ -29,7 +29,9 @@ wid = wids[1]
 
 # Set up the cursor
 subprocess.run(['xdotool','windowfocus',wid,'type',":5\n"])
-subprocess.run(['xdotool','key','KP_Enter','Right','Right','Right','Right','Right','Right','Right'])
+subprocess.run(['xdotool','type',':4'])
+subprocess.run(['xdotool','key','KP_Enter'])
+subprocess.run(['xdotool','key','Right','Right','Right','Right','Right','Right','Right','Right'])
 
 # See what themes are supported.
 themes = subprocess.check_output(['bim','--version'],stderr=subprocess.STDOUT).decode().split('\n')[2].replace(' Available color themes: ','').split(' ')
