@@ -5077,7 +5077,6 @@ void next_tab(void) {
  */
 int git_examine(char * filename) {
 	if (env->modified) return 1;
-#ifndef __toaru__
 	int fds[2];
 	pipe(fds);
 	int child = fork();
@@ -5167,7 +5166,6 @@ int git_examine(char * filename) {
 	}
 
 	fclose(f);
-#endif
 	return 0;
 }
 
@@ -6300,11 +6298,7 @@ void process_command(char * cmd) {
 		 */
 		render_commandline_message(""); /* To clear command line */
 		render_commandline_message("\n");
-		#ifdef __toaru__
-		render_commandline_message(" \033[1mbim - The standard ToaruOS Text Editor\033[22m\n");
-		#else
 		render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
-		#endif
 		render_commandline_message("\n");
 		render_commandline_message(" Available commands:\n");
 		render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
