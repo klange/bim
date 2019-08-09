@@ -3037,7 +3037,7 @@ int git_examine(char * filename) {
 				} else if (to_count > 0 && from_count > to_count) {
 					/* from > to, we deleted but also modified some lines */
 					env->lines[to_line-1]->rev_status = 5; /* Red + Blue */
-					for (int i = 1; i < to_count-1; ++i) {
+					for (int i = 1; i < to_count; ++i) {
 						env->lines[to_line+i-1]->rev_status = 3; /* Blue */
 					}
 				}
