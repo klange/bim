@@ -97,9 +97,13 @@ typedef struct {
 	int tty_in;
 
 	const char * bimrc_path;
+	const char * syntax_fallback;
+	uint32_t * search;
 
 	unsigned int highlight_on_open:1;
 	unsigned int initial_file_is_read_only:1;
+	unsigned int go_to_line:1;
+	unsigned int break_from_selection:1;
 	unsigned int can_scroll:1;
 	unsigned int can_hideshow:1;
 	unsigned int can_altscreen:1;
@@ -108,26 +112,23 @@ typedef struct {
 	unsigned int can_bright:1;
 	unsigned int can_title:1;
 	unsigned int can_bce:1;
-	unsigned int history_enabled:1;
-	unsigned int highlight_parens:1;
-	unsigned int smart_case:1;
 	unsigned int can_24bit:1;
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
-	unsigned int go_to_line:1;
+	unsigned int history_enabled:1;
+	unsigned int highlight_parens:1;
+	unsigned int smart_case:1;
 	unsigned int highlight_current_line:1;
 	unsigned int shift_scrolling:1;
 	unsigned int check_git:1;
 	unsigned int color_gutter:1;
 	unsigned int relative_lines:1;
-	unsigned int break_from_selection:1;
 	unsigned int numbers:1;
 
 	int cursor_padding;
 	int split_percent;
 	int scroll_amount;
-	const char * syntax_fallback;
-	uint32_t * search;
+
 } global_config_t;
 
 #define HISTORY_SENTINEL     0

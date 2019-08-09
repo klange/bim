@@ -90,44 +90,48 @@ const char * flag_to_color(int _flag) {
 }
 
 global_config_t global_config = {
-	0, /* term_width */
-	0, /* term_height */
-	2, /* bottom_size */
-	NULL, /* yanks */
-	0, /* yank_count */
-	0, /* yank is full lines */
-	STDIN_FILENO, /* tty_in */
-	"~/.bimrc", /* bimrc_path */
-	1, /* highlight_on_open */
-	0, /* initial_file_is_read_only */
-	1, /* can scroll */
-	1, /* can hide/show cursor */
-	1, /* can use alternate screen */
-	1, /* can mouse */
-	1, /* can unicode */
-	1, /* can use bright colors */
-	1, /* can set title */
-	1, /* can bce */
-	1, /* history enabled */
-	1, /* highlight parens/braces when cursor moves */
-	1, /* smart case */
-	1, /* can use 24-bit color */
-	1, /* can use 265 colors */
-	1, /* can use italics (without inverting) */
-	1, /* should go to line when opening file */
-	1, /* highlight the current line */
-	1, /* shift scrolling (shifts view rather than moving cursor) */
-	0, /* check git on open and on save */
-	1, /* color the gutter for modified lines */
-	0, /* relative line numbers */
-	1, /* status bit for whether command should NOT break from selection */
-	1, /* whether to show line numbers */
-	/* Things below this are outside of the simple on-off bitmap */
-	4, /* cursor padding */
-	50, /* split percentage */
-	5, /* how many lines to scroll on mouse wheel */
-	NULL, /* syntax to fall back to if none other match applies */
-	NULL, /* search text */
+	/* State */
+	.term_width = 0,
+	.term_height = 0,
+	.bottom_size = 0,
+	.yanks = NULL,
+	.yank_count = 0,
+	.yank_is_full_lines = 0,
+	.tty_in = STDIN_FILENO,
+	.bimrc_path = "~/.bimrc",
+	.syntax_fallback = NULL, /* syntax to fall back to if none other match applies */
+	.search = NULL,
+	/* Bitset starts here */
+	.highlight_on_open = 1,
+	.initial_file_is_read_only = 0,
+	.go_to_line = 1,
+	.break_from_selection = 1,
+	/* Terminal capabilities */
+	.can_scroll = 1,
+	.can_hideshow = 1,
+	.can_altscreen = 1,
+	.can_mouse = 1,
+	.can_unicode = 1,
+	.can_bright = 1,
+	.can_title = 1,
+	.can_bce = 1,
+	.can_24bit = 1, /* can use 24-bit color */
+	.can_256color = 1, /* can use 265 colors */
+	.can_italic = 1, /* can use italics (without inverting) */
+	/* Configuration options */
+	.history_enabled = 1,
+	.highlight_parens = 1, /* highlight parens/braces when cursor moves */
+	.smart_case = 1, /* smart case-sensitivity while searching */
+	.highlight_current_line = 1,
+	.shift_scrolling = 1, /* shift rather than moving cursor*/
+	.check_git = 0,
+	.color_gutter = 1, /* shows modified lines */
+	.relative_lines = 0,
+	.numbers = 1,
+	/* Integer config values */
+	.cursor_padding = 4,
+	.split_percent = 50,
+	.scroll_amount = 5,
 };
 
 char * bim_command_names[] = {
