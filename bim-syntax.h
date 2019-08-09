@@ -13,14 +13,6 @@
 #define skip() (state->i++)
 #define charrel(x) (state->i + (x) < state->line->actual ? state->line->text[(state->i+(x))].codepoint : -1)
 
-extern int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c));
-extern int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c));
-extern void paint_simple_string(struct syntax_state * state);
-extern int common_comment_buzzwords(struct syntax_state * state);
-extern int paint_comment(struct syntax_state * state);
-extern int match_forward(struct syntax_state * state, char * c);
-extern struct syntax_definition * find_syntax_calculator(const char * name);
-
 #define nest(lang, low) \
 	do { \
 		state->state = (state->state < 1 ? 0 : state->state - low); \

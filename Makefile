@@ -8,6 +8,7 @@ bindir=$(exec_prefix)/bin
 INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 
+CORE=core/biminfo.o core/buffer.o core/history.o core/syntax.o core/terminal.o core/themes.o core/unicode.o
 THEMES=themes/ansi.o themes/citylights.o themes/solarized.o themes/sunsmoke.o themes/wombat.o
 SYNTAXES=syntax/bash.o syntax/bimcmd.o syntax/biminfo.o syntax/bimrc.o syntax/c.o syntax/conf.o syntax/ctags.o \
          syntax/diff.o syntax/esh.o syntax/git.o syntax/java.o syntax/json.o syntax/make.o syntax/markdown.o \
@@ -18,14 +19,15 @@ HEADERS=bim-core.h bim-functions.h bim-theme.h bim-syntax.h
 
 all: $(TARGET)
 
+core/*.o: $(HEADERS)
 syntax/*.o: $(HEADERS)
 themes/*.o: $(HEADERS)
 *.o: $(HEADERS)
 
-bim: bim.o $(THEMES) $(SYNTAXES)
+bim: bim.o $(CORE) $(THEMES) $(SYNTAXES)
 
 clean:
-	-rm -f $(TARGET) bim.o $(THEMES) $(SYNTAXES)
+	-rm -f $(TARGET) bim.o $(CORE) $(THEMES) $(SYNTAXES)
 
 distclean: clean
 
