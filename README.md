@@ -1,5 +1,12 @@
 # Bim - A Text Editor
 
+## This Branch
+
+This is a demonstration of a potential approach to splitting up bim into multiple files.
+I don't know if I'll actually do it this way... I have some other ideas as well.
+
+This branch will probably go stale as I work on a different project (reorganizing how modes work).
+
 ![screenshot](docs/screenshot.png)
 
 Bim is a terminal text editor with syntax highlighting.
