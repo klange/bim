@@ -8141,7 +8141,7 @@ void jump_to_next_blank(void) {
 	redraw_statusbar();
 }
 
-void first_whitespace(void) {
+void first_non_whitespace(void) {
 	for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
 		if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
 			env->col_no = i + 1;
@@ -8152,14 +8152,14 @@ void first_whitespace(void) {
 	redraw_statusbar();
 }
 
-void next_line_whitespace(void) {
+void next_line_non_whitespace(void) {
 	if (env->line_no < env->line_count) {
 		env->line_no++;
 		env->col_no = 1;
 	} else {
 		return;
 	}
-	first_whitespace();
+	first_non_whitespace();
 }
 
 void smart_backspace(void) {
@@ -8267,6 +8267,7 @@ struct action_map {
 #define opt_arg  2 /* This action will take a specified argument */
 #define opt_char 4 /* This action will read a character to pass as an argument */
 #define opt_nav  8 /* This action will consume the nav buffer as its argument */
+#define opt_rw  10 /* Must not be read-only */
 
 struct action_map NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
@@ -8344,8 +8345,8 @@ struct action_map NAVIGATION_MAP[] = {
 	{'}',           jump_to_next_blank, 0, 0},
 	{'$',           cursor_end, 0, 0},
 	{'|',           cursor_home, 0, 0},
-	{KEY_ENTER,     next_line_whitespace, 0, 0},
-	{'^',           first_whitespace, 0, 0},
+	{KEY_ENTER,     next_line_non_whitespace, 0, 0},
+	{'^',           first_non_whitespace, 0, 0},
 	{'0',           cursor_home, 0, 0},
 
 	{-1, NULL, 0, 0},
