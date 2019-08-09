@@ -8,11 +8,9 @@ bindir=$(exec_prefix)/bin
 INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 
-THEMES=themes/ansi.o themes/citylights.o themes/solarized.o themes/sunsmoke.o themes/wombat.o
-SYNTAXES=syntax/bash.o syntax/bimcmd.o syntax/biminfo.o syntax/bimrc.o syntax/c.o syntax/conf.o syntax/ctags.o \
-         syntax/diff.o syntax/esh.o syntax/git.o syntax/java.o syntax/json.o syntax/make.o syntax/markdown.o \
-         syntax/proto.o syntax/py.o syntax/rust.o syntax/xml.o
-HEADERS=bim-core.h bim-theme.h bim-syntax.h
+THEMES = $(patsubst %.c, %.o, $(wildcard themes/*.c))
+SYNTAXES = $(patsubst %.c, %.o, $(wildcard syntax/*.c))
+HEADERS = $(wildcard bim-*.h)
 
 .PHONY: all clean distclean install install-strip uninstall
 
