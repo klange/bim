@@ -410,12 +410,13 @@ int theme_space = 0;
 struct theme_def * themes = NULL;
 
 void add_colorscheme(const char * name, void (*load)(void)) {
-	if (theme_space  == 0) {
+	if (theme_space == 0) {
 		theme_space = 4;
 		themes = calloc(sizeof(struct theme_def), theme_space);
-	} else if (theme_count == theme_space) {
+	} else if (theme_count + 1 == theme_space) {
 		theme_space *= 2;
 		themes = realloc(themes, sizeof(struct theme_def) * theme_space);
+		for (int i = theme_count; i < theme_space; ++i) themes[i].name = NULL;
 	}
 	themes[theme_count].name = name;
 	themes[theme_count].load = load;
@@ -548,9 +549,10 @@ void add_syntax(struct syntax_definition def) {
 	if (syntax_space == 0) {
 		syntax_space = 4;
 		syntaxes = calloc(sizeof(struct syntax_definition), syntax_space);
-	} else if (syntax_count == syntax_space) {
+	} else if (syntax_count +1 == syntax_space) {
 		syntax_space *= 2;
 		syntaxes = realloc(syntaxes, sizeof(struct syntax_definition) * syntax_space);
+		for (int i = syntax_count; i < syntax_space; ++i) syntaxes[i].name = NULL;
 	}
 	syntaxes[syntax_count] = def;
 	syntax_count++;
