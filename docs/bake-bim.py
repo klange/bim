@@ -29,7 +29,7 @@ headers = {
 themes = [prune(read_file(x)) for x in glob.glob('themes/*.c')]
 syntax = [prune(read_file(x)) for x in glob.glob('syntax/*.c')]
 
-bim_out = ['/* This is a baked version bim. */']
+bim_out = ['/* This is a baked, single-file version of bim. */']
 
 for line in bim:
 	if not line.startswith('#include "'):
