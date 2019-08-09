@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-theme.h"
 
 /* 16-color theme, default */

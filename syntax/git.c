@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
 
 int syn_gitcommit_calculate(struct syntax_state * state) {

@@ -15,7 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
 
 /**
@@ -128,6 +127,16 @@ global_config_t global_config = {
 	5, /* how many lines to scroll on mouse wheel */
 	NULL, /* syntax to fall back to if none other match applies */
 	NULL, /* search text */
+};
+
+char * bim_command_names[] = {
+	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
+	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
+	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
+	"smartcase","split","splitpercent","unsplit","git","colorgutter",
+	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
+	"numbers","version","wq",
+	NULL
 };
 
 /**
@@ -474,13 +483,20 @@ void paint_simple_string(struct syntax_state * state) {
 }
 
 /**
+ * This is a basic character matcher for "keyword" characters.
+ */
+int simple_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_');
+}
+
+/**
  * These words can appear in comments and should be highlighted.
  * Since there are a lot of comment highlighters, let's break them out.
  */
 int common_comment_buzzwords(struct syntax_state * state) {
-	if (match_and_paint(state, "TODO", FLAG_NOTICE, c_keyword_qualifier)) { return 1; }
-	else if (match_and_paint(state, "XXX", FLAG_NOTICE, c_keyword_qualifier)) { return 1; }
-	else if (match_and_paint(state, "FIXME", FLAG_ERROR, c_keyword_qualifier)) { return 1; }
+	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "XXX", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
+	else if (match_and_paint(state, "FIXME", FLAG_ERROR, simple_keyword_qualifier)) { return 1; }
 	return 0;
 }
 
@@ -4391,7 +4407,6 @@ int compare_str(const void * a, const void * b) {
 	return strcmp(*(const char **)a, *(const char **)b);
 }
 
-extern char * syn_bimcmd_keywords[];
 /**
  * Tab completion for command mode.
  */
@@ -4446,7 +4461,7 @@ void command_tab_complete(char * buffer) {
 
 	if (arg == 0) {
 		/* Complete command names */
-		for (char ** c = syn_bimcmd_keywords; *c; ++c) {
+		for (char ** c = bim_command_names; *c; ++c) {
 			add_candidate(*c);
 		}
 		goto _accept_candidate;
@@ -6411,13 +6426,13 @@ void search_under_cursor(void) {
 	int c_after = 0;
 	int i = env->col_no;
 	while (i > 0) {
-		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		if (!simple_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_before++;
 		i--;
 	}
 	i = env->col_no+1;
 	while (i < env->lines[env->line_no-1]->actual+1) {
-		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		if (!simple_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_after++;
 		i++;
 	}
@@ -7565,7 +7580,7 @@ int omni_complete(void) {
 	int c_before = 0;
 	int i = env->col_no-1;
 	while (i > 0) {
-		if (!c_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		if (!simple_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
 		c_before++;
 		i--;
 	}

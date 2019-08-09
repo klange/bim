@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
 
 int syn_biminfo_calculate(struct syntax_state * state) {

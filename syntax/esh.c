@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
 
 int esh_variable_qualifier(int c) {

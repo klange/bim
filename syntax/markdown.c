@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
 
 static struct syntax_definition * syn_c = NULL;

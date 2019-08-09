@@ -1,5 +1,4 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-theme.h"
 
 /* Based on the wombat256 theme for vim */

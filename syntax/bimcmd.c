@@ -1,16 +1,5 @@
 #include "bim-core.h"
-#include "bim-functions.h"
 #include "bim-syntax.h"
-
-char * syn_bimcmd_keywords[] = {
-	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
-	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
-	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
-	"smartcase","split","splitpercent","unsplit","git","colorgutter",
-	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
-	"numbers","version",
-	NULL
-};
 
 int cmd_qualifier(int c) { return c != -1 && c != ' '; }
 
@@ -44,7 +33,7 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 			}
 			if (charat() == special) paint(1, FLAG_TYPE);
 			while (charat() != -1) paint(1, FLAG_NUMERAL);
-		} else if (find_keywords(state, syn_bimcmd_keywords, FLAG_KEYWORD, cmd_qualifier)) {
+		} else if (find_keywords(state, bim_command_names, FLAG_KEYWORD, cmd_qualifier)) {
 			return -1;
 		} else if (charat() == '!') {
 			paint(1, FLAG_NUMERAL);
