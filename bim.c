@@ -8447,7 +8447,10 @@ struct action_map NORMAL_MAP[] = {
 	{KEY_CTRL_L,    redraw_all, 0, 0},
 	{'i',           enter_insert, 0, 0},
 	{'R',           enter_replace, 0, 0},
+	{-1, NULL, 0, 0},
+};
 
+struct action_map NAVIGATION_MAP[] = {
 	/* Common navigation */
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
 	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
@@ -8480,6 +8483,10 @@ struct action_map NORMAL_MAP[] = {
 	{'^',           first_whitespace, 0, 0},
 	{'0',           cursor_home, 0, 0},
 
+	{-1, NULL, 0, 0},
+};
+
+struct action_map ESCAPE_MAP[] = {
 	{KEY_F1,        toggle_numbers, 0, 0},
 	{KEY_F2,        toggle_indent, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
@@ -8507,8 +8514,8 @@ struct action_map NORMAL_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
-void handle_action(int key) {
-	for (struct action_map * map = NORMAL_MAP; map->key != -1; map++) {
+int handle_action(struct action_map * basemap, int key) {
+	for (struct action_map * map = basemap; map->key != -1; map++) {
 		if (map->key == key) {
 			/* Determine how to format this request */
 			int reps = (map->options & opt_rep) ? ((nav_buffer) ? atoi(nav_buf) : 1) : 1;
@@ -8541,8 +8548,11 @@ void handle_action(int key) {
 				env->loading = 0;
 				redraw_all();
 			}
+			return 1;
 		}
 	}
+
+	return 0;
 }
 
 /**
@@ -8567,7 +8577,9 @@ void normal_mode(void) {
 					redraw_commandline();
 				}
 			} else {
-				handle_action(key);
+				if (!handle_action(NORMAL_MAP, key))
+					if (!handle_action(NAVIGATION_MAP, key))
+						handle_action(ESCAPE_MAP, key);
 			}
 			reset_nav_buffer(key);
 			place_cursor_actual();
