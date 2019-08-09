@@ -63,6 +63,41 @@ global_config_t global_config = {
 	.scroll_amount = 5,
 };
 
+struct key_name_map KeyNames[] = {
+	{KEY_TIMEOUT, "[timeout]"},
+	{KEY_BACKSPACE, "<backspace>"},
+	{KEY_ENTER, "<enter>"},
+	{KEY_ESCAPE, "<escape>"},
+	{KEY_TAB, "<tab>"},
+	{' ', "<space>"},
+	{KEY_DELETE, "<del>"},
+	{KEY_MOUSE, "<mouse>"},
+	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
+	{KEY_HOME,"<home>"},{KEY_END,"<end>"},{KEY_PAGE_UP,"<page-up>"},{KEY_PAGE_DOWN,"<page-down>"},
+	{KEY_UP, "<up>"},{KEY_DOWN, "<down>"},{KEY_RIGHT, "<right>"},{KEY_LEFT, "<left>"},
+	{KEY_SHIFT_UP, "<shift-up>"},{KEY_SHIFT_DOWN, "<shift-down>"},{KEY_SHIFT_RIGHT, "<shift-right>"},{KEY_SHIFT_LEFT, "<shift-left>"},
+	{KEY_CTRL_UP, "<ctrl-up>"},{KEY_CTRL_DOWN, "<ctrl-down>"},{KEY_CTRL_RIGHT, "<ctrl-right>"},{KEY_CTRL_LEFT, "<ctrl-left>"},
+	{KEY_ALT_UP, "<alt-up>"},{KEY_ALT_DOWN, "<alt-down>"},{KEY_ALT_RIGHT, "<alt-right>"},{KEY_ALT_LEFT, "<alt-left>"},
+	{KEY_ALT_SHIFT_UP, "<alt-shift-up>"},{KEY_ALT_SHIFT_DOWN, "<alt-shift-down>"},{KEY_ALT_SHIFT_RIGHT, "<alt-shift-right>"},{KEY_ALT_SHIFT_LEFT, "<alt-shift-left>"},
+	{KEY_SHIFT_TAB,"<shift-tab>"},
+};
+
+int to_eight(uint32_t codepoint, char * out);
+char * name_from_key(enum Key keycode) {
+	for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+		if (KeyNames[i].keycode == keycode) return KeyNames[i].name;
+	}
+	static char keyNameTmp[8] = {0};
+	if (keycode <= KEY_CTRL_UNDERSCORE) {
+		keyNameTmp[0] = '^';
+		keyNameTmp[1] = '@' + keycode;
+		keyNameTmp[2] = 0;
+		return keyNameTmp;
+	}
+	to_eight(keycode, keyNameTmp);
+	return keyNameTmp;
+}
+
 char * bim_command_names[] = {
 	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
 	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
@@ -100,6 +135,168 @@ int bim_getch_timeout(int timeout) {
 	} else {
 		return -1;
 	}
+}
+
+/**
+ * UTF-8 parser state
+ */
+static uint32_t codepoint_r;
+static uint32_t state = 0;
+
+#define UTF8_ACCEPT 0
+#define UTF8_REJECT 1
+
+static inline uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
+	static int state_table[32] = {
+		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xxxxxxx */
+		1,1,1,1,1,1,1,1,                 /* 10xxxxxx */
+		2,2,2,2,                         /* 110xxxxx */
+		3,3,                             /* 1110xxxx */
+		4,                               /* 11110xxx */
+		1                                /* 11111xxx */
+	};
+
+	static int mask_bytes[32] = {
+		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
+		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
+		0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x1F,0x1F,0x1F,0x1F,
+		0x0F,0x0F,
+		0x07,
+		0x00
+	};
+
+	static int next[5] = {
+		0,
+		1,
+		0,
+		2,
+		3
+	};
+
+	if (*state == UTF8_ACCEPT) {
+		*codep = byte & mask_bytes[byte >> 3];
+		*state = state_table[byte >> 3];
+	} else if (*state > 0) {
+		*codep = (byte & 0x3F) | (*codep << 6);
+		*state = next[*state];
+	}
+	return *state;
+}
+
+#define shift_key(i) _shift_key((i), this_buf, &timeout);
+int _shift_key(int i, int this_buf[20], int *timeout) {
+	int thing = this_buf[*timeout-1];
+	(*timeout) = 0;
+	switch (thing) {
+		/* There are other combinations we can handle... */
+		case '2': return i + 4;
+		case '5': return i + 8;
+		case '3': return i + 12;
+		case '4': return i + 16;
+		default: return i;
+	}
+}
+
+int bim_getkey(int read_timeout) {
+
+	int timeout = 0;
+	int this_buf[20];
+
+	int cin;
+	uint32_t c;
+	uint32_t istate = 0;
+
+	while ((cin = bim_getch_timeout(read_timeout))) {
+		if (cin == -1) {
+			if (timeout && this_buf[timeout-1] == '\033')
+				return KEY_ESCAPE;
+			return KEY_TIMEOUT;
+		}
+
+		if (!decode(&istate, &c, cin)) {
+			if (timeout == 0) {
+				switch (c) {
+					case '\033':
+						if (timeout == 0) {
+							this_buf[timeout] = c;
+							timeout++;
+						}
+						continue;
+					case KEY_LINEFEED: return KEY_ENTER;
+					case KEY_DELETE: return KEY_BACKSPACE;
+				}
+				return c;
+			} else {
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c == '\033') {
+					bim_unget(c);
+					timeout = 0;
+					return KEY_ESCAPE;
+				}
+				if (timeout >= 1 && this_buf[0] == '\033' && c == 'O') {
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
+					switch (c) {
+						case 'P': timeout = 0; return KEY_F1;
+						case 'Q': timeout = 0; return KEY_F2;
+						case 'R': timeout = 0; return KEY_F3;
+						case 'S': timeout = 0; return KEY_F4;
+					}
+					timeout = 0;
+					continue;
+				}
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c != '[') {
+					timeout = 0;
+					bim_unget(c);
+					return KEY_ESCAPE;
+				}
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c == '[') {
+					timeout = 1;
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+				    (isdigit(c) || (c == ';'))) {
+					this_buf[timeout] = c;
+					timeout++;
+					continue;
+				}
+				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+					switch (c) {
+						case 'M': timeout = 0; return KEY_MOUSE;
+						case 'A': return shift_key(KEY_UP);
+						case 'B': return shift_key(KEY_DOWN);
+						case 'C': return shift_key(KEY_RIGHT);
+						case 'D': return shift_key(KEY_LEFT);
+						case 'H': timeout = 0; return KEY_HOME;
+						case 'F': timeout = 0; return KEY_END;
+						case 'I': timeout = 0; return KEY_PAGE_UP;
+						case 'G': timeout = 0; return KEY_PAGE_DOWN;
+						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
+						case '~':
+							switch (this_buf[timeout-1]) {
+								case '1': timeout = 0; return KEY_HOME;
+								case '3': timeout = 0; return KEY_DELETE;
+								case '4': timeout = 0; return KEY_END;
+								case '5': timeout = 0; return KEY_PAGE_UP;
+								case '6': timeout = 0; return KEY_PAGE_DOWN;
+							}
+							break;
+					}
+				}
+				timeout = 0;
+				continue;
+			}
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+	}
+
+	return KEY_TIMEOUT;
 }
 
 /**
@@ -2557,6 +2754,8 @@ void try_to_center() {
  */
 void goto_line(int line) {
 
+	if (line == -1) line = env->line_count;
+
 	/* Respect file bounds */
 	if (line < 1) line = 1;
 	if (line > env->line_count) line = env->line_count;
@@ -2578,53 +2777,6 @@ void goto_line(int line) {
 	}
 }
 
-
-/**
- * UTF-8 parser state
- */
-static uint32_t codepoint_r;
-static uint32_t state = 0;
-
-#define UTF8_ACCEPT 0
-#define UTF8_REJECT 1
-
-static inline uint32_t decode(uint32_t* state, uint32_t* codep, uint32_t byte) {
-	static int state_table[32] = {
-		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xxxxxxx */
-		1,1,1,1,1,1,1,1,                 /* 10xxxxxx */
-		2,2,2,2,                         /* 110xxxxx */
-		3,3,                             /* 1110xxxx */
-		4,                               /* 11110xxx */
-		1                                /* 11111xxx */
-	};
-
-	static int mask_bytes[32] = {
-		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
-		0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,0x7F,
-		0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-		0x1F,0x1F,0x1F,0x1F,
-		0x0F,0x0F,
-		0x07,
-		0x00
-	};
-
-	static int next[5] = {
-		0,
-		1,
-		0,
-		2,
-		3
-	};
-
-	if (*state == UTF8_ACCEPT) {
-		*codep = byte & mask_bytes[byte >> 3];
-		*state = state_table[byte >> 3];
-	} else if (*state > 0) {
-		*codep = (byte & 0x3F) | (*codep << 6);
-		*state = next[*state];
-	}
-	return *state;
-}
 
 /**
  * Processs (part of) a file and add it to a buffer.
@@ -6520,6 +6672,7 @@ void find_character(int type, int c) {
  * Clear the navigation number buffer
  */
 void reset_nav_buffer(int c) {
+	if (c == KEY_TIMEOUT) return;
 	if (nav_buffer && (c < '0' || c > '9')) {
 		nav_buffer = 0;
 		redraw_commandline();
@@ -7095,6 +7248,7 @@ void col_insert_mode(void) {
  * Experimental. Based on how I usually use vim's VISUAL BLOCK mode.
  */
 void col_selection_mode(void) {
+	set_preferred_column();
 	env->start_line = env->line_no;
 	env->sel_col = env->preferred_column;
 	env->prev_line = env->start_line;
@@ -8003,6 +8157,394 @@ _done:
 	return c;
 }
 
+void cursor_left_with_wrap(void) {
+	if (env->line_no > 1 && env->col_no == 1) {
+		env->line_no--;
+		env->col_no = env->lines[env->line_no-1]->actual;
+		set_preferred_column();
+		place_cursor_actual();
+	} else {
+		cursor_left();
+	}
+}
+
+void prepend_and_insert(void) {
+	if (env->readonly) return; /* TODO readonly warning */
+	env->lines = add_line(env->lines, env->line_no-1);
+	env->col_no = 1;
+	add_indent(env->line_no-1,env->line_no,0);
+	if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
+	redraw_text();
+	set_preferred_column();
+	set_modified();
+	place_cursor_actual();
+
+	env->mode = MODE_INSERT;
+}
+
+void append_and_insert(void) {
+	if (env->readonly) return; /* TODO readonly warning */
+	env->lines = add_line(env->lines, env->line_no);
+	env->col_no = 1;
+	env->line_no += 1;
+	add_indent(env->line_no-1,env->line_no-2,0);
+	set_preferred_column();
+	if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
+		env->offset += 1;
+	}
+	if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
+	redraw_text();
+	set_modified();
+	place_cursor_actual();
+
+	env->mode = MODE_INSERT;
+}
+
+void insert_after_cursor() {
+	if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
+		env->col_no += 1;
+	}
+	env->mode = MODE_INSERT;
+}
+
+void delete_forward(void) {
+	if (env->col_no <= env->lines[env->line_no-1]->actual) {
+		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
+		redraw_text();
+	}
+	set_history_break();
+}
+
+void delete_forward_and_insert(void) {
+	delete_forward();
+	env->mode = MODE_INSERT;
+}
+
+void paste(int direction) {
+	if (global_config.yanks) {
+		if (!global_config.yank_is_full_lines) {
+			/* Handle P for paste before, p for past after */
+			int target_column = (direction == -1 ? (env->col_no) : (env->col_no+1));
+			if (target_column > env->lines[env->line_no-1]->actual + 1) {
+				target_column = env->lines[env->line_no-1]->actual + 1;
+			}
+			if (global_config.yank_count > 1) {
+				/* Spit the current line at the current position */
+				env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
+			}
+			/* Insert first line at current position */
+			for (int i = 0; i < global_config.yanks[0]->actual; ++i) {
+				env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
+			}
+			if (global_config.yank_count > 1) {
+				/* Insert full lines */
+				for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+					env->lines = add_line(env->lines, env->line_no);
+				}
+				for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
+					replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
+				}
+				/* Insert characters from last line into (what was) the next line */
+				for (int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
+					env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
+				}
+			}
+		} else {
+			/* Insert full lines */
+			for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+				env->lines = add_line(env->lines, env->line_no - (direction == -1 ? 1 : 0));
+			}
+			for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+				replace_line(env->lines, env->line_no - (direction == -1 ? 1 : 0) + i, global_config.yanks[i]);
+			}
+		}
+		/* Recalculate whole document syntax */
+		for (int i = 0; i < env->line_count; ++i) {
+			env->lines[i]->istate = 0;
+		}
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
+		}
+		if (direction == 1) {
+			if (global_config.yank_is_full_lines) {
+				env->line_no += 1;
+			} else {
+				if (global_config.yank_count == 1) {
+					env->col_no = env->col_no + global_config.yanks[0]->actual;
+				} else {
+					env->line_no = env->line_no + global_config.yank_count - 1;
+					env->col_no = global_config.yanks[global_config.yank_count-1]->actual;
+				}
+			}
+		}
+		if (global_config.yank_is_full_lines) {
+			env->col_no = 1;
+			for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+				if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
+					env->col_no = i + 1;
+					break;
+				}
+			}
+		}
+		set_history_break();
+		set_modified();
+		redraw_all();
+	}
+}
+
+void paste_before(void) {
+	paste(-1);
+}
+
+void paste_after(void) {
+	paste(1);
+}
+
+void replace_one(void) {
+	int c = read_one_character("r");
+	if (c != -1) {
+		replace_char(c);
+	}
+}
+
+void insert_at_end(void) {
+	env->col_no = env->lines[env->line_no-1]->actual+1;
+	env->mode = MODE_INSERT;
+}
+
+void enter_insert(void) {
+	env->mode = MODE_INSERT;
+}
+
+void enter_replace(void) {
+	env->mode = MODE_REPLACE;
+}
+
+void toggle_numbers(void) {
+	global_config.numbers = !global_config.numbers;
+	redraw_all();
+	place_cursor_actual();
+}
+
+void toggle_indent(void) {
+	env->indent = !env->indent;
+	redraw_statusbar();
+	place_cursor_actual();
+}
+
+void expand_split_right(void) {
+	global_config.split_percent += 1;
+	update_split_size();
+	redraw_all();
+}
+
+void expand_split_left(void) {
+	global_config.split_percent -= 1;
+	update_split_size();
+	redraw_all();
+}
+
+void go_page_up(void) {
+	goto_line(env->line_no - (global_config.term_height - 6));
+}
+
+void go_page_down(void) {
+	goto_line(env->line_no + (global_config.term_height - 6));
+}
+
+void search_forward(void) {
+	search_mode(1);
+}
+
+void search_backward(void) {
+	search_mode(0);
+}
+
+void jump_to_matching_bracket(void) {
+	recalculate_selected_lines();
+	int paren_line = -1, paren_col = -1;
+	find_matching_paren(&paren_line, &paren_col, 1);
+	if (paren_line != -1) {
+		env->line_no = paren_line;
+		env->col_no = paren_col;
+		set_preferred_column();
+		place_cursor_actual();
+		redraw_statusbar();
+	}
+}
+
+void jump_to_previous_blank(void) {
+	env->col_no = 1;
+	if (env->line_no == 1) return;
+	do {
+		env->line_no--;
+		if (env->lines[env->line_no-1]->actual == 0) break;
+	} while (env->line_no > 1);
+	set_preferred_column();
+	redraw_statusbar();
+}
+
+void jump_to_next_blank(void) {
+	env->col_no = 1;
+	if (env->line_no == env->line_count) return;
+	do {
+		env->line_no++;
+		if (env->lines[env->line_no-1]->actual == 0) break;
+	} while (env->line_no < env->line_count);
+	set_preferred_column();
+	redraw_statusbar();
+}
+
+void first_whitespace(void) {
+	for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+		if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
+			env->col_no = i + 1;
+			break;
+		}
+	}
+	set_preferred_column();
+	redraw_statusbar();
+}
+
+void next_line_whitespace(void) {
+	if (env->line_no < env->line_count) {
+		env->line_no++;
+		env->col_no = 1;
+	} else {
+		return;
+	}
+	first_whitespace();
+}
+
+struct action_map {
+	int key;
+	void (*method)();
+	int options;
+	int arg;
+};
+
+#define opt_rep  1 /* This action will be repeated */
+#define opt_arg  2 /* This action will take a specified argument */
+#define opt_char 4 /* This action will read a character to pass as an argument */
+#define opt_nav  8 /* This action will consume the nav buffer as its argument */
+
+struct action_map NORMAL_MAP[] = {
+	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
+	{'V',           line_selection_mode, 0, 0},
+	{'v',           char_selection_mode, 0, 0},
+	{KEY_CTRL_V,    col_selection_mode, 0, 0},
+	{'O',           prepend_and_insert, 0, 0},
+	{'o',           append_and_insert, 0, 0},
+	{'a',           insert_after_cursor, 0, 0},
+	{'s',           delete_forward_and_insert, 0, 0},
+	{'x',           delete_forward, 0, 0},
+	{'P',           paste_before, 0, 0},
+	{'p',           paste_after, 0, 0},
+	{'r',           replace_one, 0, 0},
+	{'A',           insert_at_end, 0, 0},
+	{'u',           undo_history, 0, 0},
+	{KEY_CTRL_R,    redo_history, 0, 0},
+	{KEY_CTRL_L,    redraw_all, 0, 0},
+	{'i',           enter_insert, 0, 0},
+	{'R',           enter_replace, 0, 0},
+
+	/* Common navigation */
+	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
+	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
+	{':',           command_mode, 0, 0},
+	{'/',           search_forward, 0, 0},
+	{'?',           search_backward, 0, 0},
+	{'n',           search_next, opt_rep, 0},
+	{'N',           search_prev, opt_rep, 0},
+	{'j',           cursor_down, opt_rep, 0},
+	{'k',           cursor_up, opt_rep, 0},
+	{'h',           cursor_left, opt_rep, 0},
+	{'l',           cursor_right, opt_rep, 0},
+	{'b',           word_left, opt_rep, 0},
+	{'w',           word_right, opt_rep, 0},
+	{'B',           big_word_left, opt_rep, 0},
+	{'W',           big_word_right, opt_rep, 0},
+
+	{'f',           find_character, opt_rep | opt_arg | opt_char, 'f'},
+	{'F',           find_character, opt_rep | opt_arg | opt_char, 'F'},
+	{'t',           find_character, opt_rep | opt_arg | opt_char, 't'},
+	{'T',           find_character, opt_rep | opt_arg | opt_char, 'T'},
+
+	{'G',           goto_line, opt_nav, 0},
+	{'%',           jump_to_matching_bracket, 0, 0},
+	{'{',           jump_to_previous_blank, 0, 0},
+	{'}',           jump_to_next_blank, 0, 0},
+	{'$',           cursor_end, 0, 0},
+	{'|',           cursor_home, 0, 0},
+	{KEY_ENTER,     next_line_whitespace, 0, 0},
+	{'^',           first_whitespace, 0, 0},
+	{'0',           cursor_home, 0, 0},
+
+	{KEY_F1,        toggle_numbers, 0, 0},
+	{KEY_F2,        toggle_indent, 0, 0},
+	{KEY_MOUSE,     handle_mouse, 0, 0},
+
+	{KEY_UP,        cursor_up, 0, 0},
+	{KEY_DOWN,      cursor_down, 0, 0},
+
+	{KEY_RIGHT,     cursor_right, 0, 0},
+	{KEY_CTRL_RIGHT, big_word_right, 0, 0},
+	{KEY_SHIFT_RIGHT, word_right, 0, 0},
+	{KEY_ALT_RIGHT, expand_split_right, 0, 0},
+	{KEY_ALT_SHIFT_RIGHT, use_right_buffer, 0, 0},
+
+	{KEY_LEFT,      cursor_left, 0, 0},
+	{KEY_CTRL_LEFT, big_word_left, 0, 0},
+	{KEY_SHIFT_LEFT, word_left, 0, 0},
+	{KEY_ALT_LEFT, expand_split_left, 0, 0},
+	{KEY_ALT_SHIFT_LEFT, use_left_buffer, 0, 0},
+
+	{KEY_HOME, cursor_home, 0, 0},
+	{KEY_END, cursor_end, 0, 0},
+	{KEY_PAGE_UP, go_page_up, 0, 0},
+	{KEY_PAGE_DOWN, go_page_down, 0, 0},
+
+	{-1, NULL, 0, 0}
+};
+
+void handle_action(int key) {
+	for (struct action_map * map = NORMAL_MAP; map->key != -1; map++) {
+		if (map->key == key) {
+			/* Determine how to format this request */
+			int reps = (map->options & opt_rep) ? ((nav_buffer) ? atoi(nav_buf) : 1) : 1;
+			int c = 0;
+			if (map->options & opt_char) {
+				c = read_one_character(name_from_key(key));
+			}
+			if (reps > 1) {
+				env->loading = 1;
+			}
+			for (int i = 0; i < reps; ++i) {
+				if (map->options & opt_char && map->options & opt_arg) {
+					map->method(map->arg, c);
+				} else if (map->options & opt_char) {
+					map->method(c);
+				} else if (map->options & opt_arg) {
+					map->method(map->arg);
+				} else if (map->options & opt_nav) {
+					if (nav_buffer) {
+						map->method(atoi(nav_buf));
+						reset_nav_buffer(0);
+					} else {
+						map->method(-1);
+					}
+				} else {
+					map->method();
+				}
+			}
+			if (reps > 1) {
+				env->loading = 0;
+				redraw_all();
+			}
+		}
+	}
+}
+
 /**
  * NORMAL mode
  *
@@ -8012,210 +8554,31 @@ _done:
 void normal_mode(void) {
 
 	while (1) {
-		place_cursor_actual();
-		int c;
-		int timeout = 0;
-		int this_buf[20];
-		while ((c = bim_getch())) {
-			if (c == -1) {
-				/* getch timed out, nothing to do in normal mode */
-				continue;
-			}
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						if (env->line_no > 1 && env->col_no == 1) {
-							env->line_no--;
-							env->col_no = env->lines[env->line_no-1]->actual;
-							set_preferred_column();
-							place_cursor_actual();
-						} else {
-							cursor_left();
-						}
-						break;
-					case 'V': /* Enter LINE SELECTION mode */
-						line_selection_mode();
-						if (env->mode == MODE_INSERT) goto _insert;
-						break;
-					case 'v': /* Enter CHAR SELECTION mode */
-						char_selection_mode();
-						if (env->mode == MODE_INSERT) goto _insert;
-						break;
-					case 22: /* ctrl-v, enter COL SELECTION mode */
-						set_preferred_column();
-						col_selection_mode();
-						break;
-					case 'O': /* Append line before and enter INSERT mode */
-						{
-							if (env->readonly) goto _readonly;
-							env->lines = add_line(env->lines, env->line_no-1);
-							env->col_no = 1;
-							add_indent(env->line_no-1,env->line_no,0);
-							if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
-							redraw_text();
-							set_preferred_column();
-							set_modified();
-							place_cursor_actual();
-							goto _insert;
-						}
-					case 'o': /* Append line after and enter INSERT mode */
-						{
-							if (env->readonly) goto _readonly;
-							env->lines = add_line(env->lines, env->line_no);
-							env->col_no = 1;
-							env->line_no += 1;
-							add_indent(env->line_no-1,env->line_no-2,0);
-							set_preferred_column();
-							if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1) {
-								env->offset += 1;
-							}
-							if (env->highlighting_paren && env->highlighting_paren > env->line_no) env->highlighting_paren++;
-							redraw_text();
-							set_modified();
-							place_cursor_actual();
-							goto _insert;
-						}
-					case 'a': /* Enter INSERT mode with cursor after current position */
-						if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
-							env->col_no += 1;
-						}
-						goto _insert;
-					case 's':
-					case 'x':
-						if (env->col_no <= env->lines[env->line_no-1]->actual) {
-							line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
-							redraw_text();
-						}
-						if (c == 's') goto _insert;
-						set_history_break();
-						break;
-					case 'P': /* Paste before */
-					case 'p': /* Paste after */
-						if (env->readonly) goto _readonly;
-						if (global_config.yanks) {
-							if (!global_config.yank_is_full_lines) {
-								/* Handle P for paste before, p for past after */
-								int target_column = (c == 'P' ? (env->col_no) : (env->col_no+1));
-								if (target_column > env->lines[env->line_no-1]->actual + 1) {
-									target_column = env->lines[env->line_no-1]->actual + 1;
-								}
-								if (global_config.yank_count > 1) {
-									/* Spit the current line at the current position */
-									env->lines = split_line(env->lines, env->line_no - 1, target_column - 1); /* Split after */
-								}
-								/* Insert first line at current position */
-								for (int i = 0; i < global_config.yanks[0]->actual; ++i) {
-									env->lines[env->line_no - 1] = line_insert(env->lines[env->line_no - 1], global_config.yanks[0]->text[i], target_column + i - 1, env->line_no - 1); 
-								}
-								if (global_config.yank_count > 1) {
-									/* Insert full lines */
-									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
-										env->lines = add_line(env->lines, env->line_no);
-									}
-									for (unsigned int i = 1; i < global_config.yank_count - 1; ++i) {
-										replace_line(env->lines, env->line_no + i - 1, global_config.yanks[i]);
-									}
-									/* Insert characters from last line into (what was) the next line */
-									for (int i = 0; i < global_config.yanks[global_config.yank_count-1]->actual; ++i) {
-										env->lines[env->line_no + global_config.yank_count - 2] = line_insert(env->lines[env->line_no + global_config.yank_count - 2], global_config.yanks[global_config.yank_count-1]->text[i], i, env->line_no + global_config.yank_count - 2);
-									}
-								}
-							} else {
-								/* Insert full lines */
-								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-									env->lines = add_line(env->lines, env->line_no - (c == 'P' ? 1 : 0));
-								}
-								for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-									replace_line(env->lines, env->line_no - (c == 'P' ? 1 : 0) + i, global_config.yanks[i]);
-								}
-							}
-							/* Recalculate whole document syntax */
-							for (int i = 0; i < env->line_count; ++i) {
-								env->lines[i]->istate = 0;
-							}
-							for (int i = 0; i < env->line_count; ++i) {
-								recalculate_syntax(env->lines[i],i);
-							}
-							if (c == 'p') {
-								if (global_config.yank_is_full_lines) {
-									env->line_no += 1;
-								} else {
-									if (global_config.yank_count == 1) {
-										env->col_no = env->col_no + global_config.yanks[0]->actual;
-									} else {
-										env->line_no = env->line_no + global_config.yank_count - 1;
-										env->col_no = global_config.yanks[global_config.yank_count-1]->actual;
-									}
-								}
-							}
-							if (global_config.yank_is_full_lines) {
-								env->col_no = 1;
-								for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
-									if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
-										env->col_no = i + 1;
-										break;
-									}
-								}
-							}
-							set_history_break();
-							set_modified();
-							redraw_all();
-						}
-						break;
-					case 'r': /* Replace with next */
-						{
-							int c = read_one_character("r");
-							if (c != -1) {
-								replace_char(c);
-							}
-						}
-						break;
-					case 'A':
-						env->col_no = env->lines[env->line_no-1]->actual+1;
-						goto _insert;
-					case 'u': /* Undo one block of history */
-						undo_history();
-						break;
-					case 18: /* ^R - Redo one block of history */
-						redo_history();
-						break;
-					case 12: /* ^L - Repaint the whole screen */
-						redraw_all();
-						break;
-					case 'i': /* Enter INSERT mode */
-_insert:
-						if (env->readonly) goto _readonly;
-						insert_mode();
-						redraw_statusbar();
-						redraw_commandline();
-						timeout = 0;
-						break;
-					case 'R': /* Enter REPLACE mode */
-						if (env->readonly) goto _readonly;
-						replace_mode();
-						redraw_statusbar();
-						redraw_commandline();
-						timeout = 0;
-						break;
-_readonly:
-						render_error("Buffer is read-only");
-						break;
-					default:
-						handle_navigation(c);
-						break;
+		if (env->mode == MODE_NORMAL) {
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if ((key >= '1' && key <= '9') || (key == '0' && nav_buffer)) {
+				if (nav_buffer < NAV_BUFFER_MAX) {
+					/* Up to NAV_BUFFER_MAX=10 characters; that should be enough for most tasks */
+					nav_buf[nav_buffer] = key;
+					nav_buf[nav_buffer+1] = 0;
+					nav_buffer++;
+					/* Print the number buffer */
+					redraw_commandline();
 				}
 			} else {
-				handle_escape(this_buf,&timeout,c);
+				handle_action(key);
 			}
-			reset_nav_buffer(c);
+			reset_nav_buffer(key);
 			place_cursor_actual();
+		} else if (env->mode == MODE_INSERT) {
+			insert_mode();
+			redraw_statusbar();
+			redraw_commandline();
+		} else if (env->mode == MODE_REPLACE) {
+			replace_mode();
+			redraw_statusbar();
+			redraw_commandline();
 		}
 	}
 
