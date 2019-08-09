@@ -8038,14 +8038,6 @@ void paste(int direction) {
 	}
 }
 
-void paste_before(void) {
-	paste(-1);
-}
-
-void paste_after(void) {
-	paste(1);
-}
-
 void replace_one(void) {
 	int c = read_one_character("r");
 	if (c != -1) {
@@ -8279,8 +8271,8 @@ struct action_map NORMAL_MAP[] = {
 	{'a',           insert_after_cursor, 0, 0},
 	{'s',           delete_forward_and_insert, 0, 0},
 	{'x',           delete_forward, 0, 0},
-	{'P',           paste_before, 0, 0},
-	{'p',           paste_after, 0, 0},
+	{'P',           paste, opt_arg, -1},
+	{'p',           paste, opt_arg, 1},
 	{'r',           replace_one, 0, 0},
 	{'A',           insert_at_end, 0, 0},
 	{'u',           undo_history, 0, 0},
