@@ -8090,14 +8090,6 @@ void go_page_down(void) {
 	goto_line(env->line_no + (global_config.term_height - 6));
 }
 
-void search_forward(void) {
-	search_mode(1);
-}
-
-void search_backward(void) {
-	search_mode(0);
-}
-
 void jump_to_matching_bracket(void) {
 	recalculate_selected_lines();
 	int paren_line = -1, paren_col = -1;
@@ -8311,8 +8303,8 @@ struct action_map NAVIGATION_MAP[] = {
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
 	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
 	{':',           command_mode, 0, 0},
-	{'/',           search_forward, 0, 0},
-	{'?',           search_backward, 0, 0},
+	{'/',           search_mode, opt_arg, 1},
+	{'?',           search_mode, opt_arg, 0},
 	{'n',           search_next, opt_rep, 0},
 	{'N',           search_prev, opt_rep, 0},
 	{'j',           cursor_down, opt_rep, 0},
