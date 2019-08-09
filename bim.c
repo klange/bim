@@ -18,82 +18,11 @@
 #include "bim-theme.h"
 #include "bim-syntax.h"
 
-/**
- * Theming data
- *
- * This is all overridden by a load_colorscheme_ method.
- * The default is to load_colorscheme_ansi, but config
- * files can be used to set a different default theme.
- */
-const char * COLOR_FG        = "@9";
-const char * COLOR_BG        = "@9";
-const char * COLOR_ALT_FG    = "@9";
-const char * COLOR_ALT_BG    = "@9";
-const char * COLOR_NUMBER_FG = "@9";
-const char * COLOR_NUMBER_BG = "@9";
-const char * COLOR_STATUS_FG = "@9";
-const char * COLOR_STATUS_BG = "@9";
-const char * COLOR_TABBAR_BG = "@9";
-const char * COLOR_TAB_BG    = "@9";
-const char * COLOR_ERROR_FG  = "@9";
-const char * COLOR_ERROR_BG  = "@9";
-const char * COLOR_SEARCH_FG = "@0";
-const char * COLOR_SEARCH_BG = "@17";
-const char * COLOR_KEYWORD   = "@9";
-const char * COLOR_STRING    = "@9";
-const char * COLOR_COMMENT   = "@9";
-const char * COLOR_TYPE      = "@9";
-const char * COLOR_PRAGMA    = "@9";
-const char * COLOR_NUMERAL   = "@9";
-const char * COLOR_SELECTFG  = "@0";
-const char * COLOR_SELECTBG  = "@17";
-const char * COLOR_RED       = "@1";
-const char * COLOR_GREEN     = "@2";
-const char * COLOR_BOLD      = "@9";
-const char * COLOR_LINK      = "@9";
-const char * COLOR_ESCAPE    = "@9";
-const char * current_theme = "none";
-
-/**
- * Convert syntax highlighting flag to color code
- */
-const char * flag_to_color(int _flag) {
-	int flag = _flag & 0xF;
-	switch (flag) {
-		case FLAG_KEYWORD:
-			return COLOR_KEYWORD;
-		case FLAG_STRING:
-			return COLOR_STRING;
-		case FLAG_COMMENT:
-			return COLOR_COMMENT;
-		case FLAG_TYPE:
-			return COLOR_TYPE;
-		case FLAG_NUMERAL:
-			return COLOR_NUMERAL;
-		case FLAG_PRAGMA:
-			return COLOR_PRAGMA;
-		case FLAG_DIFFPLUS:
-			return COLOR_GREEN;
-		case FLAG_DIFFMINUS:
-			return COLOR_RED;
-		case FLAG_SELECT:
-			return COLOR_FG;
-		case FLAG_BOLD:
-			return COLOR_BOLD;
-		case FLAG_LINK:
-			return COLOR_LINK;
-		case FLAG_ESCAPE:
-			return COLOR_ESCAPE;
-		default:
-			return COLOR_FG;
-	}
-}
-
 global_config_t global_config = {
 	/* State */
 	.term_width = 0,
 	.term_height = 0,
-	.bottom_size = 0,
+	.bottom_size = 2,
 	.yanks = NULL,
 	.yank_count = 0,
 	.yank_is_full_lines = 0,
@@ -407,8 +336,42 @@ buffer_t * buffer_close(buffer_t * buf) {
 }
 
 /**
- * Themes
+ * Theming data
+ *
+ * This default set is pretty simple "default foreground on default background"
+ * except for search and selections which are black-on-white specifically.
+ *
+ * The theme colors get set by separate configurable themes.
  */
+const char * COLOR_FG        = "@9";
+const char * COLOR_BG        = "@9";
+const char * COLOR_ALT_FG    = "@9";
+const char * COLOR_ALT_BG    = "@9";
+const char * COLOR_NUMBER_FG = "@9";
+const char * COLOR_NUMBER_BG = "@9";
+const char * COLOR_STATUS_FG = "@9";
+const char * COLOR_STATUS_BG = "@9";
+const char * COLOR_TABBAR_BG = "@9";
+const char * COLOR_TAB_BG    = "@9";
+const char * COLOR_ERROR_FG  = "@9";
+const char * COLOR_ERROR_BG  = "@9";
+const char * COLOR_SEARCH_FG = "@0";
+const char * COLOR_SEARCH_BG = "@17";
+const char * COLOR_KEYWORD   = "@9";
+const char * COLOR_STRING    = "@9";
+const char * COLOR_COMMENT   = "@9";
+const char * COLOR_TYPE      = "@9";
+const char * COLOR_PRAGMA    = "@9";
+const char * COLOR_NUMERAL   = "@9";
+const char * COLOR_SELECTFG  = "@0";
+const char * COLOR_SELECTBG  = "@17";
+const char * COLOR_RED       = "@1";
+const char * COLOR_GREEN     = "@2";
+const char * COLOR_BOLD      = "@9";
+const char * COLOR_LINK      = "@9";
+const char * COLOR_ESCAPE    = "@9";
+const char * current_theme = "none";
+
 int theme_count = 0;
 int theme_space = 0;
 struct theme_def * themes = NULL;
@@ -426,6 +389,42 @@ void add_colorscheme(const char * name, void (*load)(void)) {
 	themes[theme_count].load = load;
 	theme_count++;
 }
+
+/**
+ * Convert syntax highlighting flag to color code
+ */
+const char * flag_to_color(int _flag) {
+	int flag = _flag & 0xF;
+	switch (flag) {
+		case FLAG_KEYWORD:
+			return COLOR_KEYWORD;
+		case FLAG_STRING:
+			return COLOR_STRING;
+		case FLAG_COMMENT:
+			return COLOR_COMMENT;
+		case FLAG_TYPE:
+			return COLOR_TYPE;
+		case FLAG_NUMERAL:
+			return COLOR_NUMERAL;
+		case FLAG_PRAGMA:
+			return COLOR_PRAGMA;
+		case FLAG_DIFFPLUS:
+			return COLOR_GREEN;
+		case FLAG_DIFFMINUS:
+			return COLOR_RED;
+		case FLAG_SELECT:
+			return COLOR_FG;
+		case FLAG_BOLD:
+			return COLOR_BOLD;
+		case FLAG_LINK:
+			return COLOR_LINK;
+		case FLAG_ESCAPE:
+			return COLOR_ESCAPE;
+		default:
+			return COLOR_FG;
+	}
+}
+
 
 /**
  * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
