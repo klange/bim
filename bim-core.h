@@ -211,6 +211,8 @@ typedef struct _env {
 
 	int start_line;
 	int sel_col;
+	int start_col;
+	int prev_line;
 } buffer_t;
 
 struct theme_def {

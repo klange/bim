@@ -5568,6 +5568,7 @@ void handle_mouse(void) {
 		if (y == 1) {
 			/* Pick from tabs */
 			int _x = 0;
+			if (env->mode != MODE_NORMAL && env->mode != MODE_INSERT) return; /* Don't let the tab be switched in other modes for now */
 			for (int i = 0; i < buffers_len; i++) {
 				buffer_t * _env = buffers[i];
 				char tmp[64];
@@ -6779,6 +6780,16 @@ void adjust_indent(int start_line, int direction) {
 	set_modified();
 }
 
+void recalculate_selected_lines(void) {
+	int start = env->line_no < env->start_line ? env->line_no : env->start_line;
+	int end = env->line_no > env->start_line ? env->line_no : env->start_line;
+	for (int i = start; i <= end; ++i) {
+		recalculate_syntax(env->lines[i-1],i);
+	}
+	redraw_all();
+}
+
+
 /**
  * LINE SELECTION mode
  *
@@ -6786,7 +6797,7 @@ void adjust_indent(int start_line, int direction) {
  */
 void line_selection_mode(void) {
 	env->start_line = env->line_no;
-	int prev_line  = env->start_line;
+	env->prev_line  = env->start_line;
 
 	env->mode = MODE_LINE_SELECTION;
 	redraw_commandline();
@@ -6905,16 +6916,16 @@ void line_selection_mode(void) {
 			_redraw_line(env->start_line,1);
 
 			/* Properly mark everything in the span we just moved through */
-			if (prev_line < env->line_no) {
-				for (int i = prev_line; i < env->line_no; ++i) {
+			if (env->prev_line < env->line_no) {
+				for (int i = env->prev_line; i < env->line_no; ++i) {
 					_redraw_line(i,0);
 				}
-				prev_line = env->line_no;
-			} else if (prev_line > env->line_no) {
-				for (int i = env->line_no + 1; i <= prev_line; ++i) {
+				env->prev_line = env->line_no;
+			} else if (env->prev_line > env->line_no) {
+				for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
 					_redraw_line(i,0);
 				}
-				prev_line = env->line_no;
+				env->prev_line = env->line_no;
 			}
 			redraw_commandline();
 			place_cursor_actual();
@@ -6927,10 +6938,7 @@ _readonly:
 _leave_select_line:
 	set_history_break();
 	env->mode = MODE_NORMAL;
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
-	redraw_all();
+	recalculate_selected_lines();
 }
 
 #define _redraw_line_col(line, force_start_line) \
@@ -7089,7 +7097,7 @@ void col_insert_mode(void) {
 void col_selection_mode(void) {
 	env->start_line = env->line_no;
 	env->sel_col = env->preferred_column;
-	int prev_line = env->start_line;
+	env->prev_line = env->start_line;
 
 	env->mode = MODE_COL_SELECTION;
 	redraw_commandline();
@@ -7155,19 +7163,18 @@ void col_selection_mode(void) {
 
 		_redraw_line_col(env->line_no, 0);
 		/* Properly mark everything in the span we just moved through */
-		if (prev_line < env->line_no) {
-			for (int i = prev_line; i < env->line_no; ++i) {
+		if (env->prev_line < env->line_no) {
+			for (int i = env->prev_line; i < env->line_no; ++i) {
 				_redraw_line_col(i,0);
 			}
-			prev_line = env->line_no;
-		} else if (prev_line > env->line_no) {
-			for (int i = env->line_no + 1; i <= prev_line; ++i) {
+			env->prev_line = env->line_no;
+		} else if (env->prev_line > env->line_no) {
+			for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
 				_redraw_line_col(i,0);
 			}
-			prev_line = env->line_no;
+			env->prev_line = env->line_no;
 		}
 
-		/* prev_line... */
 		redraw_commandline();
 		place_cursor_actual();
 		continue;
@@ -7223,24 +7230,24 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 
 #define _redraw_line_char(line, force_start_line) \
 	do { \
-		if (!(force_start_line) && (line) == start_line) break; \
+		if (!(force_start_line) && (line) == env->start_line) break; \
 		if ((line) > env->line_count + 1) { \
 			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
 				draw_excess_line((line) - env->offset - 1); \
 			} \
 			break; \
 		} \
-		if ((env->line_no < start_line  && ((line) < env->line_no || (line) > start_line)) || \
-			(env->line_no > start_line  && ((line) > env->line_no || (line) < start_line)) || \
-			(env->line_no == start_line && (line) != start_line)) { \
+		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
+			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
+			(env->line_no == env->start_line && (line) != env->start_line)) { \
 			/* Line is completely outside selection */ \
 			recalculate_syntax(env->lines[(line)-1],(line)-1); \
 		} else { \
-			if ((line) == start_line || (line) == env->line_no) { \
+			if ((line) == env->start_line || (line) == env->line_no) { \
 				recalculate_syntax(env->lines[(line)-1],(line)-1); \
 			} \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				if (point_in_range(start_line, env->line_no,start_col, env->col_no, (line), j+1)) { \
+				if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) { \
 					env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
 				} \
 			} \
@@ -7248,13 +7255,131 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 		redraw_line((line)-1); \
 	} while (0)
 
+void yank_characters(void) {
+	int end_line = env->line_no;
+	int end_col  = env->col_no;
+	if (env->start_line == end_line) {
+		if (env->start_col > end_col) {
+			int tmp = env->start_col;
+			env->start_col = end_col;
+			end_col = tmp;
+		}
+	} else if (env->start_line > end_line) {
+		int tmp = env->start_line;
+		env->start_line = end_line;
+		end_line = tmp;
+		tmp = env->start_col;
+		env->start_col = end_col;
+		end_col = tmp;
+	}
+	yank_text(env->start_line, env->start_col, end_line, end_col);
+}
+
+int delete_and_insert(int c) {
+	int end_line = env->line_no;
+	int end_col  = env->col_no;
+	if (env->start_line == end_line) {
+		if (env->start_col > end_col) {
+			int tmp = env->start_col;
+			env->start_col = end_col;
+			end_col = tmp;
+		}
+		yank_text(env->start_line, env->start_col, end_line, end_col);
+		for (int i = env->start_col; i <= end_col; ++i) {
+			line_delete(env->lines[env->start_line-1], env->start_col, env->start_line - 1);
+		}
+		env->col_no = env->start_col;
+	} else {
+		if (env->start_line > end_line) {
+			int tmp = env->start_line;
+			env->start_line = end_line;
+			end_line = tmp;
+			tmp = env->start_col;
+			env->start_col = end_col;
+			end_col = tmp;
+		}
+		/* Copy lines */
+		yank_text(env->start_line, env->start_col, end_line, end_col);
+		/* Delete lines */
+		for (int i = env->start_line+1; i < end_line; ++i) {
+			env->lines = remove_line(env->lines, env->start_line);
+		} /* end_line is no longer valid; should be start_line+1*/
+		/* Delete from env->start_col forward */
+		int tmp = env->lines[env->start_line-1]->actual;
+		for (int i = env->start_col; i <= tmp; ++i) {
+			line_delete(env->lines[env->start_line-1], env->start_col, env->start_line - 1);
+		}
+		for (int i = 1; i <= end_col; ++i) {
+			line_delete(env->lines[env->start_line], 1, env->start_line);
+		}
+		/* Merge start and end lines */
+		merge_lines(env->lines, env->start_line);
+		env->line_no = env->start_line;
+		env->col_no = env->start_col;
+	}
+	if (env->line_no > env->line_count) {
+		env->line_no = env->line_count;
+	}
+	set_preferred_column();
+	set_modified();
+	if (c == 's') {
+		redraw_text();
+		env->mode = MODE_INSERT;
+		return 1; /* When returning from char selection mode, normal mode will check for MODE_INSERT */
+	}
+	return 0;
+}
+
+int replace_chars(void) {
+	int c = read_one_character("CHAR SELECTION r");
+	if (c == -1) return 1;
+	char_t _c = {codepoint_width(c), 0, c};
+	/* This should probably be a function line "do_over_range" or something */
+	if (env->start_line == env->line_no) {
+		int s = (env->start_col < env->col_no) ? env->start_col : env->col_no;
+		int e = (env->start_col < env->col_no) ? env->col_no : env->start_col;
+		for (int i = s; i <= e; ++i) {
+			line_replace(env->lines[env->start_line-1], _c, i-1, env->start_line-1);
+		}
+		redraw_text();
+	} else {
+		if (env->start_line < env->line_no) {
+			for (int s = env->start_col-1; s < env->lines[env->start_line-1]->actual; ++s) {
+				line_replace(env->lines[env->start_line-1], _c, s, env->start_line-1);
+			}
+			for (int line = env->start_line + 1; line < env->line_no; ++line) {
+				for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+					line_replace(env->lines[line-1], _c, i, line-1);
+				}
+			}
+			for (int s = 0; s < env->col_no; ++s) {
+				line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
+			}
+		} else {
+			for (int s = env->col_no-1; s < env->lines[env->line_no-1]->actual; ++s) {
+				line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
+			}
+			for (int line = env->line_no + 1; line < env->start_line; ++line) {
+				for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+					line_replace(env->lines[line-1], _c, i, line-1);
+				}
+			}
+			for (int s = 0; s < env->start_col; ++s) {
+				line_replace(env->lines[env->start_line-1], _c, s, env->start_line-1);
+			}
+		}
+	}
+
+	return 0;
+}
+
 /**
  * CHAR SELECTION mode.
  */
 void char_selection_mode(void) {
-	int start_line = env->line_no;
-	int start_col  = env->col_no;
-	int prev_line  = start_line;
+	env->start_line = env->line_no;
+	env->start_col  = env->col_no;
+	env->prev_line  = env->start_line;
 
 	env->mode = MODE_CHAR_SELECTION;
 	redraw_commandline();
@@ -7290,133 +7415,21 @@ void char_selection_mode(void) {
 					case 'v':
 						goto _leave_select_char;
 					case 'y':
-						{
-							int end_line = env->line_no;
-							int end_col  = env->col_no;
-							if (start_line == end_line) {
-								if (start_col > end_col) {
-									int tmp = start_col;
-									start_col = end_col;
-									end_col = tmp;
-								}
-							} else if (start_line > end_line) {
-								int tmp = start_line;
-								start_line = end_line;
-								end_line = tmp;
-								tmp = start_col;
-								start_col = end_col;
-								end_col = tmp;
-							}
-							yank_text(start_line, start_col, end_line, end_col);
-						}
+						yank_characters();
 						goto _leave_select_char;
 					case 'D':
 					case 'd':
 					case 'x':
 					case 's':
 						if (env->readonly) goto _readonly;
-						{
-							int end_line = env->line_no;
-							int end_col  = env->col_no;
-							if (start_line == end_line) {
-								if (start_col > end_col) {
-									int tmp = start_col;
-									start_col = end_col;
-									end_col = tmp;
-								}
-								yank_text(start_line, start_col, end_line, end_col);
-								for (int i = start_col; i <= end_col; ++i) {
-									line_delete(env->lines[start_line-1], start_col, start_line - 1);
-								}
-								env->col_no = start_col;
-							} else {
-								if (start_line > end_line) {
-									int tmp = start_line;
-									start_line = end_line;
-									end_line = tmp;
-									tmp = start_col;
-									start_col = end_col;
-									end_col = tmp;
-								}
-								/* Copy lines */
-								yank_text(start_line, start_col, end_line, end_col);
-								/* Delete lines */
-								for (int i = start_line+1; i < end_line; ++i) {
-									env->lines = remove_line(env->lines, start_line);
-								} /* end_line is no longer valid; should be start_line+1*/
-								/* Delete from start_col forward */
-								int tmp = env->lines[start_line-1]->actual;
-								for (int i = start_col; i <= tmp; ++i) {
-									line_delete(env->lines[start_line-1], start_col, start_line - 1);
-								}
-								for (int i = 1; i <= end_col; ++i) {
-									line_delete(env->lines[start_line], 1, start_line);
-								}
-								/* Merge start and end lines */
-								merge_lines(env->lines, start_line);
-								env->line_no = start_line;
-								env->col_no = start_col;
-							}
-						}
-						if (env->line_no > env->line_count) {
-							env->line_no = env->line_count;
-						}
-						set_preferred_column();
-						set_modified();
-						if (c == 's') {
-							redraw_text();
-							env->mode = MODE_INSERT;
-							return; /* When returning from char selection mode, normal mode will check for MODE_INSERT */
-						}
+						if (delete_and_insert(c)) return; /* Leave insert mode */
 						goto _leave_select_char;
 					case 'r':
-						{
-							int c = read_one_character("CHAR SELECTION r");
-							if (c == -1) break;
-							char_t _c = {codepoint_width(c), 0, c};
-							/* This should probably be a function line "do_over_range" or something */
-							if (start_line == env->line_no) {
-								int s = (start_col < env->col_no) ? start_col : env->col_no;
-								int e = (start_col < env->col_no) ? env->col_no : start_col;
-								for (int i = s; i <= e; ++i) {
-									line_replace(env->lines[start_line-1], _c, i-1, start_line-1);
-								}
-								redraw_text();
-							} else {
-								if (start_line < env->line_no) {
-									for (int s = start_col-1; s < env->lines[start_line-1]->actual; ++s) {
-										line_replace(env->lines[start_line-1], _c, s, start_line-1);
-									}
-									for (int line = start_line + 1; line < env->line_no; ++line) {
-										for (int i = 0; i < env->lines[line-1]->actual; ++i) {
-											line_replace(env->lines[line-1], _c, i, line-1);
-										}
-									}
-									for (int s = 0; s < env->col_no; ++s) {
-										line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
-									}
-								} else {
-									for (int s = env->col_no-1; s < env->lines[env->line_no-1]->actual; ++s) {
-										line_replace(env->lines[env->line_no-1], _c, s, env->line_no-1);
-									}
-									for (int line = env->line_no + 1; line < start_line; ++line) {
-										for (int i = 0; i < env->lines[line-1]->actual; ++i) {
-											line_replace(env->lines[line-1], _c, i, line-1);
-										}
-									}
-									for (int s = 0; s < start_col; ++s) {
-										line_replace(env->lines[start_line-1], _c, s, start_line-1);
-									}
-								}
-							}
-						}
+						if (replace_chars()) break;
 						goto _leave_select_char;
 					case 'A':
-						for (int i = 0; i < env->line_count; ++i) {
-							recalculate_syntax(env->lines[i],i);
-						}
-						redraw_text();
-						env->col_no = env->col_no > start_col ? env->col_no + 1 : start_col + 1;
+						recalculate_selected_lines();
+						env->col_no = env->col_no > env->start_col ? env->col_no + 1 : env->start_col + 1;
 						env->mode = MODE_INSERT;
 						return;
 					case ':':
@@ -7442,16 +7455,16 @@ void char_selection_mode(void) {
 			_redraw_line_char(env->line_no,1);
 
 			/* Properly mark everything in the span we just moved through */
-			if (prev_line < env->line_no) {
-				for (int i = prev_line; i < env->line_no; ++i) {
+			if (env->prev_line < env->line_no) {
+				for (int i = env->prev_line; i < env->line_no; ++i) {
 					_redraw_line_char(i,1);
 				}
-				prev_line = env->line_no;
-			} else if (prev_line > env->line_no) {
-				for (int i = env->line_no + 1; i <= prev_line; ++i) {
+				env->prev_line = env->line_no;
+			} else if (env->prev_line > env->line_no) {
+				for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
 					_redraw_line_char(i,1);
 				}
-				prev_line = env->line_no;
+				env->prev_line = env->line_no;
 			}
 			place_cursor_actual();
 			continue;
@@ -7463,10 +7476,7 @@ _readonly:
 _leave_select_char:
 	set_history_break();
 	env->mode = MODE_NORMAL;
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
-	redraw_all();
+	recalculate_selected_lines();
 }
 
 struct completion_match {
