@@ -255,12 +255,12 @@ Not all syntax highlighters are complete or support all features of their respec
 - Protobuf
 - Bash
 
-## Why is Bim a single ~10k line source file?
+## Code Structure
 
-Bim was designed to be the included text editor in ToaruOS, and ToaruOS's build system was designed to have a single source file for each application binary.
-For the vast majority of applications in ToaruOS, this limitation is entirely reasonable.
-Bim is by far the largest application in the OS; the window compositor comes in second at a much smaller ~3000 lines.
-As Bim has grown, the question has come up several times as to whether it should be broken up into logical units in separate files, but being a single large file still has its benefits.
+Bim's core functionality lives in `bim.c`. Syntax highlighter definitions are in `syntax` and use constructor methods to initialize and hook into the syntax database.
+Similarly, themes are in `themes`. A single-file "baked" version of Bim can be generated with `python3 docs/bake-bim.py`, which is suitable for distribution
+in ToaruOS and for when a "one-file" editor is desirable. Bim can be built without the `syntax` and `themes` files, as well; just run `c99 -o bim bim.c`.
+Baked versions of Bim may be smaller than regular Bim due to better optimizations of debugging information.
 
 ## Bim is not Vim
 
