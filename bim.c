@@ -15,6 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include "bim-core.h"
+#include "bim-theme.h"
 #include "bim-syntax.h"
 
 /**
