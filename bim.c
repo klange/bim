@@ -2658,22 +2658,26 @@ void add_buffer(uint8_t * buf, int size) {
 	}
 }
 
+int str_ends_with(const char * haystack, const char * needle) {
+	int i = strlen(haystack);
+	int j = strlen(needle);
+
+	do {
+		if (haystack[i] != needle[j]) return 0;
+		if (j == 0) return 1;
+		if (i == 0) return 0;
+		i--;
+		j--;
+	} while (1);
+}
+
 /**
  * Find a syntax highlighter for the given filename.
  */
 struct syntax_definition * match_syntax(char * file) {
 	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
 		for (char ** ext = s->ext; *ext; ++ext) {
-			int i = strlen(file);
-			int j = strlen(*ext);
-
-			do {
-				if (file[i] != (*ext)[j]) break;
-				if (j == 0) return s;
-				if (i == 0) break;
-				i--;
-				j--;
-			} while (1);
+			if (str_ends_with(file, *ext)) return s;
 		}
 	}
 
@@ -4411,6 +4415,11 @@ int compare_str(const void * a, const void * b) {
 }
 
 /**
+ * List of file extensions to ignore when tab completing.
+ */
+const char * tab_complete_ignore[] = {".o",NULL};
+
+/**
  * Tab completion for command mode.
  */
 void command_tab_complete(char * buffer) {
@@ -4544,7 +4553,17 @@ void command_tab_complete(char * buffer) {
 				if (S_ISDIR(statbuf.st_mode)) {
 					strcat(s,"/");
 				}
-				add_candidate(s);
+
+				int skip = 0;
+				for (const char ** c = tab_complete_ignore; *c; ++c) {
+					if (str_ends_with(s, *c)) {
+						skip = 1;
+						break;
+					}
+				}
+				if (!skip) {
+					add_candidate(s);
+				}
 			}
 			ent = readdir(dirp);
 		}
