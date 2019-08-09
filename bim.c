@@ -5809,6 +5809,7 @@ void insert_char(unsigned int c) {
 		env->lines[env->line_no - 1] = nline;
 	}
 	env->col_no += 1;
+	set_preferred_column();
 	set_modified();
 }
 
@@ -6298,6 +6299,14 @@ void delete_word(void) {
  * Break the current line in two at the current cursor position.
  */
 void insert_line_feed(void) {
+	if (env->indent) {
+		if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
+			(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
+			(env->col_no > 3) &&
+			(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
+			delete_at_cursor();
+		}
+	}
 	if (env->col_no == env->lines[env->line_no - 1]->actual + 1) {
 		env->lines = add_line(env->lines, env->line_no);
 	} else {
@@ -7855,269 +7864,6 @@ _finish_completion:
 }
 
 /**
- * INSERT mode
- *
- * Accept input into the text buffer.
- */
-void insert_mode(void) {
-	int cin;
-	uint32_t c;
-
-	/* Set mode line */
-	env->mode = MODE_INSERT;
-	redraw_commandline();
-
-	/* Place the cursor in the text area */
-	place_cursor_actual();
-
-	int timeout = 0;
-	int this_buf[20];
-	uint32_t istate = 0;
-	int redraw = 0;
-	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
-		if (cin == -1) {
-			if (redraw) {
-				if (redraw & 2) {
-					redraw_text();
-				} else {
-					redraw_line(env->line_no-1);
-				}
-				redraw_statusbar();
-				place_cursor_actual();
-				redraw = 0;
-			}
-			if (timeout && this_buf[timeout-1] == '\033') {
-				leave_insert();
-				return;
-			}
-			timeout = 0;
-			continue;
-		}
-		if (!decode(&istate, &c, cin)) {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case 3: /* ^C */
-						leave_insert();
-						return;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						if (!env->tabs && env->col_no > 1) {
-							int i;
-							for (i = 0; i < env->col_no-1; ++i) {
-								if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
-							}
-							if (i == env->col_no-1) {
-								/* Backspace until aligned */
-								delete_at_cursor();
-								while (env->col_no > 1 && (env->col_no-1) % env->tabstop) {
-									delete_at_cursor();
-								}
-								redraw |= 2;
-								break; /* out of case */
-							}
-						}
-						delete_at_cursor();
-						break;
-					case ENTER_KEY:
-					case LINE_FEED:
-						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
-								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
-								(env->col_no > 3) &&
-								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
-								delete_at_cursor();
-							}
-						}
-						insert_line_feed();
-						redraw |= 2;
-						break;
-					case 15: /* ^O */
-						while (omni_complete() == 1);
-						break;
-					case 22: /* ^V */
-						/* Insert next byte raw */
-						{
-							/* Indicate we're in literal mode */
-							render_commandline_message("^V");
-							/* Put the cursor back into the text field */
-							place_cursor_actual();
-							/* Get next character */
-							while ((cin = bim_getch()) == -1);
-							/* Insert literal */
-							insert_char(cin);
-							/* Redraw INSERT */
-							redraw_commandline();
-							/* Draw text */
-							redraw |= 1;
-						}
-						break;
-					case 23: /* ^W */
-						delete_word();
-						set_preferred_column();
-						break;
-					case '\t':
-						if (env->tabs) {
-							insert_char('\t');
-						} else {
-							for (int i = 0; i < env->tabstop; ++i) {
-								insert_char(' ');
-							}
-						}
-						redraw |= 1;
-						set_preferred_column();
-						break;
-					case '/':
-						if (env->indent) {
-							if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
-								(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
-								(env->col_no > 3) &&
-								(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
-								env->col_no--;
-								replace_char('/');
-								env->col_no++;
-								place_cursor_actual();
-								break;
-							}
-						}
-						goto _just_insert;
-					case '}':
-						if (env->indent) {
-							int was_whitespace = 1;
-							for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
-								if (env->lines[env->line_no-1]->text[i].codepoint != ' ' &&
-									env->lines[env->line_no-1]->text[i].codepoint != '\t') {
-									was_whitespace = 0;
-									break;
-								}
-							}
-							insert_char('}');
-							if (was_whitespace) {
-								int line = -1, col = -1;
-								env->col_no--;
-								find_matching_paren(&line,&col, 1);
-								if (line != -1) {
-									while (env->lines[env->line_no-1]->actual) {
-										line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
-									}
-									add_indent(env->line_no-1,line-1,1);
-									env->col_no = env->lines[env->line_no-1]->actual + 1;
-									insert_char('}');
-								}
-							}
-							set_preferred_column();
-							redraw |= 1;
-							break;
-						}
-						/* fallthrough */
-					default:
-_just_insert:
-						insert_char(c);
-						set_preferred_column();
-						redraw |= 1;
-						break;
-				}
-			} else {
-				if (handle_escape(this_buf,&timeout,c)) {
-					bim_unget(c);
-					leave_insert();
-					return;
-				}
-			}
-		} else if (istate == UTF8_REJECT) {
-			istate = 0;
-		}
-	}
-}
-
-/**
- * REPLACE mode
- *
- * Like insert, but replaces characters.
- */
-void replace_mode(void) {
-	int cin;
-	uint32_t c;
-
-	/* Set mode line */
-	env->mode = MODE_REPLACE;
-	redraw_commandline();
-
-	/* Place the cursor in the text area */
-	place_cursor_actual();
-
-	int timeout = 0;
-	int this_buf[20];
-	uint32_t istate = 0;
-	while ((cin = bim_getch())) {
-		if (cin == -1) {
-			if (timeout && this_buf[timeout-1] == '\033') {
-				leave_insert();
-				return;
-			}
-			timeout = 0;
-			continue;
-		}
-		if (!decode(&istate, &c, cin)) {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						if (env->line_no > 1 && env->col_no == 1) {
-							env->line_no--;
-							env->col_no = env->lines[env->line_no-1]->actual;
-							set_preferred_column();
-							place_cursor_actual();
-						} else {
-							cursor_left();
-						}
-						break;
-					case ENTER_KEY:
-					case LINE_FEED:
-						insert_line_feed();
-						redraw_text();
-						set_modified();
-						redraw_statusbar();
-						place_cursor_actual();
-						break;
-					default:
-						if (env->col_no <= env->lines[env->line_no - 1]->actual) {
-							replace_char(c);
-							env->col_no += 1;
-						} else {
-							insert_char(c);
-							redraw_line(env->line_no-1);
-						}
-						set_preferred_column();
-						redraw_statusbar();
-						place_cursor_actual();
-						break;
-				}
-			} else {
-				if (handle_escape(this_buf,&timeout,c)) {
-					bim_unget(c);
-					leave_insert();
-					return;
-				}
-			}
-		} else if (istate == UTF8_REJECT) {
-			istate = 0;
-		}
-	}
-}
-
-/**
  * Handler for 'r'; takes in input to replace a single
  * character in the document. Handles Unicode, so we
  * can replace a character with complex input. Also
@@ -8416,6 +8162,100 @@ void next_line_whitespace(void) {
 	first_whitespace();
 }
 
+void smart_backspace(void) {
+	if (!env->tabs && env->col_no > 1) {
+		int i;
+		for (i = 0; i < env->col_no-1; ++i) {
+			if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) break;
+		}
+		if (i == env->col_no-1) {
+			/* Backspace until aligned */
+			delete_at_cursor();
+			while (env->col_no > 1 && (env->col_no-1) % env->tabstop) {
+				delete_at_cursor();
+			}
+			return;
+		}
+	}
+	delete_at_cursor();
+}
+
+void perform_omni_completion(void) {
+	/* This should probably be a submode */
+	while (omni_complete() == 1);
+}
+
+void insert_one_verbatim(int key) {
+	/* Indicate we're in literal mode */
+	render_commandline_message(name_from_key(key));
+	/* Put the cursor back into the text field */
+	place_cursor_actual();
+	/* Get next character */
+	int cin;
+	while ((cin = bim_getch()) == -1);
+	/* Insert literal */
+	insert_char(cin);
+	/* Redraw INSERT */
+	redraw_commandline();
+}
+
+void smart_tab(void) {
+	if (env->tabs) {
+		insert_char('\t');
+	} else {
+		for (int i = 0; i < env->tabstop; ++i) {
+			insert_char(' ');
+		}
+	}
+}
+
+void smart_comment_end(int c) {
+	/* smart *end* of comment anyway */
+	if (env->indent) {
+		if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
+			(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
+			(env->col_no > 3) &&
+			(env->lines[env->line_no-1]->text[env->col_no-3].codepoint == '*')) {
+			env->col_no--;
+			replace_char('/');
+			env->col_no++;
+			place_cursor_actual();
+			return;
+		}
+	}
+	insert_char(c);
+}
+
+void smart_brace_end(int c) {
+	if (env->indent) {
+		int was_whitespace = 1;
+		for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+			if (env->lines[env->line_no-1]->text[i].codepoint != ' ' &&
+				env->lines[env->line_no-1]->text[i].codepoint != '\t') {
+				was_whitespace = 0;
+				break;
+			}
+		}
+		insert_char(c);
+		if (was_whitespace) {
+			int line = -1, col = -1;
+			env->col_no--;
+			find_matching_paren(&line,&col, 1);
+			if (line != -1) {
+				while (env->lines[env->line_no-1]->actual) {
+					line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
+				}
+				add_indent(env->line_no-1,line-1,1);
+				env->col_no = env->lines[env->line_no-1]->actual + 1;
+				insert_char(c);
+			}
+		}
+		set_preferred_column();
+		return;
+	}
+	insert_char(c);
+}
+
 struct action_map {
 	int key;
 	void (*method)();
@@ -8450,6 +8290,29 @@ struct action_map NORMAL_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
+struct action_map INSERT_MAP[] = {
+	{KEY_ESCAPE,    leave_insert, 0, 0},
+	{KEY_DELETE,    delete_forward, 0, 0},
+	{KEY_CTRL_C,    leave_insert, 0, 0},
+	{KEY_BACKSPACE, smart_backspace, 0, 0},
+	{KEY_ENTER,     insert_line_feed, 0, 0},
+	{KEY_CTRL_O,    perform_omni_completion, 0, 0},
+	{KEY_CTRL_V,    insert_one_verbatim, opt_arg, KEY_CTRL_V},
+	{KEY_CTRL_W,    delete_word, 0, 0},
+	{'\t',          smart_tab, 0, 0},
+	{'/',           smart_comment_end, opt_arg, '/'},
+	{'}',           smart_brace_end, opt_arg, '}'},
+	{-1, NULL, 0, 0},
+};
+
+struct action_map REPLACE_MAP[] = {
+	{KEY_ESCAPE,    leave_insert, 0, 0},
+	{KEY_DELETE,    delete_forward, 0, 0},
+	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
+	{KEY_ENTER,     insert_line_feed, 0, 0},
+	{-1, NULL, 0, 0},
+};
+
 struct action_map NAVIGATION_MAP[] = {
 	/* Common navigation */
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
@@ -8474,6 +8337,8 @@ struct action_map NAVIGATION_MAP[] = {
 	{'T',           find_character, opt_rep | opt_arg | opt_char, 'T'},
 
 	{'G',           goto_line, opt_nav, 0},
+	{'*',           search_under_cursor, 0, 0},
+	{' ',           go_page_down, opt_rep, 0},
 	{'%',           jump_to_matching_bracket, 0, 0},
 	{'{',           jump_to_previous_blank, 0, 0},
 	{'}',           jump_to_next_blank, 0, 0},
@@ -8563,7 +8428,17 @@ int handle_action(struct action_map * basemap, int key) {
  */
 void normal_mode(void) {
 
+	int last_mode = MODE_NORMAL;
+	int refresh = 0;
+
 	while (1) {
+
+		if (env->mode != last_mode) {
+			redraw_statusbar();
+			redraw_commandline();
+			last_mode = env->mode;
+		}
+
 		if (env->mode == MODE_NORMAL) {
 			place_cursor_actual();
 			int key = bim_getkey(200);
@@ -8584,13 +8459,41 @@ void normal_mode(void) {
 			reset_nav_buffer(key);
 			place_cursor_actual();
 		} else if (env->mode == MODE_INSERT) {
-			insert_mode();
-			redraw_statusbar();
-			redraw_commandline();
+			place_cursor_actual();
+			int key = bim_getkey(refresh ? 10 : 200);
+			if (key == KEY_TIMEOUT) {
+				if (refresh == 2) {
+					redraw_text();
+				} else if (refresh) {
+					redraw_line(env->line_no-1);
+				}
+				refresh = 0;
+			} else if (handle_action(INSERT_MAP, key)) {
+				refresh = 2;
+			} else if (handle_action(ESCAPE_MAP, key)) {
+				/* Do nothing */
+			} else {
+				insert_char(key);
+				refresh = 1;
+			}
 		} else if (env->mode == MODE_REPLACE) {
-			replace_mode();
-			redraw_statusbar();
-			redraw_commandline();
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if (key != KEY_TIMEOUT) {
+				if (handle_action(REPLACE_MAP, key)) {
+					redraw_text();
+				} else if (!handle_action(ESCAPE_MAP, key)) {
+					/* Perform replacement */
+					if (env->col_no <= env->lines[env->line_no - 1]->actual) {
+						replace_char(key);
+						env->col_no += 1;
+					} else {
+						insert_char(key);
+						redraw_line(env->line_no-1);
+					}
+					set_preferred_column();
+				}
+			}
 		}
 	}
 
