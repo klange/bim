@@ -6984,6 +6984,18 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 		redraw_line((line)-1); \
 	} while (0)
 
+#define _redraw_line_col(line, force_start_line) \
+	do {\
+		if (!(force_start_line) && (line) == env->start_line) break; \
+		if ((line) > env->line_count + 1) { \
+			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
+				draw_excess_line((line) - env->offset - 1); \
+			} \
+			break; \
+		} \
+		redraw_line((line)-1); \
+	} while (0)
+
 /**
  * Adjust indentation on selected lines.
  */
@@ -7133,157 +7145,63 @@ void leave_selection(void) {
 	recalculate_selected_lines();
 }
 
-#define _redraw_line_col(line, force_start_line) \
-	do {\
-		if (!(force_start_line) && (line) == env->start_line) break; \
-		if ((line) > env->line_count + 1) { \
-			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
-				draw_excess_line((line) - env->offset - 1); \
-			} \
-			break; \
-		} \
-		redraw_line((line)-1); \
-	} while (0)
+void insert_char_at_column(int c) {
+	char_t _c;
+	_c.codepoint = c;
+	_c.flags = 0;
+	_c.display_width = codepoint_width(c);
 
-/**
- * COL INSERT MODE
- *
- * Allows entering text on multiple lines simultaneously.
- * A full multi-cursor insert mode would be way cooler, but
- * this is all we need for my general use case of vim's BLOCK modes.
- */
-void col_insert_mode(void) {
+	int inserted_width = 0;
+
+	/* For each line */
+	for (int i = env->line_no; i <= env->start_line; i++) {
+		line_t * line = env->lines[i - 1];
+
+		int _x = 0;
+		int col = 1;
+
+		int j = 0;
+		for (; j < line->actual; ++j) {
+			char_t * c = &line->text[j];
+			_x += c->display_width;
+			col = j+1;
+			if (_x > env->sel_col) break;
+		}
+
+		if ((_x == env->sel_col && j == line->actual)) {
+			_x = env->sel_col + 1;
+			col = line->actual + 1;
+		}
+
+		if (_x > env->sel_col) {
+			line_t * nline = line_insert(line, _c, col - 1, i - 1);
+			if (line != nline) {
+				env->lines[i - 1] = nline;
+				line = nline;
+			}
+			set_modified();
+		}
+		recalculate_tabs(line);
+		inserted_width = line->text[col-1].display_width;
+	}
+
+	env->sel_col += inserted_width;
+	env->col_no++;
+}
+
+void enter_col_insert(void) {
 	if (env->start_line < env->line_no) {
 		/* swap */
 		int tmp = env->line_no;
 		env->line_no = env->start_line;
 		env->start_line = tmp;
 	}
-
-	/* Set column to preferred_column */
 	env->mode = MODE_COL_INSERT;
-	redraw_commandline();
-	place_cursor_actual();
-
-	int cin;
-	uint32_t c;
-
-	int timeout = 0;
-	int this_buf[20];
-	uint32_t istate = 0;
-	int redraw = 0;
-	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
-		if (cin == -1) {
-			if (redraw) {
-				if (redraw & 2) {
-					redraw_text();
-				} else {
-					redraw_line(env->line_no-1);
-				}
-				redraw_statusbar();
-				place_cursor_actual();
-				redraw = 0;
-			}
-			if (timeout && this_buf[timeout-1] == '\033') {
-				return;
-			}
-			timeout = 0;
-			continue;
-		}
-		if (!decode(&istate, &c, cin)) {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case 3: /* ^C */
-						return;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						delete_at_column(-1);
-						break;
-					case ENTER_KEY:
-					case LINE_FEED:
-						/* do nothing in these cases */
-						break;
-					case 23: /* ^W */
-						break;
-					case 22: /* ^V */
-						render_commandline_message("^V");
-						while ((cin = bim_getch()) == -1);
-						c = cin;
-						redraw_commandline();
-						/* fallthrough */
-					default:
-						/* Okay, this is going to duplicate a lot of insert_char */
-						if (c) {
-							char_t _c;
-							_c.codepoint = c;
-							_c.flags = 0;
-							_c.display_width = codepoint_width(c);
-
-							int inserted_width = 0;
-
-							/* For each line */
-							for (int i = env->line_no; i <= env->start_line; i++) {
-								line_t * line = env->lines[i - 1];
-
-								int _x = 0;
-								int col = 1;
-
-								int j = 0;
-								for (; j < line->actual; ++j) {
-									char_t * c = &line->text[j];
-									_x += c->display_width;
-									col = j+1;
-									if (_x > env->sel_col) break;
-								}
-
-								if ((_x == env->sel_col && j == line->actual)) {
-									_x = env->sel_col + 1;
-									col = line->actual + 1;
-								}
-
-								if (_x > env->sel_col) {
-									line_t * nline = line_insert(line, _c, col - 1, i - 1);
-									if (line != nline) {
-										env->lines[i - 1] = nline;
-										line = nline;
-									}
-									set_modified();
-								}
-								recalculate_tabs(line);
-								inserted_width = line->text[col-1].display_width;
-							}
-
-							env->sel_col += inserted_width;
-							env->col_no++;
-							redraw_text();
-
-						}
-				}
-			} else {
-				/* Ignore escape sequences for now, but handle them nicely */
-				int arg = 0;
-				switch (handle_command_escape(this_buf,&timeout,c,&arg)) {
-					case 1:
-						bim_unget(c);
-						return;
-				}
-			}
-		} else if (istate == UTF8_REJECT) {
-			istate = 0;
-		}
-	}
 }
 
 void enter_col_insert_after(void) {
 	env->sel_col += 1;
-	/* env->mode = MODE_COL_INSERT */
-	col_insert_mode();
+	enter_col_insert();
 }
 
 void delete_column(void) {
@@ -8138,10 +8056,20 @@ struct action_map COL_SELECTION_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{KEY_CTRL_V,    leave_selection, 0, 0},
-	/* TODO these should not be opt_norm once col insert is fixed */
-	{'I',           col_insert_mode, opt_norm, 0},
-	{'a',           enter_col_insert_after, opt_norm, 0},
+	{'I',           enter_col_insert, 0, 0},
+	{'a',           enter_col_insert_after, 0, 0},
 	{'d',           delete_column, 0, 0},
+	{-1, NULL, 0, 0},
+};
+
+struct action_map COL_INSERT_MAP[] = {
+	{KEY_ESCAPE,    leave_selection, 0, 0},
+	{KEY_CTRL_C,    leave_selection, 0, 0},
+	{KEY_BACKSPACE, delete_at_column, opt_arg, -1},
+	{KEY_DELETE,    delete_at_column, opt_arg, 1},
+	{KEY_ENTER,     NULL, 0, 0},
+	{KEY_CTRL_W,    NULL, 0, 0},
+	{KEY_CTRL_V,    insert_char_at_column, opt_char, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -8214,6 +8142,7 @@ struct action_map ESCAPE_MAP[] = {
 int handle_action(struct action_map * basemap, int key) {
 	for (struct action_map * map = basemap; map->key != -1; map++) {
 		if (map->key == key) {
+			if (!map->method) return 1;
 			/* Determine how to format this request */
 			int reps = (map->options & opt_rep) ? ((nav_buffer) ? atoi(nav_buf) : 1) : 1;
 			int c = 0;
@@ -8403,7 +8332,6 @@ void normal_mode(void) {
 				}
 			}
 		} else if (env->mode == MODE_COL_SELECTION) {
-			place_cursor_actual();
 			int key = bim_getkey(200);
 			if (key == KEY_TIMEOUT) continue;
 
@@ -8431,6 +8359,20 @@ void normal_mode(void) {
 				}
 
 				redraw_commandline();
+			}
+		} else if (env->mode == MODE_COL_INSERT) {
+			int key = bim_getkey(refresh ? 10 : 200);
+			if (key == KEY_TIMEOUT) {
+				if (refresh) {
+					redraw_commandline();
+					redraw_text();
+				}
+				refresh = 0;
+			} else if (handle_action(COL_INSERT_MAP, key)) {
+				/* pass */
+			} else {
+				insert_char_at_column(key);
+				refresh = 1;
 			}
 		}
 	}
