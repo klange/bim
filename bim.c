@@ -4984,7 +4984,11 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 		printf("<"); \
 	} else { \
 		set_colors(COLOR_FG, COLOR_BG); \
-		printf(":"); \
+		if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) { \
+			printf(global_config.search_direction == 0 ? "?" : "/"); \
+		} else { \
+			printf(":"); \
+		} \
 	} \
 	render_line(global_config.command_buffer, global_config.term_width-1-_left_gutter, global_config.command_offset, -1); \
 	refresh = 0; \
@@ -4994,6 +4998,17 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 void command_discard(void) {
 	free(global_config.command_buffer);
 	global_config.command_buffer = NULL;
+	if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+		env->line_no = global_config.prev_line;
+		env->col_no  = global_config.prev_col;
+		/* Unhighlight search matches */
+		for (int i = 0; i < env->line_count; ++i) {
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
+			}
+			rehighlight_search(env->lines[i]);
+		}
+	}
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
 	redraw_all();
 	/* TODO exit some other modes? */
@@ -5337,144 +5352,58 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	}
 }
 
-/**
- * Search mode
- *
- * Search text for substring match.
- */
-void search_mode(int direction) {
-	uint32_t c;
-	uint32_t buffer[1024] = {0};
-	int  buffer_len = 0;
+void enter_search(int direction) {
+	global_config.overlay_mode = OVERLAY_MODE_SEARCH;
 
-	/* utf-8 decoding */
+	global_config.command_offset = 0;
+	global_config.command_col_no = 1;
 
-	/* Remember where the cursor is so we can cancel */
-	int prev_line = env->line_no;
-	int prev_col  = env->col_no;
-	int prev_coffset = env->coffset;
-	int prev_offset = env->offset;
+	global_config.prev_line = env->line_no;
+	global_config.prev_col  = env->col_no;
+	global_config.prev_coffset = env->coffset;
+	global_config.prev_offset = env->offset;
+	global_config.search_direction = direction;
 
-	redraw_commandline();
-	printf(direction == 1 ? "/" : "?");
+	if (global_config.command_buffer) {
+		free(global_config.command_buffer);
+	}
+
+	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer->available = 32;
+
+	global_config.command_syn_back = env->syntax;
+	global_config.command_syn = NULL; /* Disable syntax highlighting in search; maybe use buffer's mode instead? */
+
+	int refresh = 1;
+	_set_cmdline();
+	(void)refresh;
+}
+
+void search_accept(void) {
+	/* Store the accepted search */
+	if (!global_config.command_buffer->actual) {
+		if (global_config.search) {
+			search_next();
+		}
+		goto _finish;
+	}
 	if (global_config.search) {
-		store_cursor();
-		set_colors(COLOR_ALT_FG, COLOR_BG);
-		uint32_t * c = global_config.search;
-		while (*c) {
-			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
-			to_eight(*c, tmp);
-			printf("%s", tmp);
-			c++;
-		}
-		restore_cursor();
-		set_colors(COLOR_FG, COLOR_BG);
+		free(global_config.search);
 	}
-	show_cursor();
 
-	uint32_t state = 0;
-	int cin;
-
-	while ((cin = bim_getch())) {
-		if (cin == -1) {
-			/* Time out */
-			continue;
-		}
-		if (!decode(&state, &c, cin)) {
-			if (c == '\033' || c == 3) {
-				/* Cancel search */
-				env->line_no = prev_line;
-				env->col_no  = prev_col;
-				/* Unhighlight search matches */
-				for (int i = 0; i < env->line_count; ++i) {
-					for (int j = 0; j < env->lines[i]->actual; ++j) {
-						env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
-					}
-					rehighlight_search(env->lines[i]);
-				}
-				redraw_all();
-				break;
-			} else if (c == ENTER_KEY || c == LINE_FEED) {
-				/* Exit search */
-				if (!buffer_len) {
-					if (global_config.search) {
-						search_next();
-					}
-					break;
-				}
-				if (global_config.search) {
-					free(global_config.search);
-				}
-				global_config.search = malloc((buffer_len + 1) * sizeof(uint32_t));
-				memcpy(global_config.search, buffer, (buffer_len + 1) * sizeof(uint32_t));
-				break;
-			} else if (c == BACKSPACE_KEY || c == DELETE_KEY) {
-				/* Backspace, delete last character in search buffer */
-				if (buffer_len > 0) {
-					buffer_len -= 1;
-					buffer[buffer_len] = '\0';
-					/* Search from beginning to find first match */
-					int line = -1, col = -1;
-					if (direction == 1) {
-						find_match(prev_line, prev_col, &line, &col, buffer);
-					} else {
-						find_match_backwards(prev_line, prev_col, &line, &col, buffer);
-					}
-
-					if (line != -1) {
-						env->col_no = col;
-						env->line_no = line;
-						set_preferred_column();
-					}
-
-					draw_search_match(buffer, direction);
-
-				} else {
-					/* If backspaced through entire search term, cancel search */
-					redraw_commandline();
-					env->coffset = prev_coffset;
-					env->offset = prev_offset;
-					env->col_no = prev_col;
-					set_preferred_column();
-					env->line_no = prev_line;
-					redraw_all();
-					break;
-				}
-			} else {
-				/* Regular character */
-				buffer[buffer_len] = c;
-				buffer_len++;
-				buffer[buffer_len] = '\0';
-				char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
-				to_eight(c, tmp);
-				printf("%s", tmp);
-
-				/* Find the next search match */
-				int line = -1, col = -1;
-				if (direction == 1) {
-					find_match(prev_line, prev_col, &line, &col, buffer);
-				} else {
-					find_match_backwards(prev_line, prev_col, &line, &col, buffer);
-				}
-
-				if (line != -1) {
-					env->col_no = col;
-					env->line_no = line;
-					set_preferred_column();
-				} else {
-					env->coffset = prev_coffset;
-					env->offset = prev_offset;
-					env->col_no = prev_col;
-					set_preferred_column();
-					env->line_no = prev_line;
-				}
-				draw_search_match(buffer, direction);
-			}
-			show_cursor();
-		} else if (state == UTF8_REJECT) {
-			state = 0;
-		}
+	global_config.search = malloc((global_config.command_buffer->actual + 1) * sizeof(uint32_t));
+	for (int i = 0; i < global_config.command_buffer->actual; ++i) {
+		global_config.search[i] = global_config.command_buffer->text[i].codepoint;
 	}
+	global_config.search[global_config.command_buffer->actual] = 0;
+
+_finish:
+	/* Free the original editing buffer */
+	free(global_config.command_buffer);
+	global_config.command_buffer = NULL;
+
+	/* Leave command mode */
+	global_config.overlay_mode = OVERLAY_MODE_NONE;
 }
 
 /**
@@ -7676,20 +7605,6 @@ void perform_omni_completion(void) {
 	while (omni_complete() == 1);
 }
 
-void insert_one_verbatim(int key) {
-	/* Indicate we're in literal mode */
-	render_commandline_message(name_from_key(key));
-	/* Put the cursor back into the text field */
-	place_cursor_actual();
-	/* Get next character */
-	int cin;
-	while ((cin = bim_getch()) == -1);
-	/* Insert literal */
-	insert_char(cin);
-	/* Redraw INSERT */
-	redraw_commandline();
-}
-
 void smart_tab(void) {
 	if (env->tabs) {
 		insert_char('\t');
@@ -7792,7 +7707,7 @@ struct action_map INSERT_MAP[] = {
 	{KEY_BACKSPACE, smart_backspace, 0, 0},
 	{KEY_ENTER,     insert_line_feed, 0, 0},
 	{KEY_CTRL_O,    perform_omni_completion, 0, 0},
-	{KEY_CTRL_V,    insert_one_verbatim, opt_arg, KEY_CTRL_V},
+	{KEY_CTRL_V,    insert_char, opt_char, 0},
 	{KEY_CTRL_W,    delete_word, 0, 0},
 	{'\t',          smart_tab, 0, 0},
 	{'/',           smart_comment_end, opt_arg, '/'},
@@ -7867,8 +7782,8 @@ struct action_map NAVIGATION_MAP[] = {
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
 	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
 	{':',           enter_command, 0, 0},
-	{'/',           search_mode, opt_arg, 1},
-	{'?',           search_mode, opt_arg, 0},
+	{'/',           enter_search, opt_arg, 1},
+	{'?',           enter_search, opt_arg, 0},
 	{'n',           search_next, opt_rep, 0},
 	{'N',           search_prev, opt_rep, 0},
 	{'j',           cursor_down, opt_rep, 0},
@@ -7933,6 +7848,15 @@ struct action_map COMMAND_MAP[] = {
 	{'\t',          command_tab_complete_buffer, 0, 0},
 	{KEY_UP,        command_scroll_history, opt_arg, -1}, /* back */
 	{KEY_DOWN,      command_scroll_history, opt_arg, 1}, /* forward */
+
+	{-1, NULL, 0, 0}
+};
+
+struct action_map SEARCH_MAP[] = {
+	{KEY_ENTER,    search_accept, 0, 0},
+
+	{KEY_UP,       NULL, 0, 0},
+	{KEY_DOWN,     NULL, 0, 0},
 
 	{-1, NULL, 0, 0}
 };
@@ -8043,6 +7967,50 @@ void normal_mode(void) {
 					if (!handle_action(COMMAND_MAP, key))
 						if (!handle_action(INPUT_BUFFER_MAP, key))
 							command_insert_char(key);
+				}
+				continue;
+			} else if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+				if (refresh) {
+					_set_cmdline();
+				}
+				int key = bim_getkey(200);
+				if (key != KEY_TIMEOUT) {
+					refresh = 1;
+					if (!handle_action(SEARCH_MAP, key)) {
+						if (!handle_action(INPUT_BUFFER_MAP, key)) {
+							command_insert_char(key);
+						}
+					}
+
+					if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+						/* Find the next search match */
+						uint32_t * buffer = malloc(sizeof(uint32_t) * (global_config.command_buffer->actual+1));
+						for (int i = 0; i < global_config.command_buffer->actual; ++i) {
+							buffer[i] = global_config.command_buffer->text[i].codepoint;
+						}
+						buffer[global_config.command_buffer->actual] = 0;
+						int line = -1, col = -1;
+						if (global_config.search_direction == 1) {
+							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
+						} else {
+							find_match_backwards(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
+						}
+
+						if (line != -1) {
+							env->col_no = col;
+							env->line_no = line;
+							set_preferred_column();
+						} else {
+							env->coffset = global_config.prev_coffset;
+							env->offset = global_config.prev_offset;
+							env->col_no = global_config.prev_col;
+							set_preferred_column();
+							env->line_no = global_config.prev_line;
+						}
+						draw_search_match(buffer, 0);
+
+						free(buffer);
+					}
 				}
 				continue;
 			}
