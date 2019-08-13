@@ -137,6 +137,13 @@ typedef struct {
 	const char * syntax_fallback;
 	uint32_t * search;
 
+	int overlay_mode;
+	line_t * command_buffer;
+
+	int command_offset, command_col_no;
+	struct syntax_definition * command_syn, * command_syn_back;
+	int history_point;
+
 	unsigned int highlight_on_open:1;
 	unsigned int initial_file_is_read_only:1;
 	unsigned int go_to_line:1;
@@ -167,6 +174,12 @@ typedef struct {
 	int scroll_amount;
 
 } global_config_t;
+
+#define OVERLAY_MODE_NONE     0
+#define OVERLAY_MODE_READ_ONE 1
+#define OVERLAY_MODE_COMMAND  2
+#define OVERLAY_MODE_SEARCH   3
+#define OVERLAY_MODE_COMPLETE 4
 
 #define HISTORY_SENTINEL     0
 #define HISTORY_INSERT       1

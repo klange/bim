@@ -30,6 +30,11 @@ global_config_t global_config = {
 	.bimrc_path = "~/.bimrc",
 	.syntax_fallback = NULL, /* syntax to fall back to if none other match applies */
 	.search = NULL,
+	.overlay_mode = OVERLAY_MODE_NONE,
+	.command_buffer = NULL,
+	.command_offset = 0,
+	.command_col_no = 0,
+	.history_point = -1,
 	/* Bitset starts here */
 	.highlight_on_open = 1,
 	.initial_file_is_read_only = 0,
@@ -4911,25 +4916,25 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 /**
  * Macros for use in command mode.
  */
-#define _syn_command() do { env->syntax = _syn_bim; } while (0)
-#define _syn_restore() do { env->syntax = _syn; } while (0)
+#define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
+#define _syn_restore() do { env->syntax = global_config.command_syn_back; } while (0)
 #define _place_cursor() do { \
-	int x = 2 + _left_gutter - offset; \
-	for (int i = 0; i < col_no - 1; ++i) { \
-		char_t * c = &command_buffer->text[i]; \
+	int x = 2 + _left_gutter - global_config.command_offset; \
+	for (int i = 0; i < global_config.command_col_no - 1; ++i) { \
+		char_t * c = &global_config.command_buffer->text[i]; \
 		x += c->display_width; \
 	} \
 	if (x > global_config.term_width - 1) { \
 		int diff = x - (global_config.term_width - 1); \
-		offset += diff; \
+		global_config.command_offset += diff; \
 		x -= diff; \
-		redraw = 1; \
+		refresh = 1; \
 	} \
 	if (x < 2 + _left_gutter) { \
 		int diff = (2 + _left_gutter) - x; \
-		offset -= diff; \
+		global_config.command_offset -= diff; \
 		x += diff; \
-		redraw = 1; \
+		refresh = 1; \
 	} \
 	place_cursor(40, global_config.term_height); \
 	place_cursor(x, global_config.term_height); \
@@ -4938,15 +4943,16 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 
 #define _restore_history(point) do { \
 	unsigned char * t = command_history[point]; \
-	col_no = 1; \
-	command_buffer->actual = 0; \
+	global_config.command_col_no = 1; \
+	global_config.command_buffer->actual = 0; \
 	_syn_command(); \
-	state = 0; \
+	uint32_t state = 0; \
+	uint32_t c = 0; \
 	while (*t) { \
 		if (!decode(&state, &c, *t)) { \
 			char_t _c = {codepoint_width(c), 0, c}; \
-			line_insert(command_buffer, _c, col_no - 1, -1); \
-			col_no++; \
+			line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
+			global_config.command_col_no++; \
 		} else if (state == UTF8_REJECT) state = 0; \
 		t++; \
 	} \
@@ -4960,7 +4966,7 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	place_cursor(1, global_config.term_height); \
 	paint_line(COLOR_BG); \
 	set_colors(COLOR_ALT_FG, COLOR_BG); \
-	_left_gutter = 0; \
+	int _left_gutter = 0; \
 	if (env->mode == MODE_LINE_SELECTION) { \
 		_left_gutter = printf("(LINE %d:%d)", \
 			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
@@ -4973,251 +4979,209 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	} else if (env->mode == MODE_CHAR_SELECTION) { \
 		_left_gutter = printf("(CHAR)"); \
 	} \
-	if (offset) { \
+	if (global_config.command_offset) { \
 		set_colors(COLOR_ALT_FG, COLOR_ALT_BG); \
 		printf("<"); \
 	} else { \
 		set_colors(COLOR_FG, COLOR_BG); \
 		printf(":"); \
 	} \
-	render_line(command_buffer, global_config.term_width-1-_left_gutter, offset, -1); \
-	redraw = 0; \
+	render_line(global_config.command_buffer, global_config.term_width-1-_left_gutter, global_config.command_offset, -1); \
+	refresh = 0; \
 	_place_cursor(); \
 } while (0)
 
-/**
- * Command Mode
- *
- * Accept a command to run.
- * !-prefixed commands will be run with the system shell.
- *
- * Supports tab completion of filenames, arguments, etc.
- * Full line editing with syntax highlighting.
- */
-void command_mode(void) {
-	int offset = 0;
-	int col_no = 1;
-	int redraw = 0;
-	int _left_gutter;
+void command_discard(void) {
+	free(global_config.command_buffer);
+	global_config.command_buffer = NULL;
+	global_config.overlay_mode = OVERLAY_MODE_NONE;
+	redraw_all();
+	/* TODO exit some other modes? */
+}
 
-	line_t * command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
-	command_buffer->available = 32;
+void enter_command(void) {
+	global_config.overlay_mode = OVERLAY_MODE_COMMAND;
 
-	_set_cmdline();
+	global_config.command_offset = 0;
+	global_config.command_col_no = 1;
 
-	struct syntax_definition * _syn = env->syntax;
-	struct syntax_definition * _syn_bim = find_syntax_calculator("bimcmd");
-
-	int cin;
-	uint32_t c;
-	int timeout = 0;
-	int this_buf[20];
-	uint32_t istate = 0;
-
-	int history_point = -1;
-
-	while ((cin = bim_getch_timeout((redraw ? 10 : 200)))) {
-		if (cin == -1) {
-			if (redraw) {
-				_set_cmdline();
-			}
-			if (timeout && this_buf[timeout-1] == '\033') {
-				goto _leave;
-			}
-			timeout = 0;
-			continue;
-		}
-		if (!decode(&istate, &c, cin)) {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case 3:
-						goto _leave;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						if (col_no <= 1) {
-							if (command_buffer->actual == 0) goto _leave;
-							else break;
-						}
-						_syn_command();
-						line_delete(command_buffer, col_no - 1, -1);
-						_syn_restore();
-						col_no--;
-						offset = 0;
-						redraw = 1;
-						break;
-					case ENTER_KEY:
-					case LINE_FEED:
-						{
-							/* First count how many bytes we need */
-							size_t size = 0;
-							for (int i = 0; i < command_buffer->actual; ++i) {
-								char tmp[8] = {0};
-								size += to_eight(command_buffer->text[i].codepoint, tmp);
-							}
-							char * tmp = malloc(size + 8); /* for overflow from to_eight */
-							char * t = tmp;
-							for (int i = 0; i < command_buffer->actual; ++i) {
-								t += to_eight(command_buffer->text[i].codepoint, t);
-							}
-							*t = '\0';
-							free(command_buffer);
-							process_command(tmp);
-							free(tmp);
-						}
-						return;
-					case 23: /* ^W */
-						_syn_command();
-						while (col_no > 1 &&
-						       (command_buffer->text[col_no-2].codepoint == ' ' ||
-						        command_buffer->text[col_no-2].codepoint == '/')) {
-							line_delete(command_buffer, col_no - 1, -1);
-							col_no--;
-						}
-						while (col_no > 1 &&
-						       command_buffer->text[col_no-2].codepoint != ' ' &&
-						       command_buffer->text[col_no-2].codepoint != '/') {
-							line_delete(command_buffer, col_no - 1, -1);
-							col_no--;
-						}
-						_syn_restore();
-						redraw = 1;
-						break;
-					case '\t':
-						{
-							char * tmp = calloc(1024,1);
-							char * t = tmp;
-							for (int i = 0; i < col_no-1; ++i) {
-								t += to_eight(command_buffer->text[i].codepoint, t);
-							}
-							*t = '\0';
-							_syn_command();
-							while (col_no > 1) {
-								line_delete(command_buffer, col_no - 1, -1);
-								col_no--;
-							}
-							_syn_restore();
-							command_tab_complete(tmp);
-							_syn_command();
-							uint32_t state = 0, c= 0;
-							t = tmp;
-							while (*t) {
-								if (!decode(&state, &c, *t)) {
-									char_t _c = {codepoint_width(c), 0, c};
-									command_buffer = line_insert(command_buffer, _c, col_no - 1, -1);
-									col_no++;
-								}
-								t++;
-							}
-							_syn_restore();
-							free(tmp);
-							redraw = 1;
-						}
-						break;
-					default:
-						{
-							char_t _c = {codepoint_width(c), 0, c};
-							_syn_command();
-							command_buffer = line_insert(command_buffer, _c, col_no - 1, -1);
-							_syn_restore();
-							col_no++;
-						}
-						redraw = 1;
-						break;
-				}
-			} else {
-				int arg = 0;
-				switch (handle_command_escape(this_buf,&timeout,c,&arg)) {
-					case 1:
-						bim_unget(c);
-						goto _leave;
-					case 2:
-						/* It would be nice to handle the mouse here... */
-						bim_getch();
-						bim_getch();
-						bim_getch();
-						break;
-					case 'A':
-						/* Load from history */
-						if (command_history[history_point+1]) {
-							_restore_history(history_point+1);
-							history_point++;
-							redraw = 1;
-						}
-						break;
-					case 'B':
-						if (history_point > 0) {
-							history_point--;
-							_restore_history(history_point);
-							redraw = 1;
-						} else {
-							history_point = -1;
-							col_no = 1;
-							command_buffer->actual = 0;
-							redraw = 1;
-						}
-						break;
-					case 'D':
-						if (arg == '5') {
-							if (col_no > 1) {
-								redraw = 1;
-								do {
-									col_no--;
-								} while (isspace(command_buffer->text[col_no-1].codepoint) && col_no > 1);
-								if (col_no == 1) break;
-								do {
-									col_no--;
-								} while (!isspace(command_buffer->text[col_no-1].codepoint) && col_no > 1);
-								if (isspace(command_buffer->text[col_no-1].codepoint) && col_no < command_buffer->actual) col_no++;
-							}
-						} else {
-							if (col_no > 1) col_no--;
-							redraw = 1;
-						}
-						break;
-					case 'C':
-						if (arg == '5') {
-							if (col_no < command_buffer->actual) {
-								redraw = 1;
-								do {
-									col_no++;
-									if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; break; }
-								} while (!isspace(command_buffer->text[col_no-1].codepoint) && col_no <= command_buffer->actual);
-								do {
-									col_no++;
-									if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; break; }
-								} while (isspace(command_buffer->text[col_no-1].codepoint) && col_no <= command_buffer->actual);
-								if (col_no > command_buffer->actual) { col_no = command_buffer->actual+1; }
-							}
-						} else {
-							if (col_no < command_buffer->actual+1) col_no++;
-							redraw = 1;
-						}
-						break;
-					case 'H':
-						col_no = 1;
-						redraw = 1;
-						break;
-					case 'F':
-						col_no = command_buffer->actual + 1;
-						redraw = 1;
-						break;
-				}
-			}
-		} else if (istate == UTF8_REJECT) {
-			istate = 0;
-		}
+	if (global_config.command_buffer) {
+		free(global_config.command_buffer);
 	}
 
-_leave:
-	free(command_buffer);
-	redraw_all();
-	place_cursor_actual();
+	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer->available = 32;
+
+	global_config.command_syn_back = env->syntax;
+	global_config.command_syn = find_syntax_calculator("bimcmd");
+
+	global_config.history_point = -1;
+
+	int refresh = 1;
+	_set_cmdline();
+	(void)refresh;
+}
+
+void command_accept(void) {
+	/* Convert command buffer to UTF-8 char-array string */
+	size_t size = 0;
+	for (int i = 0; i < global_config.command_buffer->actual; ++i) {
+		char tmp[8] = {0};
+		size += to_eight(global_config.command_buffer->text[i].codepoint, tmp);
+	}
+	char * tmp = malloc(size + 8); /* for overflow from to_eight */
+	char * t = tmp;
+	for (int i = 0; i < global_config.command_buffer->actual; ++i) {
+		t += to_eight(global_config.command_buffer->text[i].codepoint, t);
+	}
+	*t = '\0';
+
+	/* Free the original editing buffer */
+	free(global_config.command_buffer);
+	global_config.command_buffer = NULL;
+
+	/* Run the converted command */
+	process_command(tmp);
+	free(tmp);
+
+	/* Leave command mode */
+	global_config.overlay_mode = OVERLAY_MODE_NONE;
+}
+
+void command_word_delete(void) {
+	_syn_command();
+	while (global_config.command_col_no > 1 &&
+	       (global_config.command_buffer->text[global_config.command_col_no-2].codepoint == ' ' ||
+	        global_config.command_buffer->text[global_config.command_col_no-2].codepoint == '/')) {
+		line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
+		global_config.command_col_no--;
+	}
+	while (global_config.command_col_no > 1 &&
+	       global_config.command_buffer->text[global_config.command_col_no-2].codepoint != ' ' &&
+	       global_config.command_buffer->text[global_config.command_col_no-2].codepoint != '/') {
+		line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
+		global_config.command_col_no--;
+	}
+	_syn_restore();
+}
+
+void command_tab_complete_buffer(void) {
+	/* command_tab_complete should probably just be adjusted to deal with the buffer... */
+	char * tmp = calloc(1024,1);
+	char * t = tmp;
+	for (int i = 0; i < global_config.command_col_no-1; ++i) {
+		t += to_eight(global_config.command_buffer->text[i].codepoint, t);
+	}
+	*t = '\0';
+	_syn_command();
+	while (global_config.command_col_no > 1) {
+		line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
+		global_config.command_col_no--;
+	}
+	_syn_restore();
+	command_tab_complete(tmp);
+	_syn_command();
+	uint32_t state = 0, c= 0;
+	t = tmp;
+	while (*t) {
+		if (!decode(&state, &c, *t)) {
+			char_t _c = {codepoint_width(c), 0, c};
+			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
+			global_config.command_col_no++;
+		}
+		t++;
+	}
+	_syn_restore();
+	free(tmp);
+}
+
+void command_backspace(void) {
+	if (global_config.command_col_no <= 1) {
+		if (global_config.command_buffer->actual == 0) {
+			command_discard();
+		}
+		return;
+	}
+	_syn_command();
+	line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
+	_syn_restore();
+	global_config.command_col_no--;
+	global_config.command_offset = 0;
+}
+
+void command_scroll_history(int direction) {
+	if (direction == -1) {
+		if (command_history[global_config.history_point+1]) {
+			_restore_history(global_config.history_point+1);
+			global_config.history_point++;
+		}
+	} else {
+		if (global_config.history_point > 0) {
+			global_config.history_point--;
+			_restore_history(global_config.history_point);
+		} else {
+			global_config.history_point = -1;
+			global_config.command_col_no = 1;
+			global_config.command_buffer->actual = 0;
+		}
+	}
+}
+
+void command_word_left(void) {
+	if (global_config.command_col_no > 1) {
+		do {
+			global_config.command_col_no--;
+		} while (isspace(global_config.command_buffer->text[global_config.command_col_no-1].codepoint) && global_config.command_col_no > 1);
+		if (global_config.command_col_no == 1) return;
+		do {
+			global_config.command_col_no--;
+		} while (!isspace(global_config.command_buffer->text[global_config.command_col_no-1].codepoint) && global_config.command_col_no > 1);
+		if (isspace(global_config.command_buffer->text[global_config.command_col_no-1].codepoint) && global_config.command_col_no < global_config.command_buffer->actual) global_config.command_col_no++;
+	}
+}
+
+void command_word_right(void) {
+	if (global_config.command_col_no < global_config.command_buffer->actual) {
+		do {
+			global_config.command_col_no++;
+			if (global_config.command_col_no > global_config.command_buffer->actual) { global_config.command_col_no = global_config.command_buffer->actual+1; break; }
+		} while (!isspace(global_config.command_buffer->text[global_config.command_col_no-1].codepoint) && global_config.command_col_no <= global_config.command_buffer->actual);
+		do {
+			global_config.command_col_no++;
+			if (global_config.command_col_no > global_config.command_buffer->actual) { global_config.command_col_no = global_config.command_buffer->actual+1; break; }
+		} while (isspace(global_config.command_buffer->text[global_config.command_col_no-1].codepoint) && global_config.command_col_no <= global_config.command_buffer->actual);
+		if (global_config.command_col_no > global_config.command_buffer->actual) { global_config.command_col_no = global_config.command_buffer->actual+1; }
+	}
+}
+
+void command_cursor_left(void) {
+	if (global_config.command_col_no > 1) global_config.command_col_no--;
+}
+
+void command_cursor_right(void) {
+	if (global_config.command_col_no < global_config.command_buffer->actual+1) global_config.command_col_no++;
+}
+
+void command_cursor_home(void) {
+	global_config.command_col_no = 1;
+}
+
+void command_cursor_end(void) {
+	global_config.command_col_no = global_config.command_buffer->actual + 1;
+}
+
+void eat_mouse(void) {
+	bim_getch();
+	bim_getch();
+	bim_getch();
+}
+
+void command_insert_char(int c) {
+	char_t _c = {codepoint_width(c), 0, c};
+	_syn_command();
+	global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
+	_syn_restore();
+	global_config.command_col_no++;
 }
 
 /**
@@ -6719,181 +6683,6 @@ void reset_nav_buffer(int c) {
 }
 
 /**
- * Performs action with repitions if nav_buffer is set;
- * otherwise once. With reps, set loading so that actions
- * don't redraw screen several times.
- */
-#define with_reps(stuff) \
-	if (reps) { \
-		env->loading = 1; \
-		for (int i = 0; i < reps; ++i) { \
-			stuff; \
-		} \
-		env->loading = 0; \
-		redraw_all(); \
-	} else { \
-		stuff; \
-	}
-
-/**
- * Standard navigation shared by normal, line, and char selection.
- */
-void handle_navigation(int c) {
-	int reps = (nav_buffer) ? atoi(nav_buf) : 1;
-	switch (c) {
-		case 2: /* ctrl-b = page up */
-			with_reps(goto_line(env->line_no - (global_config.term_height - 6)));
-			break;
-		case 6: /* ctrl-f = page down */
-			with_reps(goto_line(env->line_no + global_config.term_height - 6));
-			break;
-		case ':': /* Switch to command mode */
-			command_mode();
-			break;
-		case '/': /* Switch to search mode */
-			search_mode(1);
-			break;
-		case '?': /* Switch to search mode */
-			search_mode(0);
-			break;
-		case 'n': /* Jump to next search result */
-			with_reps(search_next());
-			break;
-		case 'N': /* Jump backwards to previous search result */
-			with_reps(search_prev());
-			break;
-		case 'j': /* Move cursor down */
-			with_reps(cursor_down());
-			break;
-		case 'k': /* Move cursor up */
-			with_reps(cursor_up());
-			break;
-		case 'h': /* Move cursor left */
-			with_reps(cursor_left());
-			break;
-		case 'l': /* Move cursor right*/
-			with_reps(cursor_right());
-			break;
-		case 'b': /* Move cursor one word left */
-			with_reps(word_left());
-			break;
-		case 'w': /* Move cursor one word right */
-			with_reps(word_right());
-			break;
-		case 'B': /* Move cursor one WORD left */
-			with_reps(big_word_left());
-			break;
-		case 'W': /* Move cursor one WORD right */
-			with_reps(big_word_right());
-			break;
-		case 'f': /* Find character forward */
-		case 'F': /* ... backward */
-		case 't': /* ... forward but stop before */
-		case 'T': /* ... backwards but stop before */
-			{
-				char tmp[2] = {c,'\0'};
-				int cin = read_one_character(tmp);
-				if (cin != -1) {
-					with_reps(find_character(c, cin));
-				}
-				redraw_commandline();
-			}
-			break;
-		case 'G': /* Go to line or end of file */
-			if (nav_buffer) {
-				goto_line(atoi(nav_buf));
-				reset_nav_buffer(0);
-			} else {
-				goto_line(env->line_count);
-			}
-			break;
-		case '*': /* Search for word under cursor */
-			search_under_cursor();
-			break;
-		case ' ': /* Jump forward several lines */
-			with_reps(goto_line(env->line_no + global_config.term_height - 6));
-			break;
-		case '%': /* Jump to matching brace/bracket */
-			if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) {
-				/* These modes need to recalculate syntax as find_matching_brace uses it to find appropriate match */
-				for (int i = 0; i < env->line_count; ++i) {
-					recalculate_syntax(env->lines[i],i);
-				}
-			}
-			{
-				int paren_line = -1, paren_col = -1;
-				find_matching_paren(&paren_line, &paren_col, 1);
-				if (paren_line != -1) {
-					env->line_no = paren_line;
-					env->col_no = paren_col;
-					set_preferred_column();
-					place_cursor_actual();
-					redraw_statusbar();
-				}
-			}
-			break;
-		case '{': /* Jump to previous blank line */
-			env->col_no = 1;
-			if (env->line_no == 1) break;
-			do {
-				env->line_no--;
-				if (env->lines[env->line_no-1]->actual == 0) break;
-			} while (env->line_no > 1);
-			set_preferred_column();
-			redraw_statusbar();
-			break;
-		case '}': /* Jump to next blank line */
-			env->col_no = 1;
-			if (env->line_no == env->line_count) break;
-			do {
-				env->line_no++;
-				if (env->lines[env->line_no-1]->actual == 0) break;
-			} while (env->line_no < env->line_count);
-			set_preferred_column();
-			redraw_statusbar();
-			break;
-		case '$': /* Move cursor to end of line */
-			cursor_end();
-			break;
-		case '|':
-		case '0': /* Move cursor to beginning of line */
-			if (c == '0' && nav_buffer) break;
-			cursor_home();
-			break;
-		case '\r': /* first non-whitespace of next line */
-			if (env->line_no < env->line_count) {
-				env->line_no++;
-				env->col_no = 1;
-			} else {
-				break;
-			}
-			/* fall through */
-		case '^': /* first non-whitespace */
-			for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
-				if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
-					env->col_no = i + 1;
-					break;
-				}
-			}
-			set_preferred_column();
-			redraw_statusbar();
-			break;
-	}
-
-	/* Otherwise, numbers go into the number buffer */
-	if ((c >= '1' && c <= '9') || (c == '0' && nav_buffer)) {
-		if (nav_buffer < NAV_BUFFER_MAX) {
-			/* Up to NAV_BUFFER_MAX=10 characters; that should be enough for most tasks */
-			nav_buf[nav_buffer] = c;
-			nav_buf[nav_buffer+1] = 0;
-			nav_buffer++;
-			/* Print the number buffer */
-			redraw_commandline();
-		}
-	}
-}
-
-/**
  * Determine if a column + line number are within range of the
  * current character selection specified by start_line, etc.
  *
@@ -7054,8 +6843,8 @@ void adjust_indent(int direction) {
 void recalculate_selected_lines(void) {
 	int start = env->line_no < env->start_line ? env->line_no : env->start_line;
 	int end = env->line_no > env->start_line ? env->line_no : env->start_line;
-	for (int i = start; i <= end; ++i) {
-		recalculate_syntax(env->lines[i-1],i);
+	for (int i = (start > 1) ? (start-1) : (start); i <= end; ++i) {
+		recalculate_syntax(env->lines[i-1],i-1);
 	}
 	redraw_all();
 }
@@ -8077,7 +7866,7 @@ struct action_map NAVIGATION_MAP[] = {
 	/* Common navigation */
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
 	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
-	{':',           command_mode, 0, 0},
+	{':',           enter_command, 0, 0},
 	{'/',           search_mode, opt_arg, 1},
 	{'?',           search_mode, opt_arg, 0},
 	{'n',           search_next, opt_rep, 0},
@@ -8135,6 +7924,32 @@ struct action_map ESCAPE_MAP[] = {
 	{KEY_END, cursor_end, 0, 0},
 	{KEY_PAGE_UP, go_page_up, 0, 0},
 	{KEY_PAGE_DOWN, go_page_down, 0, 0},
+
+	{-1, NULL, 0, 0}
+};
+
+struct action_map COMMAND_MAP[] = {
+	{KEY_ENTER,     command_accept, 0, 0},
+	{'\t',          command_tab_complete_buffer, 0, 0},
+	{KEY_UP,        command_scroll_history, opt_arg, -1}, /* back */
+	{KEY_DOWN,      command_scroll_history, opt_arg, 1}, /* forward */
+
+	{-1, NULL, 0, 0}
+};
+
+struct action_map INPUT_BUFFER_MAP[] = {
+	/* These are generic and shared with search */
+	{KEY_ESCAPE,    command_discard, 0, 0},
+	{KEY_CTRL_C,    command_discard, 0, 0},
+	{KEY_BACKSPACE, command_backspace, 0, 0},
+	{KEY_CTRL_W,    command_word_delete, 0, 0},
+	{KEY_MOUSE,     eat_mouse, 0, 0},
+	{KEY_LEFT,      command_cursor_left, 0, 0},
+	{KEY_CTRL_LEFT, command_word_left, 0, 0},
+	{KEY_RIGHT,     command_cursor_right, 0, 0},
+	{KEY_CTRL_RIGHT,command_word_right, 0, 0},
+	{KEY_HOME,      command_cursor_home, 0, 0},
+	{KEY_END,       command_cursor_end, 0, 0},
 
 	{-1, NULL, 0, 0}
 };
@@ -8216,6 +8031,22 @@ void normal_mode(void) {
 	int refresh = 0;
 
 	while (1) {
+
+		if (global_config.overlay_mode) {
+			if (global_config.overlay_mode == OVERLAY_MODE_COMMAND) {
+				if (refresh) {
+					_set_cmdline();
+				}
+				int key = bim_getkey(200);
+				if (key != KEY_TIMEOUT) {
+					refresh = 1;
+					if (!handle_action(COMMAND_MAP, key))
+						if (!handle_action(INPUT_BUFFER_MAP, key))
+							command_insert_char(key);
+				}
+				continue;
+			}
+		}
 
 		if (env->mode != last_mode) {
 			redraw_statusbar();
