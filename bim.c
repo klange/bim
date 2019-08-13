@@ -108,6 +108,34 @@ char * bim_command_names[] = {
 	NULL
 };
 
+struct action_def {
+	char * name;
+	void (*action)();
+	int options;
+	const char * description;
+};
+
+int action_count = 0;
+int action_space = 0;
+struct action_def * mappable_actions = NULL;
+
+void add_action(const char * raw_name, void (*action)(), int options, const char * description) {
+	/* Derp */
+	(void)raw_name;
+	(void)action;
+	(void)options;
+	(void)description;
+}
+
+#define ARG_IS_INPUT 1 /* Takes the key that triggered it as the first argument */
+
+#define BIM_ACTION(name, options, description) \
+	void name (); /* Define the action with unknown arguments */ \
+	void __attribute__((constructor)) _install_ ## name (void) { \
+		add_action(#name, name, options, description); \
+	} \
+	void name
+
 /**
  * Special implementation of getch with a timeout
  */
@@ -6327,7 +6355,9 @@ void insert_line_feed(void) {
 /**
  * Yank lines between line start and line end (which may be in either order)
  */
-void yank_lines(int start, int end) {
+void yank_lines(void) {
+	int start = env->start_line;
+	int end = env->line_no;
 	if (global_config.yanks) {
 		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
 			free(global_config.yanks[i]);
@@ -6864,6 +6894,46 @@ void handle_navigation(int c) {
 }
 
 /**
+ * Determine if a column + line number are within range of the
+ * current character selection specified by start_line, etc.
+ *
+ * Used to determine how syntax flags should be set when redrawing
+ * selected text in CHAR SELECTION mode.
+ */
+int point_in_range(int start_line, int end_line, int start_col, int end_col, int line, int col) {
+	if (start_line == end_line) {
+		if ( end_col < start_col) {
+			int tmp = end_col;
+			end_col = start_col;
+			start_col = tmp;
+		}
+		return (col >= start_col && col <= end_col);
+	}
+
+	if (start_line > end_line) {
+		int tmp = end_line;
+		end_line = start_line;
+		start_line = tmp;
+
+		tmp = end_col;
+		end_col = start_col;
+		start_col = tmp;
+	}
+
+	if (line < start_line || line > end_line) return 0;
+
+	if (line == start_line) {
+		return col >= start_col;
+	}
+
+	if (line == end_line) {
+		return col <= end_col;
+	}
+
+	return 1;
+}
+
+/**
  * Macro for redrawing selected lines with appropriate highlighting.
  */
 #define _redraw_line(line, force_start_line) \
@@ -6887,18 +6957,45 @@ void handle_navigation(int c) {
 		redraw_line((line)-1); \
 	} while (0)
 
+#define _redraw_line_char(line, force_start_line) \
+	do { \
+		if (!(force_start_line) && (line) == env->start_line) break; \
+		if ((line) > env->line_count + 1) { \
+			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
+				draw_excess_line((line) - env->offset - 1); \
+			} \
+			break; \
+		} \
+		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
+			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
+			(env->line_no == env->start_line && (line) != env->start_line)) { \
+			/* Line is completely outside selection */ \
+			recalculate_syntax(env->lines[(line)-1],(line)-1); \
+		} else { \
+			if ((line) == env->start_line || (line) == env->line_no) { \
+				recalculate_syntax(env->lines[(line)-1],(line)-1); \
+			} \
+			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
+				if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) { \
+					env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
+				} \
+			} \
+		} \
+		redraw_line((line)-1); \
+	} while (0)
+
 /**
  * Adjust indentation on selected lines.
  */
-void adjust_indent(int start_line, int direction) {
+void adjust_indent(int direction) {
 	int lines_to_cover = 0;
 	int start_point = 0;
-	if (start_line <= env->line_no) {
-		start_point = start_line - 1;
-		lines_to_cover = env->line_no - start_line + 1;
+	if (env->start_line <= env->line_no) {
+		start_point = env->start_line - 1;
+		lines_to_cover = env->line_no - env->start_line + 1;
 	} else {
 		start_point = env->line_no - 1;
-		lines_to_cover = start_line - env->line_no + 1;
+		lines_to_cover = env->start_line - env->line_no + 1;
 	}
 	for (int i = 0; i < lines_to_cover; ++i) {
 		if (env->lines[start_point + i]->actual < 1) continue;
@@ -6951,153 +7048,86 @@ void recalculate_selected_lines(void) {
 	redraw_all();
 }
 
-
-/**
- * LINE SELECTION mode
- *
- * Equivalent to visual line in vim; selects lines of texts.
- */
-void line_selection_mode(void) {
+void enter_line_selection(void) {
+	/* Set mode */
+	env->mode = MODE_LINE_SELECTION;
+	/* Store start position */
 	env->start_line = env->line_no;
 	env->prev_line  = env->start_line;
-
-	env->mode = MODE_LINE_SELECTION;
+	env->start_col  = env->col_no;
+	/* Redraw commandline to get -- LINE SELECTION -- text */
 	redraw_commandline();
 
-	int c;
-	int timeout = 0;
-	int this_buf[20];
-
+	/* Set this line as selected for syntax highlighting */
 	for (int j = 0; j < env->lines[env->line_no-1]->actual; ++j) {
 		env->lines[env->line_no-1]->text[j].flags |= FLAG_SELECT;
 	}
+
+	/* And redraw it */
 	redraw_line(env->line_no-1);
+}
 
-	while ((c = bim_getch())) {
-		if (c == -1) {
-			if (timeout && this_buf[timeout-1] == '\033') {
-				goto _leave_select_line;
-			}
-			timeout = 0;
-			continue;
-		} else {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						cursor_left();
-						break;
-					case '\t':
-						if (env->readonly) goto _readonly;
-						adjust_indent(env->start_line, 1);
-						break;
-					case 'V':
-						goto _leave_select_line;
-					case 'y':
-						yank_lines(env->start_line, env->line_no);
-						goto _leave_select_line;
-					case 'D':
-					case 'd':
-					case 'x':
-					case 's':
-						if (env->readonly) goto _readonly;
-						yank_lines(env->start_line, env->line_no);
-						if (env->start_line <= env->line_no) {
-							int lines_to_delete = env->line_no - env->start_line + 1;
-							for (int i = 0; i < lines_to_delete; ++i) {
-								env->lines = remove_line(env->lines, env->start_line-1);
-							}
-							env->line_no = env->start_line;
-						} else {
-							int lines_to_delete = env->start_line - env->line_no + 1;
-							for (int i = 0; i < lines_to_delete; ++i) {
-								env->lines = remove_line(env->lines, env->line_no-1);
-							}
-						}
-						if (env->line_no > env->line_count) {
-							env->line_no = env->line_count;
-						}
-						if (env->col_no > env->lines[env->line_no-1]->actual) {
-							env->col_no = env->lines[env->line_no-1]->actual;
-						}
-						set_preferred_column();
-						set_modified();
-						if (c == 's') {
-							env->lines = add_line(env->lines, env->line_no-1);
-							redraw_text();
-							env->mode = MODE_INSERT;
-							return;
-						}
-						goto _leave_select_line;
-					case 'r':
-						{
-							int c = read_one_character("LINE SELECTION r");
-							if (c == -1) break;
-							char_t _c = {codepoint_width(c), 0, c};
-							int start_point = env->start_line < env->line_no ? env->start_line : env->line_no;
-							int end_point = env->start_line < env->line_no ? env->line_no : env->start_line;
-							for (int line = start_point; line <= end_point; ++line) {
-								for (int i = 0; i < env->lines[line-1]->actual; ++i) {
-									line_replace(env->lines[line-1], _c, i, line-1);
-								}
-							}
-						}
-						goto _leave_select_line;
-					case ':': /* Handle command mode specially for redraw */
-						global_config.break_from_selection = 0;
-						command_mode();
-						if (global_config.break_from_selection) break;
-						goto _leave_select_line;
-					default:
-						handle_navigation(c);
-						break;
-				}
-			} else {
-				switch (handle_escape(this_buf,&timeout,c)) {
-					case 1:
-						bim_unget(c);
-						goto _leave_select_line;
-					case 'Z':
-						/* Unindent */
-						if (env->readonly) goto _readonly;
-						adjust_indent(env->start_line, -1);
-						break;
-				}
-			}
-
-			reset_nav_buffer(c);
-
-			/* Mark current line */
-			_redraw_line(env->line_no,0);
-			_redraw_line(env->start_line,1);
-
-			/* Properly mark everything in the span we just moved through */
-			if (env->prev_line < env->line_no) {
-				for (int i = env->prev_line; i < env->line_no; ++i) {
-					_redraw_line(i,0);
-				}
-				env->prev_line = env->line_no;
-			} else if (env->prev_line > env->line_no) {
-				for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
-					_redraw_line(i,0);
-				}
-				env->prev_line = env->line_no;
-			}
-			redraw_commandline();
-			place_cursor_actual();
-			continue;
-_readonly:
-			render_error("Buffer is read-only");
+void switch_selection_mode(int mode) {
+	env->mode = mode;
+	if (mode == MODE_LINE_SELECTION) {
+		int start = env->line_no < env->start_line ? env->line_no : env->start_line;
+		int end = env->line_no > env->start_line ? env->line_no : env->start_line;
+		for (int i = start; i <= end; ++i) {
+			_redraw_line(i, 1);
+		}
+	} else if (mode == MODE_CHAR_SELECTION) {
+		int start = env->line_no < env->start_line ? env->line_no : env->start_line;
+		int end = env->line_no > env->start_line ? env->line_no : env->start_line;
+		for (int i = start; i <= end; ++i) {
+			_redraw_line_char(i, 1);
 		}
 	}
+}
 
-_leave_select_line:
+void delete_and_yank_lines(void) {
+	yank_lines();
+	if (env->start_line <= env->line_no) {
+		int lines_to_delete = env->line_no - env->start_line + 1;
+		for (int i = 0; i < lines_to_delete; ++i) {
+			env->lines = remove_line(env->lines, env->start_line-1);
+		}
+		env->line_no = env->start_line;
+	} else {
+		int lines_to_delete = env->start_line - env->line_no + 1;
+		for (int i = 0; i < lines_to_delete; ++i) {
+			env->lines = remove_line(env->lines, env->line_no-1);
+		}
+	}
+	if (env->line_no > env->line_count) {
+		env->line_no = env->line_count;
+	}
+	if (env->col_no > env->lines[env->line_no-1]->actual) {
+		env->col_no = env->lines[env->line_no-1]->actual;
+	}
+	set_preferred_column();
+	set_modified();
+}
+
+void delete_lines_and_enter_insert(void) {
+	delete_and_yank_lines();
+
+	env->lines = add_line(env->lines, env->line_no-1);
+	redraw_text();
+	env->mode = MODE_INSERT;
+}
+
+void replace_chars_in_line(int c) {
+	char_t _c = {codepoint_width(c), 0, c};
+	int start_point = env->start_line < env->line_no ? env->start_line : env->line_no;
+	int end_point = env->start_line < env->line_no ? env->line_no : env->start_line;
+	for (int line = start_point; line <= end_point; ++line) {
+		for (int i = 0; i < env->lines[line-1]->actual; ++i) {
+			line_replace(env->lines[line-1], _c, i, line-1);
+		}
+	}
+}
+
+void leave_selection(void) {
 	set_history_break();
 	env->mode = MODE_NORMAL;
 	recalculate_selected_lines();
@@ -7351,73 +7381,6 @@ _leave_select_col:
 	redraw_all();
 }
 
-/**
- * Determine if a column + line number are within range of the
- * current character selection specified by start_line, etc.
- *
- * Used to determine how syntax flags should be set when redrawing
- * selected text in CHAR SELECTION mode.
- */
-int point_in_range(int start_line, int end_line, int start_col, int end_col, int line, int col) {
-	if (start_line == end_line) {
-		if ( end_col < start_col) {
-			int tmp = end_col;
-			end_col = start_col;
-			start_col = tmp;
-		}
-		return (col >= start_col && col <= end_col);
-	}
-
-	if (start_line > end_line) {
-		int tmp = end_line;
-		end_line = start_line;
-		start_line = tmp;
-
-		tmp = end_col;
-		end_col = start_col;
-		start_col = tmp;
-	}
-
-	if (line < start_line || line > end_line) return 0;
-
-	if (line == start_line) {
-		return col >= start_col;
-	}
-
-	if (line == end_line) {
-		return col <= end_col;
-	}
-
-	return 1;
-}
-
-#define _redraw_line_char(line, force_start_line) \
-	do { \
-		if (!(force_start_line) && (line) == env->start_line) break; \
-		if ((line) > env->line_count + 1) { \
-			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
-				draw_excess_line((line) - env->offset - 1); \
-			} \
-			break; \
-		} \
-		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
-			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
-			(env->line_no == env->start_line && (line) != env->start_line)) { \
-			/* Line is completely outside selection */ \
-			recalculate_syntax(env->lines[(line)-1],(line)-1); \
-		} else { \
-			if ((line) == env->start_line || (line) == env->line_no) { \
-				recalculate_syntax(env->lines[(line)-1],(line)-1); \
-			} \
-			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) { \
-					env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
-				} \
-			} \
-		} \
-		redraw_line((line)-1); \
-	} while (0)
-
 void yank_characters(void) {
 	int end_line = env->line_no;
 	int end_col  = env->col_no;
@@ -7438,7 +7401,7 @@ void yank_characters(void) {
 	yank_text(env->start_line, env->start_col, end_line, end_col);
 }
 
-int delete_and_insert(int c) {
+void delete_and_yank_chars(void) {
 	int end_line = env->line_no;
 	int end_col  = env->col_no;
 	if (env->start_line == end_line) {
@@ -7485,17 +7448,15 @@ int delete_and_insert(int c) {
 	}
 	set_preferred_column();
 	set_modified();
-	if (c == 's') {
-		redraw_text();
-		env->mode = MODE_INSERT;
-		return 1; /* When returning from char selection mode, normal mode will check for MODE_INSERT */
-	}
-	return 0;
 }
 
-int replace_chars(void) {
-	int c = read_one_character("CHAR SELECTION r");
-	if (c == -1) return 1;
+void delete_chars_and_enter_insert(void) {
+	delete_and_yank_chars();
+	redraw_text();
+	env->mode = MODE_INSERT;
+}
+
+void replace_chars(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
 	/* This should probably be a function line "do_over_range" or something */
 	if (env->start_line == env->line_no) {
@@ -7532,114 +7493,33 @@ int replace_chars(void) {
 			}
 		}
 	}
-
-	return 0;
 }
 
-/**
- * CHAR SELECTION mode.
- */
-void char_selection_mode(void) {
+void enter_char_selection(void) {
+	/* Set mode */
+	env->mode = MODE_CHAR_SELECTION;
+	/* Set cursor positions */
 	env->start_line = env->line_no;
 	env->start_col  = env->col_no;
 	env->prev_line  = env->start_line;
-
-	env->mode = MODE_CHAR_SELECTION;
+	/* Redraw commandline for -- CHAR SELECTION -- */
 	redraw_commandline();
-
-	int c;
-	int timeout = 0;
-	int this_buf[20];
-
 	/* Select single character */
 	env->lines[env->line_no-1]->text[env->col_no-1].flags |= FLAG_SELECT;
 	redraw_line(env->line_no-1);
+}
 
-	while ((c = bim_getch())) {
-		if (c == -1) {
-			if (timeout && this_buf[timeout-1] == '\033') {
-				goto _leave_select_char;
-			}
-			timeout = 0;
-			continue;
-		} else {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case DELETE_KEY:
-					case BACKSPACE_KEY:
-						cursor_left();
-						break;
-					case 'v':
-						goto _leave_select_char;
-					case 'y':
-						yank_characters();
-						goto _leave_select_char;
-					case 'D':
-					case 'd':
-					case 'x':
-					case 's':
-						if (env->readonly) goto _readonly;
-						if (delete_and_insert(c)) return; /* Leave insert mode */
-						goto _leave_select_char;
-					case 'r':
-						if (replace_chars()) break;
-						goto _leave_select_char;
-					case 'A':
-						recalculate_selected_lines();
-						env->col_no = env->col_no > env->start_col ? env->col_no + 1 : env->start_col + 1;
-						env->mode = MODE_INSERT;
-						return;
-					case ':':
-						global_config.break_from_selection = 0;
-						command_mode();
-						if (global_config.break_from_selection) break;
-						goto _leave_select_char;
-					default:
-						handle_navigation(c);
-						break;
-				}
-			} else {
-				switch (handle_escape(this_buf,&timeout,c)) {
-					case 1:
-						bim_unget(c);
-						goto _leave_select_char;
-				}
-			}
-
-			reset_nav_buffer(c);
-
-			/* Mark current line */
-			_redraw_line_char(env->line_no,1);
-
-			/* Properly mark everything in the span we just moved through */
-			if (env->prev_line < env->line_no) {
-				for (int i = env->prev_line; i < env->line_no; ++i) {
-					_redraw_line_char(i,1);
-				}
-				env->prev_line = env->line_no;
-			} else if (env->prev_line > env->line_no) {
-				for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
-					_redraw_line_char(i,1);
-				}
-				env->prev_line = env->line_no;
-			}
-			place_cursor_actual();
-			continue;
-_readonly:
-			render_error("Buffer is read-only");
-		}
-	}
-
-_leave_select_char:
-	set_history_break();
-	env->mode = MODE_NORMAL;
+void insert_at_end_of_selection(void) {
 	recalculate_selected_lines();
+	if (env->line_no == env->start_line) {
+		env->col_no = env->col_no > env->start_col ? env->col_no + 1 : env->start_col + 1;
+	} else if (env->line_no < env->start_line) {
+		env->col_no = env->start_col + 1;
+		env->line_no = env->start_line;
+	} else {
+		env->col_no += 1;
+	}
+	env->mode = MODE_INSERT;
 }
 
 struct completion_match {
@@ -8038,13 +7918,6 @@ void paste(int direction) {
 	}
 }
 
-void replace_one(void) {
-	int c = read_one_character("r");
-	if (c != -1) {
-		replace_char(c);
-	}
-}
-
 void insert_at_end(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+1;
 	env->mode = MODE_INSERT;
@@ -8210,7 +8083,9 @@ void smart_comment_end(int c) {
 	insert_char(c);
 }
 
-void smart_brace_end(int c) {
+BIM_ACTION(smart_brace_end, ARG_IS_INPUT,
+	"Insert a closing brace and smartly position it if it is the first character on a line."
+)(int c) {
 	if (env->indent) {
 		int was_whitespace = 1;
 		for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
@@ -8247,16 +8122,17 @@ struct action_map {
 	int arg;
 };
 
-#define opt_rep  1 /* This action will be repeated */
-#define opt_arg  2 /* This action will take a specified argument */
-#define opt_char 4 /* This action will read a character to pass as an argument */
-#define opt_nav  8 /* This action will consume the nav buffer as its argument */
-#define opt_rw  10 /* Must not be read-only */
+#define opt_rep  0x1 /* This action will be repeated */
+#define opt_arg  0x2 /* This action will take a specified argument */
+#define opt_char 0x4 /* This action will read a character to pass as an argument */
+#define opt_nav  0x8 /* This action will consume the nav buffer as its argument */
+#define opt_rw   0x10 /* Must not be read-only */
+#define opt_norm 0x20 /* Returns to normal mode */
 
 struct action_map NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
-	{'V',           line_selection_mode, 0, 0},
-	{'v',           char_selection_mode, 0, 0},
+	{'V',           enter_line_selection, 0, 0},
+	{'v',           enter_char_selection, 0, 0},
 	{KEY_CTRL_V,    col_selection_mode, 0, 0},
 	{'O',           prepend_and_insert, 0, 0},
 	{'o',           append_and_insert, 0, 0},
@@ -8265,7 +8141,7 @@ struct action_map NORMAL_MAP[] = {
 	{'x',           delete_forward, 0, 0},
 	{'P',           paste, opt_arg, -1},
 	{'p',           paste, opt_arg, 1},
-	{'r',           replace_one, 0, 0},
+	{'r',           replace_char, opt_char, 0},
 	{'A',           insert_at_end, 0, 0},
 	{'u',           undo_history, 0, 0},
 	{KEY_CTRL_R,    redo_history, 0, 0},
@@ -8295,6 +8171,39 @@ struct action_map REPLACE_MAP[] = {
 	{KEY_DELETE,    delete_forward, 0, 0},
 	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
 	{KEY_ENTER,     insert_line_feed, 0, 0},
+	{-1, NULL, 0, 0},
+};
+
+struct action_map LINE_SELECTION_MAP[] = {
+	{KEY_ESCAPE,    leave_selection, 0, 0},
+	{KEY_CTRL_C,    leave_selection, 0, 0},
+	{'V',           leave_selection, 0, 0},
+	{'v',           switch_selection_mode, opt_arg, MODE_CHAR_SELECTION},
+	{'y',           yank_lines, opt_norm, 0},
+	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
+	{'\t',          adjust_indent, opt_arg, 1},
+	{KEY_SHIFT_TAB, adjust_indent, opt_arg, -1},
+	{'D',           delete_and_yank_lines, opt_norm, 0},
+	{'d',           delete_and_yank_lines, opt_norm, 0},
+	{'x',           delete_and_yank_lines, opt_norm, 0},
+	{'s',           delete_lines_and_enter_insert, 0, 0},
+	{'r',           replace_chars_in_line, opt_char, 0},
+	{-1, NULL, 0, 0},
+};
+
+struct action_map CHAR_SELECTION_MAP[] = {
+	{KEY_ESCAPE,    leave_selection, 0, 0},
+	{KEY_CTRL_C,    leave_selection, 0, 0},
+	{'v',           leave_selection, 0, 0},
+	{'V',           switch_selection_mode, opt_arg, MODE_LINE_SELECTION},
+	{'y',           yank_characters, opt_norm, 0},
+	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
+	{'D',           delete_and_yank_chars, opt_norm, 0},
+	{'d',           delete_and_yank_chars, opt_norm, 0},
+	{'x',           delete_and_yank_chars, opt_norm, 0},
+	{'s',           delete_chars_and_enter_insert, 0, 0},
+	{'r',           replace_chars, opt_char, 0},
+	{'A',           insert_at_end_of_selection, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -8377,7 +8286,7 @@ int handle_action(struct action_map * basemap, int key) {
 				env->loading = 1;
 			}
 			for (int i = 0; i < reps; ++i) {
-				if (map->options & opt_char && map->options & opt_arg) {
+				if ((map->options & opt_char) && (map->options & opt_arg)) {
 					map->method(map->arg, c);
 				} else if (map->options & opt_char) {
 					map->method(c);
@@ -8398,11 +8307,30 @@ int handle_action(struct action_map * basemap, int key) {
 				env->loading = 0;
 				redraw_all();
 			}
+			if (map->options & opt_norm) {
+				if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) leave_insert();
+				if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) leave_selection();
+			}
 			return 1;
 		}
 	}
 
 	return 0;
+}
+
+int handle_nav_buffer(int key) {
+	if ((key >= '1' && key <= '9') || (key == '0' && nav_buffer)) {
+		if (nav_buffer < NAV_BUFFER_MAX) {
+			/* Up to NAV_BUFFER_MAX=10 characters; that should be enough for most tasks */
+			nav_buf[nav_buffer] = key;
+			nav_buf[nav_buffer+1] = 0;
+			nav_buffer++;
+			/* Print the number buffer */
+			redraw_commandline();
+		}
+		return 0;
+	}
+	return 1;
 }
 
 /**
@@ -8427,16 +8355,7 @@ void normal_mode(void) {
 		if (env->mode == MODE_NORMAL) {
 			place_cursor_actual();
 			int key = bim_getkey(200);
-			if ((key >= '1' && key <= '9') || (key == '0' && nav_buffer)) {
-				if (nav_buffer < NAV_BUFFER_MAX) {
-					/* Up to NAV_BUFFER_MAX=10 characters; that should be enough for most tasks */
-					nav_buf[nav_buffer] = key;
-					nav_buf[nav_buffer+1] = 0;
-					nav_buffer++;
-					/* Print the number buffer */
-					redraw_commandline();
-				}
-			} else {
+			if (handle_nav_buffer(key)) {
 				if (!handle_action(NORMAL_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
 						handle_action(ESCAPE_MAP, key);
@@ -8477,6 +8396,65 @@ void normal_mode(void) {
 						redraw_line(env->line_no-1);
 					}
 					set_preferred_column();
+				}
+			}
+		} else if (env->mode == MODE_LINE_SELECTION) {
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if (handle_nav_buffer(key)) {
+				if (!handle_action(LINE_SELECTION_MAP, key))
+					if (!handle_action(NAVIGATION_MAP, key))
+						handle_action(ESCAPE_MAP, key);
+			}
+
+			reset_nav_buffer(key);
+
+			if (env->mode == MODE_LINE_SELECTION) {
+				/* Mark current line */
+				_redraw_line(env->line_no,0);
+				_redraw_line(env->start_line,1);
+
+				/* Properly mark everything in the span we just moved through */
+				if (env->prev_line < env->line_no) {
+					for (int i = env->prev_line; i < env->line_no; ++i) {
+						_redraw_line(i,0);
+					}
+					env->prev_line = env->line_no;
+				} else if (env->prev_line > env->line_no) {
+					for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
+						_redraw_line(i,0);
+					}
+					env->prev_line = env->line_no;
+				}
+				redraw_commandline();
+				place_cursor_actual();
+			}
+		} else if (env->mode == MODE_CHAR_SELECTION) {
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if (handle_nav_buffer(key)) {
+				if (!handle_action(CHAR_SELECTION_MAP, key))
+					if (!handle_action(NAVIGATION_MAP, key))
+						handle_action(ESCAPE_MAP, key);
+			}
+
+			reset_nav_buffer(key);
+
+			if (env->mode == MODE_CHAR_SELECTION) {
+				/* Mark current line */
+				_redraw_line_char(env->line_no,1);
+
+				/* Properly mark everything in the span we just moved through */
+				if (env->prev_line < env->line_no) {
+					for (int i = env->prev_line; i < env->line_no; ++i) {
+						_redraw_line_char(i,1);
+					}
+					env->prev_line = env->line_no;
+				} else if (env->prev_line > env->line_no) {
+					for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
+						_redraw_line_char(i,1);
+					}
+					env->prev_line = env->line_no;
 				}
 			}
 		}
