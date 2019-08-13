@@ -7280,105 +7280,32 @@ void col_insert_mode(void) {
 	}
 }
 
-/**
- * COL SELECTION mode
- *
- * Limited selection mode for doing inserts on multiple lines.
- * Experimental. Based on how I usually use vim's VISUAL BLOCK mode.
- */
-void col_selection_mode(void) {
-	set_preferred_column();
+void enter_col_insert_after(void) {
+	env->sel_col += 1;
+	/* env->mode = MODE_COL_INSERT */
+	col_insert_mode();
+}
+
+void delete_column(void) {
+	/* TODO maybe a flag to do this so we can just call delete_at_column with arg = 1? */
+	if (env->start_line < env->line_no) {
+		int tmp = env->line_no;
+		env->line_no = env->start_line;
+		env->start_line = tmp;
+	}
+	delete_at_column(1);
+}
+
+void enter_col_selection(void) {
+	/* Set mode */
+	env->mode = MODE_COL_SELECTION;
+	/* Store cursor */
 	env->start_line = env->line_no;
 	env->sel_col = env->preferred_column;
 	env->prev_line = env->start_line;
-
-	env->mode = MODE_COL_SELECTION;
+	/* Redraw commandline */
 	redraw_commandline();
-
-	int c;
-	int timeout = 0;
-	int this_buf[20];
-
-	while ((c = bim_getch())) {
-		if (c == -1) {
-			if (timeout && this_buf[timeout-1] == '\033') {
-				goto _leave_select_col;
-			}
-			timeout = 0;
-			continue;
-		} else {
-			if (timeout == 0) {
-				switch (c) {
-					case '\033':
-						if (timeout == 0) {
-							this_buf[timeout] = c;
-							timeout++;
-						}
-						break;
-					case 'I':
-						if (env->readonly) goto _readonly;
-						col_insert_mode();
-						goto _leave_select_col;
-					case 'a':
-						if (env->readonly) goto _readonly;
-						env->sel_col += 1;
-						redraw_text();
-						col_insert_mode();
-						goto _leave_select_col;
-					case 'd':
-						if (env->start_line < env->line_no) {
-							int tmp = env->line_no;
-							env->line_no = env->start_line;
-							env->start_line = tmp;
-						}
-						delete_at_column(1);
-						goto _leave_select_col;
-					case ':':
-						global_config.break_from_selection = 0;
-						command_mode();
-						if (global_config.break_from_selection) break;
-						goto _leave_select_col;
-					default:
-						handle_navigation(c);
-						break;
-				}
-			} else {
-				switch (handle_escape(this_buf,&timeout,c)) {
-					case 1:
-						bim_unget(c);
-						goto _leave_select_col;
-					/* Doesn't support anything else. */
-				}
-			}
-		}
-
-		reset_nav_buffer(c);
-
-		_redraw_line_col(env->line_no, 0);
-		/* Properly mark everything in the span we just moved through */
-		if (env->prev_line < env->line_no) {
-			for (int i = env->prev_line; i < env->line_no; ++i) {
-				_redraw_line_col(i,0);
-			}
-			env->prev_line = env->line_no;
-		} else if (env->prev_line > env->line_no) {
-			for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
-				_redraw_line_col(i,0);
-			}
-			env->prev_line = env->line_no;
-		}
-
-		redraw_commandline();
-		place_cursor_actual();
-		continue;
-_readonly:
-		render_error("Buffer is read-only.");
-	}
-
-_leave_select_col:
-	set_history_break();
-	env->mode = MODE_NORMAL;
-	redraw_all();
+	/* Nothing else to do here; rely on cursor */
 }
 
 void yank_characters(void) {
@@ -8133,7 +8060,7 @@ struct action_map NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
 	{'V',           enter_line_selection, 0, 0},
 	{'v',           enter_char_selection, 0, 0},
-	{KEY_CTRL_V,    col_selection_mode, 0, 0},
+	{KEY_CTRL_V,    enter_col_selection, 0, 0},
 	{'O',           prepend_and_insert, 0, 0},
 	{'o',           append_and_insert, 0, 0},
 	{'a',           insert_after_cursor, 0, 0},
@@ -8204,6 +8131,17 @@ struct action_map CHAR_SELECTION_MAP[] = {
 	{'s',           delete_chars_and_enter_insert, 0, 0},
 	{'r',           replace_chars, opt_char, 0},
 	{'A',           insert_at_end_of_selection, 0, 0},
+	{-1, NULL, 0, 0},
+};
+
+struct action_map COL_SELECTION_MAP[] = {
+	{KEY_ESCAPE,    leave_selection, 0, 0},
+	{KEY_CTRL_C,    leave_selection, 0, 0},
+	{KEY_CTRL_V,    leave_selection, 0, 0},
+	/* TODO these should not be opt_norm once col insert is fixed */
+	{'I',           col_insert_mode, opt_norm, 0},
+	{'a',           enter_col_insert_after, opt_norm, 0},
+	{'d',           delete_column, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -8309,7 +8247,11 @@ int handle_action(struct action_map * basemap, int key) {
 			}
 			if (map->options & opt_norm) {
 				if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) leave_insert();
-				if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION) leave_selection();
+				else if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION || env->mode == MODE_COL_SELECTION) leave_selection();
+				else {
+					env->mode = MODE_NORMAL;
+					redraw_all();
+				}
 			}
 			return 1;
 		}
@@ -8366,7 +8308,7 @@ void normal_mode(void) {
 			place_cursor_actual();
 			int key = bim_getkey(refresh ? 10 : 200);
 			if (key == KEY_TIMEOUT) {
-				if (refresh == 2) {
+				if (refresh > 1) {
 					redraw_text();
 				} else if (refresh) {
 					redraw_line(env->line_no-1);
@@ -8378,7 +8320,7 @@ void normal_mode(void) {
 				/* Do nothing */
 			} else {
 				insert_char(key);
-				refresh = 1;
+				refresh |= 1;
 			}
 		} else if (env->mode == MODE_REPLACE) {
 			place_cursor_actual();
@@ -8401,6 +8343,8 @@ void normal_mode(void) {
 		} else if (env->mode == MODE_LINE_SELECTION) {
 			place_cursor_actual();
 			int key = bim_getkey(200);
+			if (key == KEY_TIMEOUT) continue;
+
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(LINE_SELECTION_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
@@ -8427,11 +8371,12 @@ void normal_mode(void) {
 					env->prev_line = env->line_no;
 				}
 				redraw_commandline();
-				place_cursor_actual();
 			}
 		} else if (env->mode == MODE_CHAR_SELECTION) {
 			place_cursor_actual();
 			int key = bim_getkey(200);
+			if (key == KEY_TIMEOUT) continue;
+
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(CHAR_SELECTION_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
@@ -8456,6 +8401,36 @@ void normal_mode(void) {
 					}
 					env->prev_line = env->line_no;
 				}
+			}
+		} else if (env->mode == MODE_COL_SELECTION) {
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if (key == KEY_TIMEOUT) continue;
+
+			if (handle_nav_buffer(key)) {
+				if (!handle_action(COL_SELECTION_MAP, key))
+					if (!handle_action(NAVIGATION_MAP, key))
+						handle_action(ESCAPE_MAP, key);
+			}
+
+			reset_nav_buffer(key);
+
+			if (env->mode == MODE_COL_SELECTION) {
+				_redraw_line_col(env->line_no, 0);
+				/* Properly mark everything in the span we just moved through */
+				if (env->prev_line < env->line_no) {
+					for (int i = env->prev_line; i < env->line_no; ++i) {
+						_redraw_line_col(i,0);
+					}
+					env->prev_line = env->line_no;
+				} else if (env->prev_line > env->line_no) {
+					for (int i = env->line_no + 1; i <= env->prev_line; ++i) {
+						_redraw_line_col(i,0);
+					}
+					env->prev_line = env->line_no;
+				}
+
+				redraw_commandline();
 			}
 		}
 	}
