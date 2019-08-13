@@ -6772,6 +6772,10 @@ void adjust_indent(int direction) {
 void recalculate_selected_lines(void) {
 	int start = env->line_no < env->start_line ? env->line_no : env->start_line;
 	int end = env->line_no > env->start_line ? env->line_no : env->start_line;
+	if (start < 1) start = 1;
+	if (start > env->line_count) start = env->line_count;
+	if (end < 1) end = 1;
+	if (end > env->line_count) end = env->line_count;
 	for (int i = (start > 1) ? (start-1) : (start); i <= end; ++i) {
 		recalculate_syntax(env->lines[i-1],i-1);
 	}
