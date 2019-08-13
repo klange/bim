@@ -125,14 +125,24 @@ int action_space = 0;
 struct action_def * mappable_actions = NULL;
 
 void add_action(const char * raw_name, void (*action)(), int options, const char * description) {
-	/* Derp */
-	(void)raw_name;
-	(void)action;
-	(void)options;
-	(void)description;
+	if (action_space == 0) {
+		action_space = 4;
+		mappable_actions = calloc(sizeof(struct action_def), action_space);
+	} else if (action_count + 1 == action_space) {
+		action_space *= 2;
+		mappable_actions = realloc(mappable_actions, sizeof(struct action_def) * action_space);
+		for (int i = action_count; i < action_space; ++i) mappable_actions[i].name = NULL;
+	}
+	mappable_actions[action_count].name = (char*)raw_name; /* TODO _ to - */
+	mappable_actions[action_count].action = action;
+	mappable_actions[action_count].options = options;
+	mappable_actions[action_count].description = description;
+	action_count++;
 }
 
-#define ARG_IS_INPUT 1 /* Takes the key that triggered it as the first argument */
+#define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
+#define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
+#define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
 
 #define BIM_ACTION(name, options, description) \
 	void name (); /* Define the action with unknown arguments */ \
@@ -2437,10 +2447,9 @@ void render_commandline_message(char * message, ...) {
 	redraw_nav_buffer();
 }
 
-/**
- * Draw all screen elements
- */
-void redraw_all(void) {
+BIM_ACTION(redraw_all, 0,
+	"Repaint the screen."
+)(void) {
 	redraw_tabbar();
 	redraw_text();
 	if (left_buffer) {
@@ -2785,7 +2794,9 @@ void try_to_center() {
 /**
  * Move the cursor to a specific line.
  */
-void goto_line(int line) {
+BIM_ACTION(goto_line, ARG_IS_CUSTOM,
+	"Jump to the requested line."
+)(int line) {
 
 	if (line == -1) line = env->line_count;
 
@@ -3353,10 +3364,9 @@ void set_preferred_column(void) {
 	env->preferred_column = c;
 }
 
-/**
- * Move the cursor down one line in the text region
- */
-void cursor_down(void) {
+BIM_ACTION(cursor_down, 0,
+	"Move the cursor one line down."
+)(void) {
 	/* If this isn't already the last line... */
 	if (env->line_no < env->line_count) {
 
@@ -3440,10 +3450,9 @@ void cursor_down(void) {
 	}
 }
 
-/**
- * Move the cursor up one line in the text region
- */
-void cursor_up(void) {
+BIM_ACTION(cursor_up, 0,
+	"Move the cursor up one line."
+)(void) {
 	/* If this isn't the first line already */
 	if (env->line_no > 1) {
 
@@ -3525,10 +3534,9 @@ void cursor_up(void) {
 	}
 }
 
-/**
- * Move the cursor one column left.
- */
-void cursor_left(void) {
+BIM_ACTION(cursor_left, 0,
+	"Move the cursor one character to the left."
+)(void) {
 	if (env->col_no > 1) {
 		env->col_no -= 1;
 
@@ -3542,10 +3550,9 @@ void cursor_left(void) {
 	set_preferred_column();
 }
 
-/**
- * Move the cursor one column right.
- */
-void cursor_right(void) {
+BIM_ACTION(cursor_right, 0,
+	"Move the cursor one character to the right."
+)(void) {
 
 	/* If this isn't already the rightmost column we can reach on this line in this mode... */
 	if (env->col_no < env->lines[env->line_no-1]->actual + !!(env->mode == MODE_INSERT)) {
@@ -3561,10 +3568,9 @@ void cursor_right(void) {
 	set_preferred_column();
 }
 
-/**
- * Move the cursor to the fron the of the line
- */
-void cursor_home(void) {
+BIM_ACTION(cursor_home, 0,
+	"Move the cursor to the beginning of the line."
+)(void) {
 	env->col_no = 1;
 	set_history_break();
 	set_preferred_column();
@@ -3576,13 +3582,9 @@ void cursor_home(void) {
 	place_cursor_actual();
 }
 
-/**
- * Move the cursor to the end of the line.
- *
- * In INSERT mode, moves one cell right of the end of the line.
- * In NORMAL mode, moves the cursor to the last occupied cell.
- */
-void cursor_end(void) {
+BIM_ACTION(cursor_end, 0,
+	"Move the cursor to the end of the line, or past the end in insert mode."
+)(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+!!(env->mode == MODE_INSERT);
 	set_history_break();
 	set_preferred_column();
@@ -3594,13 +3596,9 @@ void cursor_end(void) {
 	place_cursor_actual();
 }
 
-/**
- * Leave INSERT mode
- *
- * If the cursor is too far right, adjust it.
- * Redraw the command line.
- */
-void leave_insert(void) {
+BIM_ACTION(leave_insert, 0,
+	"Leave insert modes and return to normal mode."
+)(void) {
 	if (env->col_no > env->lines[env->line_no-1]->actual) {
 		env->col_no = env->lines[env->line_no-1]->actual;
 		if (env->col_no == 0) env->col_no = 1;
@@ -4860,60 +4858,6 @@ done:
 }
 
 /**
- * Handle complex keyboard escapes when taking in a command.
- * This allows us to not muck up the command input and also
- * handle things like up/down arrow keys to go through history.
- */
-int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
-	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 1;
-	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
-		*timeout = 0;
-		bim_unget(c);
-		return 1;
-	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
-		*timeout = 1;
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 0;
-	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
-			(isdigit(c) || c == ';')) {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 0;
-	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
-		int out = 0;
-		if (*timeout >= 3) *arg = this_buf[*timeout-1];
-		switch (c) {
-			case 'M':
-				out = 2;
-				break;
-
-			case 'A': // up
-			case 'B': // down
-			case 'C': // right
-			case 'D': // left
-			case 'H': // home
-			case 'F': // end
-				out = c;
-				break;
-		}
-		*timeout = 0;
-		return out;
-	}
-
-	*timeout = 0;
-	return 0;
-
-}
-
-/**
  * Macros for use in command mode.
  */
 #define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
@@ -4995,7 +4939,9 @@ int handle_command_escape(int * this_buf, int * timeout, int c, int * arg) {
 	_place_cursor(); \
 } while (0)
 
-void command_discard(void) {
+BIM_ACTION(command_discard, 0,
+	"Discard the input buffer and cancel command or search."
+)(void) {
 	free(global_config.command_buffer);
 	global_config.command_buffer = NULL;
 	if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
@@ -5014,7 +4960,9 @@ void command_discard(void) {
 	/* TODO exit some other modes? */
 }
 
-void enter_command(void) {
+BIM_ACTION(enter_command, 0,
+	"Enter command input mode."
+)(void) {
 	global_config.overlay_mode = OVERLAY_MODE_COMMAND;
 
 	global_config.command_offset = 0;
@@ -5037,7 +4985,9 @@ void enter_command(void) {
 	(void)refresh;
 }
 
-void command_accept(void) {
+BIM_ACTION(command_accept, 0,
+	"Accept the command input and run the requested command."
+)(void) {
 	/* Convert command buffer to UTF-8 char-array string */
 	size_t size = 0;
 	for (int i = 0; i < global_config.command_buffer->actual; ++i) {
@@ -5063,7 +5013,9 @@ void command_accept(void) {
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
 }
 
-void command_word_delete(void) {
+BIM_ACTION(command_word_delete, 0,
+	"Delete the previous word from the input buffer."
+)(void) {
 	_syn_command();
 	while (global_config.command_col_no > 1 &&
 	       (global_config.command_buffer->text[global_config.command_col_no-2].codepoint == ' ' ||
@@ -5080,7 +5032,9 @@ void command_word_delete(void) {
 	_syn_restore();
 }
 
-void command_tab_complete_buffer(void) {
+BIM_ACTION(command_tab_complete_buffer, 0,
+	"Complete command names and arguments in the input buffer."
+)(void) {
 	/* command_tab_complete should probably just be adjusted to deal with the buffer... */
 	char * tmp = calloc(1024,1);
 	char * t = tmp;
@@ -5110,7 +5064,9 @@ void command_tab_complete_buffer(void) {
 	free(tmp);
 }
 
-void command_backspace(void) {
+BIM_ACTION(command_backspace, 0,
+	"Erase the character before the cursor in the input buffer."
+)(void) {
 	if (global_config.command_col_no <= 1) {
 		if (global_config.command_buffer->actual == 0) {
 			command_discard();
@@ -5124,7 +5080,9 @@ void command_backspace(void) {
 	global_config.command_offset = 0;
 }
 
-void command_scroll_history(int direction) {
+BIM_ACTION(command_scroll_history, ARG_IS_CUSTOM,
+	"Scroll through command input history."
+)(int direction) {
 	if (direction == -1) {
 		if (command_history[global_config.history_point+1]) {
 			_restore_history(global_config.history_point+1);
@@ -5142,7 +5100,9 @@ void command_scroll_history(int direction) {
 	}
 }
 
-void command_word_left(void) {
+BIM_ACTION(command_word_left, 0,
+	"Move to the start of the previous word in the input buffer."
+)(void) {
 	if (global_config.command_col_no > 1) {
 		do {
 			global_config.command_col_no--;
@@ -5155,7 +5115,9 @@ void command_word_left(void) {
 	}
 }
 
-void command_word_right(void) {
+BIM_ACTION(command_word_right, 0,
+	"Move to the start of the next word in the input buffer."
+)(void) {
 	if (global_config.command_col_no < global_config.command_buffer->actual) {
 		do {
 			global_config.command_col_no++;
@@ -5169,29 +5131,41 @@ void command_word_right(void) {
 	}
 }
 
-void command_cursor_left(void) {
+BIM_ACTION(command_cursor_left, 0,
+	"Move the cursor one character left in the input buffer."
+)(void) {
 	if (global_config.command_col_no > 1) global_config.command_col_no--;
 }
 
-void command_cursor_right(void) {
+BIM_ACTION(command_cursor_right, 0,
+	"Move the cursor one character right in the input buffer."
+)(void) {
 	if (global_config.command_col_no < global_config.command_buffer->actual+1) global_config.command_col_no++;
 }
 
-void command_cursor_home(void) {
+BIM_ACTION(command_cursor_home, 0,
+	"Move the cursor to the start of the input buffer."
+)(void) {
 	global_config.command_col_no = 1;
 }
 
-void command_cursor_end(void) {
+BIM_ACTION(command_cursor_end, 0,
+	"Move the cursor to the end of the input buffer."
+)(void) {
 	global_config.command_col_no = global_config.command_buffer->actual + 1;
 }
 
-void eat_mouse(void) {
+BIM_ACTION(eat_mouse, 0,
+	"(temporary) Read, but ignore mouse input."
+)(void) {
 	bim_getch();
 	bim_getch();
 	bim_getch();
 }
 
-void command_insert_char(int c) {
+BIM_ACTION(command_insert_char, ARG_IS_INPUT,
+	"Insert one character into the input buffer."
+)(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
 	_syn_command();
 	global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
@@ -5352,7 +5326,9 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	}
 }
 
-void enter_search(int direction) {
+BIM_ACTION(enter_search, ARG_IS_CUSTOM,
+	"Enter search mode."
+)(int direction) {
 	global_config.overlay_mode = OVERLAY_MODE_SEARCH;
 
 	global_config.command_offset = 0;
@@ -5379,7 +5355,9 @@ void enter_search(int direction) {
 	(void)refresh;
 }
 
-void search_accept(void) {
+BIM_ACTION(search_accept, 0,
+	"Accept the search term and return to the previous mode."
+)(void) {
 	/* Store the accepted search */
 	if (!global_config.command_buffer->actual) {
 		if (global_config.search) {
@@ -5409,7 +5387,9 @@ _finish:
 /**
  * Find the next search result, or loop back around if at the end.
  */
-void search_next(void) {
+BIM_ACTION(search_next, 0,
+	"Jump to the next search match."
+)(void) {
 	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
@@ -5429,7 +5409,9 @@ void search_next(void) {
 /**
  * Find the previous search result, or loop to the end of the file.
  */
-void search_prev(void) {
+BIM_ACTION(search_prev, 0,
+	"Jump to the preceding search match."
+)(void) {
 	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
@@ -5524,7 +5506,9 @@ _match_found:
  * Switch to the left split view
  * (Primarily to handle cases where the left and right are the same buffer)
  */
-void use_left_buffer(void) {
+BIM_ACTION(use_left_buffer, 0,
+	"Switch to the left split view."
+)(void) {
 	if (left_buffer == right_buffer && env->left != 0) {
 		view_right_offset = env->offset;
 		env->width = env->left;
@@ -5539,7 +5523,9 @@ void use_left_buffer(void) {
  * Switch to the right split view
  * (Primarily to handle cases where the left and right are the same buffer)
  */
-void use_right_buffer(void) {
+BIM_ACTION(use_right_buffer, 0,
+	"Switch to the right split view."
+)(void) {
 	if (left_buffer == right_buffer && env->left == 0) {
 		view_left_offset = env->offset;
 		env->left = env->width;
@@ -5553,7 +5539,9 @@ void use_right_buffer(void) {
 /**
  * Handle mouse event
  */
-void handle_mouse(void) {
+BIM_ACTION(handle_mouse, 0,
+	"Process mouse actions."
+)(void) {
 	int buttons = bim_getch() - 32;
 	int x = bim_getch() - 32;
 	int y = bim_getch() - 32;
@@ -5712,10 +5700,9 @@ void handle_mouse(void) {
 	return;
 }
 
-/**
- * Append a character at the current cursor point.
- */
-void insert_char(unsigned int c) {
+BIM_ACTION(insert_char, ARG_IS_INPUT,
+	"Insert one character."
+)(unsigned int c) {
 	if (!c) {
 		render_error("Inserted nil byte?");
 		return;
@@ -5734,10 +5721,9 @@ void insert_char(unsigned int c) {
 	set_modified();
 }
 
-/**
- * Replace a single character at the current cursor point
- */
-void replace_char(unsigned int c) {
+BIM_ACTION(replace_char, ARG_IS_PROMPT,
+	"Replace a single character."
+)(unsigned int c) {
 	if (env->col_no < 1 || env->col_no > env->lines[env->line_no-1]->actual) return;
 
 	char_t _c;
@@ -5751,10 +5737,9 @@ void replace_char(unsigned int c) {
 	set_modified();
 }
 
-/**
- * Undo a history entry.
- */
-void undo_history(void) {
+BIM_ACTION(undo_history, 0,
+	"Undo history until the last breakpoint."
+)(void) {
 	if (!global_config.history_enabled) return;
 
 	env->loading = 1;
@@ -5866,10 +5851,9 @@ void undo_history(void) {
 			count_lines, (count_lines == 1) ? "" : "s");
 }
 
-/**
- * Replay a history entry.
- */
-void redo_history(void) {
+BIM_ACTION(redo_history, 0,
+	"Redo history until the next breakpoint."
+)(void) {
 	if (!global_config.history_enabled) return;
 
 	env->loading = 1;
@@ -5995,10 +5979,9 @@ int is_special(int codepoint) {
 	return !is_normal(codepoint) && !is_whitespace(codepoint);
 }
 
-/**
- * Move the cursor the start of the previous word.
- */
-void word_left(void) {
+BIM_ACTION(word_left, 0,
+	"Move the cursor left to the previous word."
+)(void) {
 	if (!env->lines[env->line_no-1]) return;
 
 	while (env->col_no > 1 && is_whitespace(env->lines[env->line_no - 1]->text[env->col_no - 2].codepoint)) {
@@ -6028,10 +6011,9 @@ _place:
 	place_cursor_actual();
 }
 
-/**
- * Move cursor to the start of the previous "WORD".
- */
-void big_word_left(void) {
+BIM_ACTION(big_word_left, 0,
+	"Move the cursor left to the previous WORD."
+)(void) {
 	int line_no = env->line_no;
 	int col_no = env->col_no;
 
@@ -6066,10 +6048,9 @@ void big_word_left(void) {
 	cursor_right();
 }
 
-/**
- * Word right
- */
-void word_right(void) {
+BIM_ACTION(word_right, 0,
+	"Move the cursor right to the start of the next word."
+)(void) {
 	if (!env->lines[env->line_no-1]) return;
 
 	if (env->col_no >= env->lines[env->line_no-1]->actual) {
@@ -6107,10 +6088,9 @@ _place:
 	place_cursor_actual();
 }
 
-/**
- * Word right
- */
-void big_word_right(void) {
+BIM_ACTION(big_word_right, 0,
+	"Move the cursor right to the start of the next WORD."
+)(void) {
 	int line_no = env->line_no;
 	int col_no = env->col_no;
 
@@ -6155,10 +6135,9 @@ void big_word_right(void) {
 	return;
 }
 
-/**
- * Backspace from the current cursor position.
- */
-void delete_at_cursor(void) {
+BIM_ACTION(delete_at_cursor, 0,
+	"Delete the character at the cursor, or merge with previous line."
+)(void) {
 	if (env->col_no > 1) {
 		line_delete(env->lines[env->line_no - 1], env->col_no - 1, env->line_no - 1);
 		env->col_no -= 1;
@@ -6180,11 +6159,9 @@ void delete_at_cursor(void) {
 	}
 }
 
-/**
- * Delete a "word"; the logic here is a bit complex, but it attempts to do
- * what vim does when you hit ^W (and it's what we bind ^W to as well)
- */
-void delete_word(void) {
+BIM_ACTION(delete_word, 0,
+	"Delete the previous word."
+)(void) {
 	if (!env->lines[env->line_no-1]) return;
 	if (env->col_no > 1) {
 
@@ -6216,10 +6193,9 @@ void delete_word(void) {
 	}
 }
 
-/**
- * Break the current line in two at the current cursor position.
- */
-void insert_line_feed(void) {
+BIM_ACTION(insert_line_feed, 0,
+	"Insert a line break, splitting the current line into two."
+)(void) {
 	if (env->indent) {
 		if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
 			(env->lines[env->line_no-1]->text[env->col_no-2].codepoint == ' ') &&
@@ -6245,10 +6221,9 @@ void insert_line_feed(void) {
 	set_modified();
 }
 
-/**
- * Yank lines between line start and line end (which may be in either order)
- */
-void yank_lines(void) {
+BIM_ACTION(yank_lines, 0,
+	"Copy lines into the paste buffer."
+)(void) {
 	int start = env->start_line;
 	int end = env->line_no;
 	if (global_config.yanks) {
@@ -6332,10 +6307,9 @@ void yank_text(int start_line, int start_col, int end_line, int end_col) {
 	}
 }
 
-/**
- * Delete forward in the column selection or insert modes.
- */
-void delete_at_column(int direction) {
+BIM_ACTION(delete_at_column, ARG_IS_CUSTOM,
+	"Delete from the current column backwards or forwards."
+)(int direction) {
 	if (direction == -1 && env->sel_col <= 0) return;
 
 	int prev_width = 0;
@@ -6370,167 +6344,9 @@ void delete_at_column(int direction) {
 	redraw_text();
 }
 
-
-/**
- * Handle shared escape keys (mostly navigation)
- */
-int handle_escape(int * this_buf, int * timeout, int c) {
-	if (*timeout >=  1 && this_buf[*timeout-1] == '\033' && c == '\033') {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 1;
-	}
-	if (*timeout >= 1 && this_buf[0] == '\033' && c == 'O') {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 0;
-	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
-		switch (c) {
-			case 'P': /* F1 */
-				/* Toggle display of line numbers */
-				global_config.numbers = !global_config.numbers;
-				redraw_all();
-				place_cursor_actual();
-				break;
-			case 'Q': /* F2 */
-				/* Toggle indent mode (why F2? personal vim config) */
-				env->indent = !env->indent;
-				redraw_statusbar();
-				place_cursor_actual();
-				break;
-		}
-		*timeout = 0;
-		return 0;
-	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c != '[') {
-		*timeout = 0;
-		bim_unget(c);
-		return 1;
-	}
-	if (*timeout >= 1 && this_buf[*timeout-1] == '\033' && c == '[') {
-		*timeout = 1;
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 0;
-	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
-			(isdigit(c) || c == ';')) {
-		this_buf[*timeout] = c;
-		(*timeout)++;
-		return 0;
-	}
-	if (*timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
-		switch (c) {
-			case 'M':
-				handle_mouse();
-				break;
-			case 'A': // up
-				cursor_up();
-				break;
-			case 'B': // down
-				cursor_down();
-				break;
-			case 'C': // right
-				if (this_buf[*timeout-1] == '5') { // ctrl
-					big_word_right();
-				} else if (this_buf[*timeout-1] == '2') { //shift
-					word_right();
-				} else if (this_buf[*timeout-1] == '3') { //alt
-					global_config.split_percent += 1;
-					update_split_size();
-					redraw_all();
-				} else if (this_buf[*timeout-1] == '4') { // alt shift
-					use_right_buffer();
-					redraw_all();
-				} else {
-					cursor_right();
-				}
-				break;
-			case 'D': // left
-				if (this_buf[*timeout-1] == '5') { // ctrl
-					big_word_left();
-				} else if (this_buf[*timeout-1] == '2') { // shift
-					word_left();
-				} else if (this_buf[*timeout-1] == '3') { // alt
-					global_config.split_percent -= 1;
-					update_split_size();
-					redraw_all();
-				} else if (this_buf[*timeout-1] == '4') { // alt-shift
-					use_left_buffer();
-					redraw_all();
-				} else {
-					cursor_left();
-				}
-				break;
-			case 'H': // home
-				cursor_home();
-				break;
-			case 'F': // end
-				cursor_end();
-				break;
-			case 'I':
-				goto_line(env->line_no - (global_config.term_height - 6));
-				break;
-			case 'G':
-				goto_line(env->line_no + global_config.term_height - 6);
-				break;
-			case 'Z':
-				/* Shift tab */
-				if (env->mode == MODE_LINE_SELECTION) {
-					*timeout = 0;
-					return 'Z';
-				}
-				break;
-			case '~':
-				switch (this_buf[*timeout-1]) {
-					case '1':
-						cursor_home();
-						break;
-					case '3':
-						if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) {
-							if (env->col_no < env->lines[env->line_no - 1]->actual + 1) {
-								line_delete(env->lines[env->line_no - 1], env->col_no, env->line_no - 1);
-								redraw_line(env->line_no-1);
-								set_modified();
-								redraw_statusbar();
-								place_cursor_actual();
-							} else if (env->line_no < env->line_count) {
-								merge_lines(env->lines, env->line_no);
-								redraw_text();
-								set_modified();
-								redraw_statusbar();
-								place_cursor_actual();
-							}
-						}
-						break;
-					case '4':
-						cursor_end();
-						break;
-					case '5':
-						goto_line(env->line_no - (global_config.term_height - 6));
-						break;
-					case '6':
-						goto_line(env->line_no + global_config.term_height - 6);
-						break;
-				}
-				break;
-			default:
-				render_error("Unrecognized escape sequence identifier: %c", c);
-				break;
-		}
-		*timeout = 0;
-		return 0;
-	}
-
-	*timeout = 0;
-	return 0;
-}
-
-/**
- * Search for the word under the cursor
- */
-void search_under_cursor(void) {
+BIM_ACTION(search_under_cursor, 0,
+	"Search for the word currently under the cursor."
+)(void) {
 	/* Figure out size */
 	int c_before = 0;
 	int c_after = 0;
@@ -6578,7 +6394,9 @@ void search_under_cursor(void) {
  * t: forward, stop before character
  * T: backward, stop after character
  */
-void find_character(int type, int c) {
+BIM_ACTION(find_character, ARG_IS_PROMPT | ARG_IS_INPUT,
+	"Find a character forward, backward, and place the cursor on or before it."
+)(int type, int c) {
 	if (type == 'f' || type == 't') {
 		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
 			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
@@ -6714,10 +6532,9 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 		redraw_line((line)-1); \
 	} while (0)
 
-/**
- * Adjust indentation on selected lines.
- */
-void adjust_indent(int direction) {
+BIM_ACTION(adjust_indent, ARG_IS_CUSTOM,
+	"Adjust the indentation on the selected lines."
+)(int direction) {
 	int lines_to_cover = 0;
 	int start_point = 0;
 	if (env->start_line <= env->line_no) {
@@ -6782,7 +6599,9 @@ void recalculate_selected_lines(void) {
 	redraw_all();
 }
 
-void enter_line_selection(void) {
+BIM_ACTION(enter_line_selection, 0,
+	"Enter line selection mode."
+)(void) {
 	/* Set mode */
 	env->mode = MODE_LINE_SELECTION;
 	/* Store start position */
@@ -6801,7 +6620,9 @@ void enter_line_selection(void) {
 	redraw_line(env->line_no-1);
 }
 
-void switch_selection_mode(int mode) {
+BIM_ACTION(switch_selection_mode, ARG_IS_CUSTOM,
+	"Switch to another selection mode (eg., line to char)."
+)(int mode) {
 	env->mode = mode;
 	if (mode == MODE_LINE_SELECTION) {
 		int start = env->line_no < env->start_line ? env->line_no : env->start_line;
@@ -6818,7 +6639,9 @@ void switch_selection_mode(int mode) {
 	}
 }
 
-void delete_and_yank_lines(void) {
+BIM_ACTION(delete_and_yank_lines, 0,
+	"Delete and yank the selected lines."
+)(void) {
 	yank_lines();
 	if (env->start_line <= env->line_no) {
 		int lines_to_delete = env->line_no - env->start_line + 1;
@@ -6842,7 +6665,9 @@ void delete_and_yank_lines(void) {
 	set_modified();
 }
 
-void delete_lines_and_enter_insert(void) {
+BIM_ACTION(delete_lines_and_enter_insert, 0,
+	"Delete and yank the selected lines and then enter insert mode."
+)(void) {
 	delete_and_yank_lines();
 
 	env->lines = add_line(env->lines, env->line_no-1);
@@ -6850,7 +6675,9 @@ void delete_lines_and_enter_insert(void) {
 	env->mode = MODE_INSERT;
 }
 
-void replace_chars_in_line(int c) {
+BIM_ACTION(replace_chars_in_line, ARG_IS_PROMPT,
+	"Replace characters in the selected lines."
+)(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
 	int start_point = env->start_line < env->line_no ? env->start_line : env->line_no;
 	int end_point = env->start_line < env->line_no ? env->line_no : env->start_line;
@@ -6861,13 +6688,17 @@ void replace_chars_in_line(int c) {
 	}
 }
 
-void leave_selection(void) {
+BIM_ACTION(leave_selection, 0,
+	"Leave selection modes and return to normal mode."
+)(void) {
 	set_history_break();
 	env->mode = MODE_NORMAL;
 	recalculate_selected_lines();
 }
 
-void insert_char_at_column(int c) {
+BIM_ACTION(insert_char_at_column, ARG_IS_INPUT,
+	"Insert a character on all lines at the current column."
+)(int c) {
 	char_t _c;
 	_c.codepoint = c;
 	_c.flags = 0;
@@ -6911,7 +6742,9 @@ void insert_char_at_column(int c) {
 	env->col_no++;
 }
 
-void enter_col_insert(void) {
+BIM_ACTION(enter_col_insert, 0,
+	"Enter column insert mode."
+)(void) {
 	if (env->start_line < env->line_no) {
 		/* swap */
 		int tmp = env->line_no;
@@ -6921,12 +6754,16 @@ void enter_col_insert(void) {
 	env->mode = MODE_COL_INSERT;
 }
 
-void enter_col_insert_after(void) {
+BIM_ACTION(enter_col_insert_after, 0,
+	"Enter column insert mode after the selected column."
+)(void) {
 	env->sel_col += 1;
 	enter_col_insert();
 }
 
-void delete_column(void) {
+BIM_ACTION(delete_column, 0,
+	"(temporary) Delete the selected column."
+)(void) {
 	/* TODO maybe a flag to do this so we can just call delete_at_column with arg = 1? */
 	if (env->start_line < env->line_no) {
 		int tmp = env->line_no;
@@ -6936,7 +6773,9 @@ void delete_column(void) {
 	delete_at_column(1);
 }
 
-void enter_col_selection(void) {
+BIM_ACTION(enter_col_selection, 0,
+	"Enter column selection mode."
+)(void) {
 	/* Set mode */
 	env->mode = MODE_COL_SELECTION;
 	/* Store cursor */
@@ -6948,7 +6787,9 @@ void enter_col_selection(void) {
 	/* Nothing else to do here; rely on cursor */
 }
 
-void yank_characters(void) {
+BIM_ACTION(yank_characters, 0,
+	"Yank the selected characters to the paste buffer."
+)(void) {
 	int end_line = env->line_no;
 	int end_col  = env->col_no;
 	if (env->start_line == end_line) {
@@ -6968,7 +6809,9 @@ void yank_characters(void) {
 	yank_text(env->start_line, env->start_col, end_line, end_col);
 }
 
-void delete_and_yank_chars(void) {
+BIM_ACTION(delete_and_yank_chars, 0,
+	"Delete and yank the selected characters."
+)(void) {
 	int end_line = env->line_no;
 	int end_col  = env->col_no;
 	if (env->start_line == end_line) {
@@ -7017,13 +6860,17 @@ void delete_and_yank_chars(void) {
 	set_modified();
 }
 
-void delete_chars_and_enter_insert(void) {
+BIM_ACTION(delete_chars_and_enter_insert, 0,
+	"Delete and yank the selected characters and then enter insert mode."
+)(void) {
 	delete_and_yank_chars();
 	redraw_text();
 	env->mode = MODE_INSERT;
 }
 
-void replace_chars(int c) {
+BIM_ACTION(replace_chars, ARG_IS_PROMPT,
+	"Replace the selected characters."
+)(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
 	/* This should probably be a function line "do_over_range" or something */
 	if (env->start_line == env->line_no) {
@@ -7062,7 +6909,9 @@ void replace_chars(int c) {
 	}
 }
 
-void enter_char_selection(void) {
+BIM_ACTION(enter_char_selection, 0,
+	"Enter character selection mode."
+)(void) {
 	/* Set mode */
 	env->mode = MODE_CHAR_SELECTION;
 	/* Set cursor positions */
@@ -7076,7 +6925,9 @@ void enter_char_selection(void) {
 	redraw_line(env->line_no-1);
 }
 
-void insert_at_end_of_selection(void) {
+BIM_ACTION(insert_at_end_of_selection, 0,
+	"Move the cursor to the end of the selection and enter insert mode."
+)(void) {
 	recalculate_selected_lines();
 	if (env->line_no == env->start_line) {
 		env->col_no = env->col_no > env->start_col ? env->col_no + 1 : env->start_col + 1;
@@ -7350,7 +7201,9 @@ _done:
 	return c;
 }
 
-void cursor_left_with_wrap(void) {
+BIM_ACTION(cursor_left_with_wrap, 0,
+	"Move the cursor one position left, wrapping to the previous line."
+)(void) {
 	if (env->line_no > 1 && env->col_no == 1) {
 		env->line_no--;
 		env->col_no = env->lines[env->line_no-1]->actual;
@@ -7361,7 +7214,9 @@ void cursor_left_with_wrap(void) {
 	}
 }
 
-void prepend_and_insert(void) {
+BIM_ACTION(prepend_and_insert, 0,
+	"Insert a new line before the current line and enter insert mode."
+)(void) {
 	if (env->readonly) return; /* TODO readonly warning */
 	env->lines = add_line(env->lines, env->line_no-1);
 	env->col_no = 1;
@@ -7375,7 +7230,9 @@ void prepend_and_insert(void) {
 	env->mode = MODE_INSERT;
 }
 
-void append_and_insert(void) {
+BIM_ACTION(append_and_insert, 0,
+	"Insert a new line after the current line and enter insert mode."
+)(void) {
 	if (env->readonly) return; /* TODO readonly warning */
 	env->lines = add_line(env->lines, env->line_no);
 	env->col_no = 1;
@@ -7393,14 +7250,18 @@ void append_and_insert(void) {
 	env->mode = MODE_INSERT;
 }
 
-void insert_after_cursor() {
+BIM_ACTION(insert_after_cursor, 0,
+	"Place the cursor after the selected character and enter insert mode."
+)(void) {
 	if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
 		env->col_no += 1;
 	}
 	env->mode = MODE_INSERT;
 }
 
-void delete_forward(void) {
+BIM_ACTION(delete_forward, 0,
+	"Delete the character under the cursor."
+)(void) {
 	if (env->col_no <= env->lines[env->line_no-1]->actual) {
 		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
 		redraw_text();
@@ -7408,12 +7269,16 @@ void delete_forward(void) {
 	set_history_break();
 }
 
-void delete_forward_and_insert(void) {
+BIM_ACTION(delete_forward_and_insert, 0,
+	"Delete the character under the cursor and enter insert mode."
+)(void) {
 	delete_forward();
 	env->mode = MODE_INSERT;
 }
 
-void paste(int direction) {
+BIM_ACTION(paste, ARG_IS_CUSTOM,
+	"Paste yanked text before (arg=-1) or after (arg=1) the cursor."
+)(int direction) {
 	if (global_config.yanks) {
 		if (!global_config.yank_is_full_lines) {
 			/* Handle P for paste before, p for past after */
@@ -7485,52 +7350,72 @@ void paste(int direction) {
 	}
 }
 
-void insert_at_end(void) {
+BIM_ACTION(insert_at_end, 0,
+	"Move the cursor to the end of the current line and enter insert mode."
+)(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+1;
 	env->mode = MODE_INSERT;
 }
 
-void enter_insert(void) {
+BIM_ACTION(enter_insert, 0,
+	"Enter insert mode."
+)(void) {
 	env->mode = MODE_INSERT;
 }
 
-void enter_replace(void) {
+BIM_ACTION(enter_replace, 0,
+	"Enter replace mode."
+)(void) {
 	env->mode = MODE_REPLACE;
 }
 
-void toggle_numbers(void) {
+BIM_ACTION(toggle_numbers, 0,
+	"Toggle the display of line numbers."
+)(void) {
 	global_config.numbers = !global_config.numbers;
 	redraw_all();
 	place_cursor_actual();
 }
 
-void toggle_indent(void) {
+BIM_ACTION(toggle_indent, 0,
+	"Toggle smart indentation."
+)(void) {
 	env->indent = !env->indent;
 	redraw_statusbar();
 	place_cursor_actual();
 }
 
-void expand_split_right(void) {
+BIM_ACTION(expand_split_right, 0,
+	"Move the view split divider to the right."
+)(void) {
 	global_config.split_percent += 1;
 	update_split_size();
 	redraw_all();
 }
 
-void expand_split_left(void) {
+BIM_ACTION(expand_split_left, 0,
+	"Move the view split divider to the left."
+)(void) {
 	global_config.split_percent -= 1;
 	update_split_size();
 	redraw_all();
 }
 
-void go_page_up(void) {
+BIM_ACTION(go_page_up, 0,
+	"Jump up a screenful."
+)(void) {
 	goto_line(env->line_no - (global_config.term_height - 6));
 }
 
-void go_page_down(void) {
+BIM_ACTION(go_page_down, 0,
+	"Jump down a screenful."
+)(void) {
 	goto_line(env->line_no + (global_config.term_height - 6));
 }
 
-void jump_to_matching_bracket(void) {
+BIM_ACTION(jump_to_matching_bracket, 0,
+	"Find and jump to the matching bracket for the character under the cursor."
+)(void) {
 	recalculate_selected_lines();
 	int paren_line = -1, paren_col = -1;
 	find_matching_paren(&paren_line, &paren_col, 1);
@@ -7543,7 +7428,9 @@ void jump_to_matching_bracket(void) {
 	}
 }
 
-void jump_to_previous_blank(void) {
+BIM_ACTION(jump_to_previous_blank, 0,
+	"Jump to the preceding blank line before the cursor."
+)(void) {
 	env->col_no = 1;
 	if (env->line_no == 1) return;
 	do {
@@ -7554,7 +7441,9 @@ void jump_to_previous_blank(void) {
 	redraw_statusbar();
 }
 
-void jump_to_next_blank(void) {
+BIM_ACTION(jump_to_next_blank, 0,
+	"Jump to the next blank line after the cursor."
+)(void) {
 	env->col_no = 1;
 	if (env->line_no == env->line_count) return;
 	do {
@@ -7565,7 +7454,9 @@ void jump_to_next_blank(void) {
 	redraw_statusbar();
 }
 
-void first_non_whitespace(void) {
+BIM_ACTION(first_non_whitespace, 0,
+	"Jump to the first non-whitespace character in the current line."
+)(void) {
 	for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
 		if (!is_whitespace(env->lines[env->line_no-1]->text[i].codepoint)) {
 			env->col_no = i + 1;
@@ -7576,7 +7467,9 @@ void first_non_whitespace(void) {
 	redraw_statusbar();
 }
 
-void next_line_non_whitespace(void) {
+BIM_ACTION(next_line_non_whitespace, 0,
+	"Jump to the first non-whitespace character in the next next line."
+)(void) {
 	if (env->line_no < env->line_count) {
 		env->line_no++;
 		env->col_no = 1;
@@ -7586,7 +7479,9 @@ void next_line_non_whitespace(void) {
 	first_non_whitespace();
 }
 
-void smart_backspace(void) {
+BIM_ACTION(smart_backspace, 0,
+	"Delete the preceding character, with special handling for indentation."
+)(void) {
 	if (!env->tabs && env->col_no > 1) {
 		int i;
 		for (i = 0; i < env->col_no-1; ++i) {
@@ -7604,12 +7499,16 @@ void smart_backspace(void) {
 	delete_at_cursor();
 }
 
-void perform_omni_completion(void) {
+BIM_ACTION(perform_omni_completion, 0,
+	"(temporary) Perform smart symbol competion from ctags."
+)(void) {
 	/* This should probably be a submode */
 	while (omni_complete() == 1);
 }
 
-void smart_tab(void) {
+BIM_ACTION(smart_tab, 0,
+	"Insert a tab or spaces depending on indent mode. (Use ^V <tab> to guarantee a literal tab)"
+)(void) {
 	if (env->tabs) {
 		insert_char('\t');
 	} else {
@@ -7619,7 +7518,9 @@ void smart_tab(void) {
 	}
 }
 
-void smart_comment_end(int c) {
+BIM_ACTION(smart_comment_end, ARG_IS_INPUT,
+	"Insert a / ending a C-style comment."
+)(int c) {
 	/* smart *end* of comment anyway */
 	if (env->indent) {
 		if ((env->lines[env->line_no-1]->text[env->col_no-2].flags & 0x1F) == FLAG_COMMENT &&
@@ -8413,6 +8314,26 @@ void init_terminal(void) {
 	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
+char * find_action(void (*action)()) {
+	if (!action) return "(does nothing)";
+	for (int i = 0; i < action_count; ++i) {
+		if (action == mappable_actions[i].action) return mappable_actions[i].name;
+	}
+	return "[unregistered action]";
+}
+
+void dump_mapping(const char * description, struct action_map * map) {
+	set_bold();
+	printf("%s\n", description);
+	unset_bold();
+	struct action_map * m = map;
+	while (m->key != -1) {
+		/* Find the name of this action */
+		printf("%s → %s\n", name_from_key(m->key), find_action(m->method));
+		m++;
+	}
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
@@ -8474,6 +8395,20 @@ int main(int argc, char * argv[]) {
 					return 0;
 				} else if (!strcmp(optarg,"help")) {
 					show_usage(argv);
+					return 0;
+				} else if (!strcmp(optarg,"dump-mappings")) {
+					dump_mapping("Normal", NORMAL_MAP);
+					dump_mapping("Insert", INSERT_MAP);
+					dump_mapping("Replace", REPLACE_MAP);
+					dump_mapping("Line Selection", LINE_SELECTION_MAP);
+					dump_mapping("Char Selection", CHAR_SELECTION_MAP);
+					dump_mapping("Col Selection", COL_SELECTION_MAP);
+					dump_mapping("Col Insert", COL_INSERT_MAP);
+					dump_mapping("Navigation (Select)", NAVIGATION_MAP);
+					dump_mapping("Escape (Select, Insert)", ESCAPE_MAP);
+					dump_mapping("Command", COMMAND_MAP);
+					dump_mapping("Search", SEARCH_MAP);
+					dump_mapping("Input (Command, Search)", INPUT_BUFFER_MAP);
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
