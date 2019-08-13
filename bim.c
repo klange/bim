@@ -7966,7 +7966,7 @@ void normal_mode(void) {
 					refresh = 1;
 					if (!handle_action(COMMAND_MAP, key))
 						if (!handle_action(INPUT_BUFFER_MAP, key))
-							command_insert_char(key);
+							if (key < KEY_ESCAPE) command_insert_char(key);
 				}
 				continue;
 			} else if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
@@ -7978,7 +7978,7 @@ void normal_mode(void) {
 					refresh = 1;
 					if (!handle_action(SEARCH_MAP, key)) {
 						if (!handle_action(INPUT_BUFFER_MAP, key)) {
-							command_insert_char(key);
+							if (key < KEY_ESCAPE) command_insert_char(key);
 						}
 					}
 
