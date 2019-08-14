@@ -7155,41 +7155,35 @@ _finish_completion:
 }
 
 /**
- * Handler for 'r'; takes in input to replace a single
- * character in the document. Handles Unicode, so we
- * can replace a character with complex input. Also
- * handles ^V so we can replace with escape sequences
- * we would otherwise gobble up.
- *
- * Does not actually do the replacement; returns -1
- * or the codepoint to replace with.
+ * Read one codepoint, with verbatim support.
  */
 int read_one_character(char * message) {
 	/* Read one character and replace */
 	render_commandline_message(message);
-	uint32_t state = 0;
-	int cin;
-	uint32_t c = -1;
-	while ((cin = bim_getch())) {
-		if (cin == -1) continue;
-		if (!decode(&state, &c, cin)) {
-			if (c == '\033') {
-				c = -1;
-				goto _done;
-			} else if (c == 22) { /* ctrl-v */
-				render_commandline_message(message);
-				printf(" ^V");
-				fflush(stdout);
-				while ((cin = bim_getch()) == -1);
-				c = cin;
-				goto _done;
-			} else {
-				goto _done;
-			}
+	int c;
+	while ((c = bim_getkey(200))) {
+		if (c == KEY_TIMEOUT) continue;
+		if (c == KEY_CTRL_V) {
+			render_commandline_message(message);
+			printf(" ^V");
+			fflush(stdout);
+			while ((c = bim_getch()) == -1);
+			break;
 		}
+		break;
 	}
 
-_done:
+	redraw_commandline();
+	return c;
+}
+
+int read_one_byte(char * message) {
+	render_commandline_message(message);
+	int c;
+	while ((c = bim_getch())) {
+		if (c == -1) continue;
+		break;
+	}
 	redraw_commandline();
 	return c;
 }
@@ -7575,6 +7569,7 @@ struct action_map {
 #define opt_nav  0x8 /* This action will consume the nav buffer as its argument */
 #define opt_rw   0x10 /* Must not be read-only */
 #define opt_norm 0x20 /* Returns to normal mode */
+#define opt_byte 0x40 /* Same as opt_char but forces a byte */
 
 struct action_map NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
@@ -7605,7 +7600,7 @@ struct action_map INSERT_MAP[] = {
 	{KEY_BACKSPACE, smart_backspace, 0, 0},
 	{KEY_ENTER,     insert_line_feed, 0, 0},
 	{KEY_CTRL_O,    perform_omni_completion, 0, 0},
-	{KEY_CTRL_V,    insert_char, opt_char, 0},
+	{KEY_CTRL_V,    insert_char, opt_byte, 0},
 	{KEY_CTRL_W,    delete_word, 0, 0},
 	{'\t',          smart_tab, 0, 0},
 	{'/',           smart_comment_end, opt_arg, '/'},
@@ -7786,13 +7781,16 @@ int handle_action(struct action_map * basemap, int key) {
 			if (map->options & opt_char) {
 				c = read_one_character(name_from_key(key));
 			}
+			if (map->options & opt_byte) {
+				c = read_one_byte(name_from_key(key));
+			}
 			if (reps > 1) {
 				env->loading = 1;
 			}
 			for (int i = 0; i < reps; ++i) {
-				if ((map->options & opt_char) && (map->options & opt_arg)) {
+				if (((map->options & opt_char) || (map->options & opt_byte)) && (map->options & opt_arg)) {
 					map->method(map->arg, c);
-				} else if (map->options & opt_char) {
+				} else if ((map->options & opt_char) || (map->options & opt_byte)) {
 					map->method(c);
 				} else if (map->options & opt_arg) {
 					map->method(map->arg);
