@@ -90,7 +90,6 @@ struct key_name_map KeyNames[] = {
 	{KEY_SHIFT_TAB,"<shift-tab>"},
 };
 
-int to_eight(uint32_t codepoint, char * out);
 char * name_from_key(enum Key keycode) {
 	for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
 		if (KeyNames[i].keycode == keycode) return KeyNames[i].name;
@@ -116,13 +115,6 @@ char * bim_command_names[] = {
 	NULL
 };
 
-struct action_def {
-	char * name;
-	void (*action)();
-	int options;
-	const char * description;
-};
-
 int action_count = 0;
 int action_space = 0;
 struct action_def * mappable_actions = NULL;
@@ -142,17 +134,6 @@ void add_action(const char * raw_name, void (*action)(), int options, const char
 	mappable_actions[action_count].description = description;
 	action_count++;
 }
-
-#define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
-#define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
-#define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
-
-#define BIM_ACTION(name, options, description) \
-	void name (); /* Define the action with unknown arguments */ \
-	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action(#name, name, options, description); \
-	} \
-	void name
 
 /**
  * Special implementation of getch with a timeout

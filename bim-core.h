@@ -332,6 +332,24 @@ extern const char * COLOR_LINK;
 extern const char * COLOR_ESCAPE;
 extern const char * current_theme;
 
+struct action_def {
+	char * name;
+	void (*action)();
+	int options;
+	const char * description;
+};
+
+#define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
+#define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
+#define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
+
+#define BIM_ACTION(name, options, description) \
+	void name (); /* Define the action with unknown arguments */ \
+	void __attribute__((constructor)) _install_ ## name (void) { \
+		add_action(#name, name, options, description); \
+	} \
+	void name
+
 extern buffer_t * env;
 extern buffer_t * left_buffer;
 extern buffer_t * right_buffer;
@@ -362,6 +380,9 @@ extern FILE * open_biminfo(void);
 extern int fetch_from_biminfo(buffer_t * buf);
 extern int update_biminfo(buffer_t * buf);
 extern buffer_t * buffer_close(buffer_t * buf);
+extern int to_eight(uint32_t codepoint, char * out);
+extern char * name_from_key(enum Key keycode);
+extern void add_action(const char * raw_name, void (*action)(), int options, const char * description);
 
 extern void add_colorscheme(const char * name, void (*load)(void));
 extern void add_syntax(struct syntax_definition def);
