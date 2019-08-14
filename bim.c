@@ -5015,8 +5015,13 @@ BIM_ACTION(command_accept, 0,
 	global_config.command_buffer = NULL;
 
 	/* Run the converted command */
+	global_config.break_from_selection = 0;
 	process_command(tmp);
 	free(tmp);
+
+	if (!global_config.break_from_selection) {
+		env->mode = MODE_NORMAL;
+	}
 
 	/* Leave command mode */
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
