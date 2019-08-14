@@ -7929,7 +7929,6 @@ void normal_mode(void) {
 						handle_action(ESCAPE_MAP, key);
 			}
 			reset_nav_buffer(key);
-			place_cursor_actual();
 		} else if (env->mode == MODE_INSERT) {
 			place_cursor_actual();
 			int key = bim_getkey(refresh ? 10 : 200);
