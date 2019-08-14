@@ -35,5 +35,14 @@ extern int paint_c_numeral(struct syntax_state * state);
 extern int paint_c_comment(struct syntax_state * state);
 extern void paint_c_char(struct syntax_state * state);
 
+/* Hacky workaround for isdigit not really accepting Unicode stuff */
+static __attribute__((used)) int _isdigit(int c) { if (c > 128) return 0; return isdigit(c); }
+static __attribute__((used)) int _isxdigit(int c) { if (c > 128) return 0; return isxdigit(c); }
+
+#undef isdigit
+#undef isxdigit
+#define isdigit(c) _isdigit(c)
+#define isxdigit(c) _isxdigit(c)
+
 
 #endif /* _BIM_SYNTAX_H */
