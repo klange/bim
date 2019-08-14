@@ -2614,6 +2614,18 @@ void highlight_matching_paren(void) {
 }
 
 /**
+ * Recalculate syntax for the matched paren.
+ * Useful when entering selection modes.
+ */
+void unhighlight_matching_paren(void) {
+	if (env->highlighting_paren > 0 && env->highlighting_paren <= env->line_count) {
+		recalculate_syntax(env->lines[env->highlighting_paren-1], env->highlighting_paren-1);
+		redraw_line(env->highlighting_paren-1);
+		env->highlighting_paren = -1;
+	}
+}
+
+/**
  * Move the cursor to the appropriate location based
  * on where it is in the text region.
  *
@@ -6604,6 +6616,7 @@ BIM_ACTION(enter_line_selection, 0,
 	env->start_col  = env->col_no;
 	/* Redraw commandline to get -- LINE SELECTION -- text */
 	redraw_commandline();
+	unhighlight_matching_paren();
 
 	/* Set this line as selected for syntax highlighting */
 	for (int j = 0; j < env->lines[env->line_no-1]->actual; ++j) {
@@ -6914,6 +6927,8 @@ BIM_ACTION(enter_char_selection, 0,
 	env->prev_line  = env->start_line;
 	/* Redraw commandline for -- CHAR SELECTION -- */
 	redraw_commandline();
+	unhighlight_matching_paren();
+
 	/* Select single character */
 	env->lines[env->line_no-1]->text[env->col_no-1].flags |= FLAG_SELECT;
 	redraw_line(env->line_no-1);
@@ -8037,6 +8052,7 @@ void normal_mode(void) {
 				}
 			}
 		} else if (env->mode == MODE_COL_SELECTION) {
+			place_cursor_actual();
 			int key = bim_getkey(200);
 			if (key == KEY_TIMEOUT) continue;
 
