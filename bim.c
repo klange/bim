@@ -75,6 +75,7 @@ struct key_name_map KeyNames[] = {
 	{KEY_ESCAPE, "<escape>"},
 	{KEY_TAB, "<tab>"},
 	{' ', "<space>"},
+	{'`', "<backtick>"},
 	{KEY_DELETE, "<del>"},
 	{KEY_MOUSE, "<mouse>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
@@ -6311,7 +6312,7 @@ void yank_text(int start_line, int start_col, int end_line, int end_col) {
 }
 
 BIM_ACTION(delete_at_column, ARG_IS_CUSTOM,
-	"Delete from the current column backwards or forwards."
+	"Delete from the current column backwards (`<backspace>`) or forwards (`<delete>`)."
 )(int direction) {
 	if (direction == -1 && env->sel_col <= 0) return;
 
@@ -6398,7 +6399,7 @@ BIM_ACTION(search_under_cursor, 0,
  * T: backward, stop after character
  */
 BIM_ACTION(find_character, ARG_IS_PROMPT | ARG_IS_INPUT,
-	"Find a character forward, backward, and place the cursor on or before it."
+	"Find a character forward (`f`, `t`), backward (`F`, `T`), and place the cursor on (`f`, `F`) or before (`t`, `T`) it."
 )(int type, int c) {
 	if (type == 'f' || type == 't') {
 		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
@@ -6536,7 +6537,7 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 	} while (0)
 
 BIM_ACTION(adjust_indent, ARG_IS_CUSTOM,
-	"Adjust the indentation on the selected lines."
+	"Adjust the indentation on the selected lines (`<tab>` for deeper, `<shift-tab>` for shallower)."
 )(int direction) {
 	int lines_to_cover = 0;
 	int start_point = 0;
@@ -6624,7 +6625,7 @@ BIM_ACTION(enter_line_selection, 0,
 }
 
 BIM_ACTION(switch_selection_mode, ARG_IS_CUSTOM,
-	"Switch to another selection mode (eg., line to char)."
+	"Swap between LINE and CHAR selection modes."
 )(int mode) {
 	env->mode = mode;
 	if (mode == MODE_LINE_SELECTION) {
@@ -7280,7 +7281,7 @@ BIM_ACTION(delete_forward_and_insert, 0,
 }
 
 BIM_ACTION(paste, ARG_IS_CUSTOM,
-	"Paste yanked text before (arg=-1) or after (arg=1) the cursor."
+	"Paste yanked text before (`P`) or after (`p`) the cursor."
 )(int direction) {
 	if (global_config.yanks) {
 		if (!global_config.yank_is_full_lines) {
@@ -7522,7 +7523,7 @@ BIM_ACTION(smart_tab, 0,
 }
 
 BIM_ACTION(smart_comment_end, ARG_IS_INPUT,
-	"Insert a / ending a C-style comment."
+	"Insert a `/` ending a C-style comment."
 )(int c) {
 	/* smart *end* of comment anyway */
 	if (env->indent) {
@@ -8317,24 +8318,29 @@ void init_terminal(void) {
 	signal(SIGTSTP,  SIGTSTP_handler);
 }
 
-char * find_action(void (*action)()) {
-	if (!action) return "(does nothing)";
+struct action_def * find_action(void (*action)()) {
+	if (!action) return NULL;
 	for (int i = 0; i < action_count; ++i) {
-		if (action == mappable_actions[i].action) return mappable_actions[i].name;
+		if (action == mappable_actions[i].action) return &mappable_actions[i];
 	}
-	return "[unregistered action]";
+	return NULL;
 }
 
 void dump_mapping(const char * description, struct action_map * map) {
-	set_bold();
-	printf("%s\n", description);
-	unset_bold();
+	printf("## %s\n", description);
+	printf("\n");
+	printf("| **Key** | **Action** | **Description** |\n");
+	printf("|---------|------------|-----------------|\n");
 	struct action_map * m = map;
 	while (m->key != -1) {
 		/* Find the name of this action */
-		printf("%s → %s\n", name_from_key(m->key), find_action(m->method));
+		struct action_def * action = find_action(m->method);
+		printf("| `%s` | `%s` | %s |\n", name_from_key(m->key),
+			action ? action->name : "(unbound)",
+			action ? action->description : "(unbound)");
 		m++;
 	}
+	printf("\n");
 }
 
 int main(int argc, char * argv[]) {
