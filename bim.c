@@ -8127,7 +8127,11 @@ static void show_usage(char * argv[]) {
 			"        " _s "-C includes line numbers, -c does not" _e
 			" -u     " _s "override bimrc file" _e
 			" -?     " _s "show this help text" _e
-			" --version " _s "show version information and available plugins" _e
+			"\n"
+			"Long options:\n"
+			" --help          " _s "show this help text" _e
+			" --version       " _s "show version information and available plugins" _e
+			" --dump-mappings " _s "dump markdown description of key mappings" _e
 			"\n", argv[0], argv[0]);
 #undef _e
 #undef _s
