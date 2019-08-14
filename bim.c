@@ -7159,14 +7159,19 @@ _finish_completion:
  */
 int read_one_character(char * message) {
 	/* Read one character and replace */
-	render_commandline_message(message);
+	if (!global_config.overlay_mode) {
+		render_commandline_message(message);
+		place_cursor_actual();
+	}
 	int c;
 	while ((c = bim_getkey(200))) {
 		if (c == KEY_TIMEOUT) continue;
 		if (c == KEY_CTRL_V) {
-			render_commandline_message(message);
-			printf(" ^V");
-			fflush(stdout);
+			if (!global_config.overlay_mode) {
+				render_commandline_message(message);
+				printf(" ^V");
+				place_cursor_actual();
+			}
 			while ((c = bim_getch()) == -1);
 			break;
 		}
@@ -7178,7 +7183,10 @@ int read_one_character(char * message) {
 }
 
 int read_one_byte(char * message) {
-	render_commandline_message(message);
+	if (!global_config.overlay_mode) {
+		render_commandline_message(message);
+		place_cursor_actual();
+	}
 	int c;
 	while ((c = bim_getch())) {
 		if (c == -1) continue;
