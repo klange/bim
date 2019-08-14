@@ -6314,7 +6314,7 @@ void yank_text(int start_line, int start_col, int end_line, int end_col) {
 }
 
 BIM_ACTION(delete_at_column, ARG_IS_CUSTOM,
-	"Delete from the current column backwards (`<backspace>`) or forwards (`<delete>`)."
+	"Delete from the current column backwards (`<backspace>`) or forwards (`<del>`)."
 )(int direction) {
 	if (direction == -1 && env->sel_col <= 0) return;
 

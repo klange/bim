@@ -98,8 +98,8 @@
 |---------|------------|-----------------|
 | `<escape>` | `leave_selection` | Leave selection modes and return to normal mode. |
 | `^C` | `leave_selection` | Leave selection modes and return to normal mode. |
-| `<backspace>` | `delete_at_column` | Delete from the current column backwards (`<backspace>`) or forwards (`<delete>`). |
-| `<del>` | `delete_at_column` | Delete from the current column backwards (`<backspace>`) or forwards (`<delete>`). |
+| `<backspace>` | `delete_at_column` | Delete from the current column backwards (`<backspace>`) or forwards (`<del>`). |
+| `<del>` | `delete_at_column` | Delete from the current column backwards (`<backspace>`) or forwards (`<del>`). |
 | `<enter>` | `(unbound)` | (unbound) |
 | `^W` | `(unbound)` | (unbound) |
 | `^V` | `insert_char_at_column` | Insert a character on all lines at the current column. |
