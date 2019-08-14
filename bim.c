@@ -4868,28 +4868,6 @@ done:
  */
 #define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
 #define _syn_restore() do { env->syntax = global_config.command_syn_back; } while (0)
-#define _place_cursor() do { \
-	int x = 2 + _left_gutter - global_config.command_offset; \
-	for (int i = 0; i < global_config.command_col_no - 1; ++i) { \
-		char_t * c = &global_config.command_buffer->text[i]; \
-		x += c->display_width; \
-	} \
-	if (x > global_config.term_width - 1) { \
-		int diff = x - (global_config.term_width - 1); \
-		global_config.command_offset += diff; \
-		x -= diff; \
-		refresh = 1; \
-	} \
-	if (x < 2 + _left_gutter) { \
-		int diff = (2 + _left_gutter) - x; \
-		global_config.command_offset -= diff; \
-		x += diff; \
-		refresh = 1; \
-	} \
-	place_cursor(40, global_config.term_height); \
-	place_cursor(x, global_config.term_height); \
-	show_cursor(); \
-} while (0)
 
 #define _restore_history(point) do { \
 	unsigned char * t = command_history[point]; \
@@ -4912,38 +4890,65 @@ done:
 /**
  * Draw the command buffer and any prefix.
  */
-#define _set_cmdline() do { \
-	place_cursor(1, global_config.term_height); \
-	paint_line(COLOR_BG); \
-	set_colors(COLOR_ALT_FG, COLOR_BG); \
-	int _left_gutter = 0; \
-	if (env->mode == MODE_LINE_SELECTION) { \
-		_left_gutter = printf("(LINE %d:%d)", \
-			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
-			(env->start_line < env->line_no) ? env->line_no : env->start_line); \
-	} else if (env->mode == MODE_COL_SELECTION) { \
-		_left_gutter = printf("(COL %d:%d %d)", \
-			(env->start_line < env->line_no) ? env->start_line : env->line_no, \
-			(env->start_line < env->line_no) ? env->line_no : env->start_line, \
-			(env->sel_col)); \
-	} else if (env->mode == MODE_CHAR_SELECTION) { \
-		_left_gutter = printf("(CHAR)"); \
-	} \
-	if (global_config.command_offset) { \
-		set_colors(COLOR_ALT_FG, COLOR_ALT_BG); \
-		printf("<"); \
-	} else { \
-		set_colors(COLOR_FG, COLOR_BG); \
-		if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) { \
-			printf(global_config.search_direction == 0 ? "?" : "/"); \
-		} else { \
-			printf(":"); \
-		} \
-	} \
-	render_line(global_config.command_buffer, global_config.term_width-1-_left_gutter, global_config.command_offset, -1); \
-	refresh = 0; \
-	_place_cursor(); \
-} while (0)
+void render_command_input_buffer(void) {
+	/* Place the cursor at the bottom of the screen */
+	place_cursor(1, global_config.term_height);
+	paint_line(COLOR_BG);
+	set_colors(COLOR_ALT_FG, COLOR_BG);
+
+	/* If there's a mode name to render, draw it first */
+	int _left_gutter = 0;
+	if (env->mode == MODE_LINE_SELECTION) {
+		_left_gutter = printf("(LINE %d:%d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line);
+	} else if (env->mode == MODE_COL_SELECTION) {
+		_left_gutter = printf("(COL %d:%d %d)",
+			(env->start_line < env->line_no) ? env->start_line : env->line_no,
+			(env->start_line < env->line_no) ? env->line_no : env->start_line,
+			(env->sel_col));
+	} else if (env->mode == MODE_CHAR_SELECTION) {
+		_left_gutter = printf("(CHAR)");
+	}
+
+	/* Figure out the cursor position and adjust the offset if necessary */
+	int x = 2 + _left_gutter - global_config.command_offset;
+	for (int i = 0; i < global_config.command_col_no - 1; ++i) {
+		char_t * c = &global_config.command_buffer->text[i];
+		x += c->display_width;
+	}
+	if (x > global_config.term_width - 1) {
+		int diff = x - (global_config.term_width - 1);
+		global_config.command_offset += diff;
+		x -= diff;
+	}
+	if (x < 2 + _left_gutter) {
+		int diff = (2 + _left_gutter) - x;
+		global_config.command_offset -= diff;
+		x += diff;
+	}
+
+	/* If the input buffer is horizontally shifted because it's too long, indicate that. */
+	if (global_config.command_offset) {
+		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+		printf("<");
+	} else {
+		/* Otherwise indicate buffer mode (search / ?, or command :) */
+		set_colors(COLOR_FG, COLOR_BG);
+		if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+			printf(global_config.search_direction == 0 ? "?" : "/");
+		} else {
+			printf(":");
+		}
+	}
+
+	/* Render the buffer */
+	render_line(global_config.command_buffer, global_config.term_width-1-_left_gutter, global_config.command_offset, -1);
+
+	/* Place and display the cursor */
+	place_cursor(x, global_config.term_height);
+	show_cursor();
+}
 
 BIM_ACTION(command_discard, 0,
 	"Discard the input buffer and cancel command or search."
@@ -4986,9 +4991,7 @@ BIM_ACTION(enter_command, 0,
 
 	global_config.history_point = -1;
 
-	int refresh = 1;
-	_set_cmdline();
-	(void)refresh;
+	render_command_input_buffer();
 }
 
 BIM_ACTION(command_accept, 0,
@@ -5356,9 +5359,7 @@ BIM_ACTION(enter_search, ARG_IS_CUSTOM,
 	global_config.command_syn_back = env->syntax;
 	global_config.command_syn = NULL; /* Disable syntax highlighting in search; maybe use buffer's mode instead? */
 
-	int refresh = 1;
-	_set_cmdline();
-	(void)refresh;
+	render_command_input_buffer();
 }
 
 BIM_ACTION(search_accept, 0,
@@ -7870,7 +7871,8 @@ void normal_mode(void) {
 		if (global_config.overlay_mode) {
 			if (global_config.overlay_mode == OVERLAY_MODE_COMMAND) {
 				if (refresh) {
-					_set_cmdline();
+					render_command_input_buffer();
+					refresh = 0;
 				}
 				int key = bim_getkey(200);
 				if (key != KEY_TIMEOUT) {
@@ -7882,7 +7884,8 @@ void normal_mode(void) {
 				continue;
 			} else if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
 				if (refresh) {
-					_set_cmdline();
+					render_command_input_buffer();
+					refresh = 0;
 				}
 				int key = bim_getkey(200);
 				if (key != KEY_TIMEOUT) {
