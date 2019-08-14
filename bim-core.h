@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 
 
-#define BIM_VERSION   "1.9.0"
+#define BIM_VERSION   "2.0.0"
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
