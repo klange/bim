@@ -2765,6 +2765,7 @@ void SIGCONT_handler(int sig) {
 	update_screen_size();
 	mouse_enable();
 	redraw_all();
+	update_title();
 	signal(SIGCONT, SIGCONT_handler);
 	signal(SIGTSTP, SIGTSTP_handler);
 }
