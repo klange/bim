@@ -134,7 +134,7 @@
 | `{` | `jump_to_previous_blank` | Jump to the preceding blank line before the cursor. |
 | `}` | `jump_to_next_blank` | Jump to the next blank line after the cursor. |
 | `$` | `cursor_end` | Move the cursor to the end of the line, or past the end in insert mode. |
-| `|` | `cursor_home` | Move the cursor to the beginning of the line. |
+| `<pipe>` | `cursor_home` | Move the cursor to the beginning of the line. |
 | `<enter>` | `next_line_non_whitespace` | Jump to the first non-whitespace character in the next next line. |
 | `^` | `first_non_whitespace` | Jump to the first non-whitespace character in the current line. |
 | `0` | `cursor_home` | Move the cursor to the beginning of the line. |

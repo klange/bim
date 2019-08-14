@@ -75,7 +75,9 @@ struct key_name_map KeyNames[] = {
 	{KEY_ESCAPE, "<escape>"},
 	{KEY_TAB, "<tab>"},
 	{' ', "<space>"},
+	/* These are mostly here for markdown output. */
 	{'`', "<backtick>"},
+	{'|', "<pipe>"},
 	{KEY_DELETE, "<del>"},
 	{KEY_MOUSE, "<mouse>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
