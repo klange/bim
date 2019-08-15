@@ -7779,7 +7779,7 @@ struct action_map COL_SELECTION_MAP[] = {
 	{KEY_CTRL_V,    leave_selection, 0, 0},
 	{'I',           enter_col_insert, 0, 0},
 	{'a',           enter_col_insert_after, 0, 0},
-	{'d',           delete_column, 0, 0},
+	{'d',           delete_column, opt_norm, 0},
 	{-1, NULL, 0, 0},
 };
 
