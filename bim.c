@@ -2396,6 +2396,11 @@ void redraw_commandline(void) {
 		printf("-- CHAR SELECTION -- ");
 		clear_to_end();
 		unset_bold();
+	} else if (env->mode == MODE_DIRECTORY_BROWSE) {
+		set_bold();
+		printf("-- DIRECTORY BROWSE --");
+		clear_to_end();
+		unset_bold();
 	} else {
 		clear_to_end();
 	}
@@ -2857,6 +2862,14 @@ void add_buffer(uint8_t * buf, int size) {
 	}
 }
 
+/**
+ * Add a raw string to a buffer. Convenience wrapper
+ * for add_buffer for nil-terminated strings.
+ */
+void add_string(char * string) {
+	add_buffer((uint8_t*)string,strlen(string));
+}
+
 int str_ends_with(const char * haystack, const char * needle) {
 	int i = strlen(haystack);
 	int j = strlen(needle);
@@ -2925,6 +2938,114 @@ int is_all_numbers(const char * c) {
 	return 1;
 }
 
+struct file_listing {
+	int type;
+	char * filename;
+};
+
+int sort_files(const void * a, const void * b) {
+	struct file_listing * _a = (struct file_listing *)a;
+	struct file_listing * _b = (struct file_listing *)b;
+
+	if (_a->type == _b->type) {
+		return strcmp(_a->filename, _b->filename);
+	} else {
+		return _a->type - _b->type;
+	}
+}
+
+void read_directory_into_buffer(char * file) {
+	DIR * dirp = opendir(file);
+	if (!dirp) {
+		env->loading = 0;
+		return;
+	}
+
+	add_string("# Directory listing for `");
+	add_string(file);
+	add_string("`\n");
+
+	/* Flexible array to hold directory contents */
+	int available = 32;
+	int count = 0;
+	struct file_listing * files = calloc(sizeof(struct file_listing), available);
+
+	/* Read directory */
+	struct dirent * ent = readdir(dirp);
+	while (ent) {
+		struct stat statbuf;
+		char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
+		snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
+		stat(tmp, &statbuf);
+		int type = (S_ISDIR(statbuf.st_mode)) ? 'd' : 'f';
+		if (count + 1 == available) {
+			available *= 2; \
+			files = realloc(files, sizeof(struct file_listing) * available); \
+		} \
+		files[count].type = type;
+		files[count].filename = strdup(ent->d_name);
+		count++;
+		ent = readdir(dirp);
+	}
+	closedir(dirp);
+
+	/* Sort directory entries */
+	qsort(files, count, sizeof(struct file_listing), sort_files);
+
+	for (int i = 0; i < count; ++i) {
+		add_string(files[i].type == 'd' ? "d" : "f");
+		add_string(" ");
+		add_string(files[i].filename);
+		add_string("\n");
+
+		free(files[i].filename);
+	}
+
+	free(files);
+
+	env->file_name = strdup(file);
+	env->syntax = find_syntax_calculator("dirent");
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	env->readonly = 1;
+	env->loading = 0;
+	env->mode = MODE_DIRECTORY_BROWSE;
+	env->line_no = 1;
+	redraw_all();
+}
+
+BIM_ACTION(open_file_from_line, 0,
+	"When browsing a directory, open the file under the cursor."
+)(void) {
+	if (env->lines[env->line_no-1]->actual < 1) return;
+	if (env->lines[env->line_no-1]->text[0].codepoint != 'd' &&
+	    env->lines[env->line_no-1]->text[0].codepoint != 'f') return;
+	/* Collect file name */
+	char * tmp = malloc(strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7); /* Should be enough */
+	memset(tmp, 0, strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7);
+	char * t = tmp;
+	/* Start by copying the filename */
+	t += sprintf(t, "%s/", env->file_name);
+	/* Start from character 2 to skip d/f and space */
+	for (int i = 2; i < env->lines[env->line_no-1]->actual; ++i) {
+		t += to_eight(env->lines[env->line_no-1]->text[i].codepoint, t);
+	}
+	*t = '\0';
+	/* Normalize */
+	char tmp_path[PATH_MAX+1];
+	if (!realpath(tmp, tmp_path)) {
+		free(tmp);
+		return;
+	}
+	free(tmp);
+	/* Open file */
+	buffer_t * old_buffer = env;
+	open_file(tmp_path);
+	buffer_close(old_buffer);
+	redraw_all();
+}
+
 /**
  * Create a new buffer from a file.
  */
@@ -2963,21 +3084,7 @@ void open_file(char * file) {
 
 		struct stat statbuf;
 		if (!stat(file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
-			DIR * dirp = opendir(file);
-			if (!dirp) {
-				env->loading = 0;
-				return;
-			}
-			struct dirent * ent = readdir(dirp);
-			while (ent) {
-				add_buffer((unsigned char*)ent->d_name, strlen(ent->d_name));
-				add_buffer((unsigned char*)"\n",1);
-				ent = readdir(dirp);
-			}
-			closedir(dirp);
-			env->file_name = strdup(file);
-			env->readonly = 1;
-			env->loading = 0;
+			read_directory_into_buffer(file);
 			return;
 		}
 		f = fopen(file, "r");
@@ -3693,14 +3800,6 @@ void insert_command_history(char * cmd) {
 	memmove(&command_history[1], &command_history[0], sizeof(char *) * (amount_to_shift));
 
 	command_history[0] = (unsigned char*)strdup(cmd);
-}
-
-/**
- * Add a raw string to a buffer. Convenience wrapper
- * for add_buffer for nil-terminated strings.
- */
-static void add_string(char * string) {
-	add_buffer((uint8_t*)string,strlen(string));
 }
 
 static uint32_t term_colors[] = {
@@ -7795,6 +7894,11 @@ struct action_map INPUT_BUFFER_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
+struct action_map DIRECTORY_BROWSE_MAP[] = {
+	{KEY_ENTER,     open_file_from_line, 0, 0},
+	{-1, NULL, 0, 0}
+};
+
 int handle_action(struct action_map * basemap, int key) {
 	for (struct action_map * map = basemap; map->key != -1; map++) {
 		if (map->key == key) {
@@ -8095,6 +8199,15 @@ void normal_mode(void) {
 				insert_char_at_column(key);
 				refresh = 1;
 			}
+		} if (env->mode == MODE_DIRECTORY_BROWSE) {
+			place_cursor_actual();
+			int key = bim_getkey(200);
+			if (handle_nav_buffer(key)) {
+				if (!handle_action(DIRECTORY_BROWSE_MAP, key))
+					if (!handle_action(NAVIGATION_MAP, key))
+						handle_action(ESCAPE_MAP, key);
+			}
+			reset_nav_buffer(key);
 		}
 	}
 

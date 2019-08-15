@@ -300,6 +300,7 @@ extern struct syntax_definition * syntaxes;
 #define MODE_CHAR_SELECTION 4
 #define MODE_COL_SELECTION 5
 #define MODE_COL_INSERT 6
+#define MODE_DIRECTORY_BROWSE 7
 
 extern global_config_t global_config;
 
@@ -383,6 +384,7 @@ extern buffer_t * buffer_close(buffer_t * buf);
 extern int to_eight(uint32_t codepoint, char * out);
 extern char * name_from_key(enum Key keycode);
 extern void add_action(const char * raw_name, void (*action)(), int options, const char * description);
+extern void open_file(char * file);
 
 extern void add_colorscheme(const char * name, void (*load)(void));
 extern void add_syntax(struct syntax_definition def);
