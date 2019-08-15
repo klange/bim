@@ -6775,11 +6775,17 @@ BIM_ACTION(delete_and_yank_lines, 0,
 	set_modified();
 }
 
+BIM_ACTION(enter_insert, 0,
+	"Enter insert mode."
+)(void) {
+	env->mode = MODE_INSERT;
+	set_history_break();
+}
+
 BIM_ACTION(delete_lines_and_enter_insert, 0,
 	"Delete and yank the selected lines and then enter insert mode."
 )(void) {
 	delete_and_yank_lines();
-
 	env->lines = add_line(env->lines, env->line_no-1);
 	redraw_text();
 	env->mode = MODE_INSERT;
@@ -6975,7 +6981,7 @@ BIM_ACTION(delete_chars_and_enter_insert, 0,
 )(void) {
 	delete_and_yank_chars();
 	redraw_text();
-	env->mode = MODE_INSERT;
+	enter_insert();
 }
 
 BIM_ACTION(replace_chars, ARG_IS_PROMPT,
@@ -7332,6 +7338,7 @@ BIM_ACTION(prepend_and_insert, 0,
 	"Insert a new line before the current line and enter insert mode."
 )(void) {
 	if (env->readonly) return; /* TODO readonly warning */
+	set_history_break();
 	env->lines = add_line(env->lines, env->line_no-1);
 	env->col_no = 1;
 	add_indent(env->line_no-1,env->line_no,0);
@@ -7340,7 +7347,6 @@ BIM_ACTION(prepend_and_insert, 0,
 	set_preferred_column();
 	set_modified();
 	place_cursor_actual();
-
 	env->mode = MODE_INSERT;
 }
 
@@ -7348,6 +7354,7 @@ BIM_ACTION(append_and_insert, 0,
 	"Insert a new line after the current line and enter insert mode."
 )(void) {
 	if (env->readonly) return; /* TODO readonly warning */
+	set_history_break();
 	env->lines = add_line(env->lines, env->line_no);
 	env->col_no = 1;
 	env->line_no += 1;
@@ -7360,7 +7367,6 @@ BIM_ACTION(append_and_insert, 0,
 	redraw_text();
 	set_modified();
 	place_cursor_actual();
-
 	env->mode = MODE_INSERT;
 }
 
@@ -7370,7 +7376,7 @@ BIM_ACTION(insert_after_cursor, 0,
 	if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
 		env->col_no += 1;
 	}
-	env->mode = MODE_INSERT;
+	enter_insert();
 }
 
 BIM_ACTION(delete_forward, 0,
@@ -7385,6 +7391,7 @@ BIM_ACTION(delete_forward, 0,
 BIM_ACTION(delete_forward_and_insert, 0,
 	"Delete the character under the cursor and enter insert mode."
 )(void) {
+	set_history_break();
 	delete_forward();
 	env->mode = MODE_INSERT;
 }
@@ -7468,18 +7475,14 @@ BIM_ACTION(insert_at_end, 0,
 )(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+1;
 	env->mode = MODE_INSERT;
-}
-
-BIM_ACTION(enter_insert, 0,
-	"Enter insert mode."
-)(void) {
-	env->mode = MODE_INSERT;
+	set_history_break();
 }
 
 BIM_ACTION(enter_replace, 0,
 	"Enter replace mode."
 )(void) {
 	env->mode = MODE_REPLACE;
+	set_history_break();
 }
 
 BIM_ACTION(toggle_numbers, 0,
