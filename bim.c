@@ -5114,6 +5114,9 @@ BIM_ACTION(command_accept, 0,
 	free(tmp);
 
 	if (!global_config.break_from_selection && env->mode != MODE_DIRECTORY_BROWSE) {
+		if (env->mode == MODE_LINE_SELECTION || env->mode == MODE_CHAR_SELECTION || env->mode == MODE_COL_SELECTION) {
+			recalculate_selected_lines();
+		}
 		env->mode = MODE_NORMAL;
 	}
 

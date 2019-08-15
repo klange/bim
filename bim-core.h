@@ -385,6 +385,7 @@ extern int to_eight(uint32_t codepoint, char * out);
 extern char * name_from_key(enum Key keycode);
 extern void add_action(const char * raw_name, void (*action)(), int options, const char * description);
 extern void open_file(char * file);
+extern void recalculate_selected_lines(void);
 
 extern void add_colorscheme(const char * name, void (*load)(void));
 extern void add_syntax(struct syntax_definition def);
