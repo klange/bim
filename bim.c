@@ -7380,7 +7380,6 @@ BIM_ACTION(delete_forward, 0,
 		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
 		redraw_text();
 	}
-	set_history_break();
 }
 
 BIM_ACTION(delete_forward_and_insert, 0,
@@ -7707,7 +7706,7 @@ struct action_map NORMAL_MAP[] = {
 	{'o',           append_and_insert, 0, 0},
 	{'a',           insert_after_cursor, 0, 0},
 	{'s',           delete_forward_and_insert, 0, 0},
-	{'x',           delete_forward, 0, 0},
+	{'x',           delete_forward, opt_rep, 0},
 	{'P',           paste, opt_arg, -1},
 	{'p',           paste, opt_arg, 1},
 	{'r',           replace_char, opt_char, 0},
@@ -7824,11 +7823,11 @@ struct action_map NAVIGATION_MAP[] = {
 	{'*',           search_under_cursor, 0, 0},
 	{' ',           go_page_down, opt_rep, 0},
 	{'%',           jump_to_matching_bracket, 0, 0},
-	{'{',           jump_to_previous_blank, 0, 0},
-	{'}',           jump_to_next_blank, 0, 0},
+	{'{',           jump_to_previous_blank, opt_rep, 0},
+	{'}',           jump_to_next_blank, opt_rep, 0},
 	{'$',           cursor_end, 0, 0},
 	{'|',           cursor_home, 0, 0},
-	{KEY_ENTER,     next_line_non_whitespace, 0, 0},
+	{KEY_ENTER,     next_line_non_whitespace, opt_rep, 0},
 	{'^',           first_non_whitespace, 0, 0},
 	{'0',           cursor_home, 0, 0},
 
@@ -7840,25 +7839,25 @@ struct action_map ESCAPE_MAP[] = {
 	{KEY_F2,        toggle_indent, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
 
-	{KEY_UP,        cursor_up, 0, 0},
-	{KEY_DOWN,      cursor_down, 0, 0},
+	{KEY_UP,        cursor_up, opt_rep, 0},
+	{KEY_DOWN,      cursor_down, opt_rep, 0},
 
-	{KEY_RIGHT,     cursor_right, 0, 0},
-	{KEY_CTRL_RIGHT, big_word_right, 0, 0},
-	{KEY_SHIFT_RIGHT, word_right, 0, 0},
-	{KEY_ALT_RIGHT, expand_split_right, 0, 0},
-	{KEY_ALT_SHIFT_RIGHT, use_right_buffer, 0, 0},
+	{KEY_RIGHT,     cursor_right, opt_rep, 0},
+	{KEY_CTRL_RIGHT, big_word_right, opt_rep, 0},
+	{KEY_SHIFT_RIGHT, word_right, opt_rep, 0},
+	{KEY_ALT_RIGHT, expand_split_right, opt_rep, 0},
+	{KEY_ALT_SHIFT_RIGHT, use_right_buffer, opt_rep, 0},
 
-	{KEY_LEFT,      cursor_left, 0, 0},
-	{KEY_CTRL_LEFT, big_word_left, 0, 0},
-	{KEY_SHIFT_LEFT, word_left, 0, 0},
-	{KEY_ALT_LEFT, expand_split_left, 0, 0},
-	{KEY_ALT_SHIFT_LEFT, use_left_buffer, 0, 0},
+	{KEY_LEFT,      cursor_left, opt_rep, 0},
+	{KEY_CTRL_LEFT, big_word_left, opt_rep, 0},
+	{KEY_SHIFT_LEFT, word_left, opt_rep, 0},
+	{KEY_ALT_LEFT, expand_split_left, opt_rep, 0},
+	{KEY_ALT_SHIFT_LEFT, use_left_buffer, opt_rep, 0},
 
 	{KEY_HOME, cursor_home, 0, 0},
 	{KEY_END, cursor_end, 0, 0},
-	{KEY_PAGE_UP, go_page_up, 0, 0},
-	{KEY_PAGE_DOWN, go_page_down, 0, 0},
+	{KEY_PAGE_UP, go_page_up, opt_rep, 0},
+	{KEY_PAGE_DOWN, go_page_down, opt_rep, 0},
 
 	{-1, NULL, 0, 0}
 };
@@ -7916,9 +7915,6 @@ int handle_action(struct action_map * basemap, int key) {
 			if (map->options & opt_byte) {
 				c = read_one_byte(name_from_key(key));
 			}
-			if (reps > 1) {
-				env->loading = 1;
-			}
 			for (int i = 0; i < reps; ++i) {
 				if (((map->options & opt_char) || (map->options & opt_byte)) && (map->options & opt_arg)) {
 					map->method(map->arg, c);
@@ -7936,10 +7932,6 @@ int handle_action(struct action_map * basemap, int key) {
 				} else {
 					map->method();
 				}
-			}
-			if (reps > 1) {
-				env->loading = 0;
-				redraw_all();
 			}
 			if (map->options & opt_norm) {
 				if (env->mode == MODE_INSERT || env->mode == MODE_REPLACE) leave_insert();
