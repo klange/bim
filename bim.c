@@ -5112,7 +5112,7 @@ BIM_ACTION(command_accept, 0,
 	process_command(tmp);
 	free(tmp);
 
-	if (!global_config.break_from_selection) {
+	if (!global_config.break_from_selection && env->mode != MODE_DIRECTORY_BROWSE) {
 		env->mode = MODE_NORMAL;
 	}
 
