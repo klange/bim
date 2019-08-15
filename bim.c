@@ -3043,6 +3043,7 @@ BIM_ACTION(open_file_from_line, 0,
 	buffer_t * old_buffer = env;
 	open_file(tmp_path);
 	buffer_close(old_buffer);
+	update_title();
 	redraw_all();
 }
 
