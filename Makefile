@@ -39,4 +39,5 @@ uninstall:
 
 .PHONY: tags
 tags:
-	ctags --c-kinds=+lx bim.c themes/* syntax/*
+	ctags --c-kinds=+lx bim.c bim-*.h themes/* syntax/*
+	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_ACTION.([a-zA-Z_]*),.*/\1/p/' --append bim.c
