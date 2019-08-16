@@ -1902,7 +1902,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			}
 
 #define _set_colors(fg,bg) \
-	if (!(c.flags & FLAG_SELECT) && !(was_selecting)) { \
+	if (!(c.flags & FLAG_SELECT) && !(c.flags & FLAG_SEARCH) && !(was_selecting)) { \
 		set_colors(fg,(line->is_current && bg == COLOR_BG) ? COLOR_ALT_BG : bg); \
 	}
 
