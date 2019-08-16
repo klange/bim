@@ -7338,12 +7338,12 @@ BIM_ACTION(goto_definition, 0,
 		goto _done;
 	}
 
-	if (!strcmp(matches[0].file, env->file_name)) {
+	if (env->file_name && !strcmp(matches[0].file, env->file_name)) {
 		set_search_from_bytes(&matches[0].search[1]);
 		search_next();
 	} else {
 		/* Check if there were other matches that are in this file */
-		for (int i =1; i < matches_count; ++i) {
+		for (int i =1; env->file_name && i < matches_count; ++i) {
 			if (!strcmp(matches[i].file, env->file_name)) {
 				set_search_from_bytes(&matches[i].search[1]);
 				search_next();
