@@ -797,7 +797,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 		}
 
 		if (!env->syntax) {
-			rehighlight_search(line);
+			if (line_no != -1) rehighlight_search(line);
 			return;
 		}
 
