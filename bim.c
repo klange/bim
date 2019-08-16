@@ -7342,6 +7342,14 @@ BIM_ACTION(goto_definition, 0,
 		set_search_from_bytes(&matches[0].search[1]);
 		search_next();
 	} else {
+		/* Check if there were other matches that are in this file */
+		for (int i =1; i < matches_count; ++i) {
+			if (!strcmp(matches[i].file, env->file_name)) {
+				set_search_from_bytes(&matches[i].search[1]);
+				search_next();
+				goto _done;
+			}
+		}
 		/* Check buffers */
 		for (int i = 0; i < buffers_len; ++i) {
 			if (buffers[i]->file_name && !strcmp(matches[0].file,buffers[i]->file_name)) {
