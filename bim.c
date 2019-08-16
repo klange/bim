@@ -1824,7 +1824,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 				/* Fill remainder with -'s */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("-");
-				set_colors(COLOR_FG, COLOR_BG);
+				set_colors(COLOR_FG, line->is_current ? COLOR_ALT_BG : COLOR_BG);
 			}
 
 			/* One less remaining width cell to fill */
