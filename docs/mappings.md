@@ -18,6 +18,7 @@
 | `u` | `undo_history` | Undo history until the last breakpoint. |
 | `^R` | `redo_history` | Redo history until the next breakpoint. |
 | `^L` | `redraw_all` | Repaint the screen. |
+| `^G` | `goto_definition` | Jump to the definition of the word under under cursor. |
 | `i` | `enter_insert` | Enter insert mode. |
 | `R` | `enter_replace` | Enter replace mode. |
 
