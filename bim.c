@@ -8018,8 +8018,14 @@ void normal_mode(void) {
 						int line = -1, col = -1;
 						if (global_config.search_direction == 1) {
 							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer, NULL);
+							if (line == -1) {
+								find_match(1, global_config.prev_col, &line, &col, buffer, NULL);
+							}
 						} else {
 							find_match_backwards(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
+							if (line == -1) {
+								find_match_backwards(env->line_count, global_config.prev_col, &line, &col, buffer);
+							}
 						}
 
 						if (line != -1) {
