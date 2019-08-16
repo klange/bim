@@ -7337,7 +7337,6 @@ BIM_ACTION(cursor_left_with_wrap, 0,
 BIM_ACTION(prepend_and_insert, 0,
 	"Insert a new line before the current line and enter insert mode."
 )(void) {
-	if (env->readonly) return; /* TODO readonly warning */
 	set_history_break();
 	env->lines = add_line(env->lines, env->line_no-1);
 	env->col_no = 1;
@@ -7353,7 +7352,6 @@ BIM_ACTION(prepend_and_insert, 0,
 BIM_ACTION(append_and_insert, 0,
 	"Insert a new line after the current line and enter insert mode."
 )(void) {
-	if (env->readonly) return; /* TODO readonly warning */
 	set_history_break();
 	env->lines = add_line(env->lines, env->line_no);
 	env->col_no = 1;
@@ -7705,20 +7703,20 @@ struct action_map NORMAL_MAP[] = {
 	{'V',           enter_line_selection, 0, 0},
 	{'v',           enter_char_selection, 0, 0},
 	{KEY_CTRL_V,    enter_col_selection, 0, 0},
-	{'O',           prepend_and_insert, 0, 0},
-	{'o',           append_and_insert, 0, 0},
-	{'a',           insert_after_cursor, 0, 0},
-	{'s',           delete_forward_and_insert, 0, 0},
-	{'x',           delete_forward, opt_rep, 0},
-	{'P',           paste, opt_arg, -1},
-	{'p',           paste, opt_arg, 1},
-	{'r',           replace_char, opt_char, 0},
-	{'A',           insert_at_end, 0, 0},
-	{'u',           undo_history, 0, 0},
-	{KEY_CTRL_R,    redo_history, 0, 0},
+	{'O',           prepend_and_insert, opt_rw, 0},
+	{'o',           append_and_insert, opt_rw, 0},
+	{'a',           insert_after_cursor, opt_rw, 0},
+	{'s',           delete_forward_and_insert, opt_rw, 0},
+	{'x',           delete_forward, opt_rep | opt_rw, 0},
+	{'P',           paste, opt_arg | opt_rw, -1},
+	{'p',           paste, opt_arg | opt_rw, 1},
+	{'r',           replace_char, opt_char | opt_rw, 0},
+	{'A',           insert_at_end, opt_rw, 0},
+	{'u',           undo_history, opt_rw, 0},
+	{KEY_CTRL_R,    redo_history, opt_rw, 0},
 	{KEY_CTRL_L,    redraw_all, 0, 0},
-	{'i',           enter_insert, 0, 0},
-	{'R',           enter_replace, 0, 0},
+	{'i',           enter_insert, opt_rw, 0},
+	{'R',           enter_replace, opt_rw, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -7752,13 +7750,13 @@ struct action_map LINE_SELECTION_MAP[] = {
 	{'v',           switch_selection_mode, opt_arg, MODE_CHAR_SELECTION},
 	{'y',           yank_lines, opt_norm, 0},
 	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
-	{'\t',          adjust_indent, opt_arg, 1},
-	{KEY_SHIFT_TAB, adjust_indent, opt_arg, -1},
-	{'D',           delete_and_yank_lines, opt_norm, 0},
-	{'d',           delete_and_yank_lines, opt_norm, 0},
-	{'x',           delete_and_yank_lines, opt_norm, 0},
-	{'s',           delete_lines_and_enter_insert, 0, 0},
-	{'r',           replace_chars_in_line, opt_char, 0},
+	{'\t',          adjust_indent, opt_arg | opt_rw, 1},
+	{KEY_SHIFT_TAB, adjust_indent, opt_arg | opt_rw, -1},
+	{'D',           delete_and_yank_lines, opt_rw | opt_norm, 0},
+	{'d',           delete_and_yank_lines, opt_rw | opt_norm, 0},
+	{'x',           delete_and_yank_lines, opt_rw | opt_norm, 0},
+	{'s',           delete_lines_and_enter_insert, opt_rw, 0},
+	{'r',           replace_chars_in_line, opt_char | opt_rw, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -7769,12 +7767,12 @@ struct action_map CHAR_SELECTION_MAP[] = {
 	{'V',           switch_selection_mode, opt_arg, MODE_LINE_SELECTION},
 	{'y',           yank_characters, opt_norm, 0},
 	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
-	{'D',           delete_and_yank_chars, opt_norm, 0},
-	{'d',           delete_and_yank_chars, opt_norm, 0},
-	{'x',           delete_and_yank_chars, opt_norm, 0},
-	{'s',           delete_chars_and_enter_insert, 0, 0},
-	{'r',           replace_chars, opt_char, 0},
-	{'A',           insert_at_end_of_selection, 0, 0},
+	{'D',           delete_and_yank_chars, opt_rw | opt_norm, 0},
+	{'d',           delete_and_yank_chars, opt_rw | opt_norm, 0},
+	{'x',           delete_and_yank_chars, opt_rw | opt_norm, 0},
+	{'s',           delete_chars_and_enter_insert, opt_rw, 0},
+	{'r',           replace_chars, opt_char | opt_rw, 0},
+	{'A',           insert_at_end_of_selection, opt_rw, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -7782,9 +7780,9 @@ struct action_map COL_SELECTION_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{KEY_CTRL_V,    leave_selection, 0, 0},
-	{'I',           enter_col_insert, 0, 0},
-	{'a',           enter_col_insert_after, 0, 0},
-	{'d',           delete_column, opt_norm, 0},
+	{'I',           enter_col_insert, opt_rw, 0},
+	{'a',           enter_col_insert_after, opt_rw, 0},
+	{'d',           delete_column, opt_norm | opt_rw, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -7909,6 +7907,10 @@ int handle_action(struct action_map * basemap, int key) {
 	for (struct action_map * map = basemap; map->key != -1; map++) {
 		if (map->key == key) {
 			if (!map->method) return 1;
+			if ((map->options & opt_rw) && (env->readonly)) {
+				render_error("Buffer is read-only");
+				return 2;
+			}
 			/* Determine how to format this request */
 			int reps = (map->options & opt_rep) ? ((nav_buffer) ? atoi(nav_buf) : 1) : 1;
 			int c = 0;
