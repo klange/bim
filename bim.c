@@ -4736,10 +4736,8 @@ void command_tab_complete(char * buffer) {
 		}
 		start = b;
 		arg++;
-		if (arg < 32) {
-			args[arg] = start;
-		}
-		while (*b && *b != ' ') b++;
+		args[arg] = start;
+		break;
 	}
 
 	/**
