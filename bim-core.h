@@ -343,6 +343,7 @@ struct action_def {
 #define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
 #define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
 #define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
+#define ACTION_IS_RW   0x08 /* Needs to be able to write. */
 
 #define BIM_ACTION(name, options, description) \
 	void name (); /* Define the action with unknown arguments */ \

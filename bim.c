@@ -4259,6 +4259,10 @@ void process_command(char * cmd) {
 			render_error("expected substitution argument");
 			return;
 		}
+		if (env->readonly) {
+			render_error("Buffer is read-only");
+			return;
+		}
 		/* Substitution */
 		int range_top, range_bot;
 		if (env->mode == MODE_LINE_SELECTION) {
@@ -5809,7 +5813,7 @@ BIM_ACTION(handle_mouse, 0,
 	return;
 }
 
-BIM_ACTION(insert_char, ARG_IS_INPUT,
+BIM_ACTION(insert_char, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert one character."
 )(unsigned int c) {
 	if (!c) {
@@ -5830,7 +5834,7 @@ BIM_ACTION(insert_char, ARG_IS_INPUT,
 	set_modified();
 }
 
-BIM_ACTION(replace_char, ARG_IS_PROMPT,
+BIM_ACTION(replace_char, ARG_IS_PROMPT | ACTION_IS_RW,
 	"Replace a single character."
 )(unsigned int c) {
 	if (env->col_no < 1 || env->col_no > env->lines[env->line_no-1]->actual) return;
@@ -5846,7 +5850,7 @@ BIM_ACTION(replace_char, ARG_IS_PROMPT,
 	set_modified();
 }
 
-BIM_ACTION(undo_history, 0,
+BIM_ACTION(undo_history, ACTION_IS_RW,
 	"Undo history until the last breakpoint."
 )(void) {
 	if (!global_config.history_enabled) return;
@@ -5960,7 +5964,7 @@ BIM_ACTION(undo_history, 0,
 			count_lines, (count_lines == 1) ? "" : "s");
 }
 
-BIM_ACTION(redo_history, 0,
+BIM_ACTION(redo_history, ACTION_IS_RW,
 	"Redo history until the next breakpoint."
 )(void) {
 	if (!global_config.history_enabled) return;
@@ -6244,7 +6248,7 @@ BIM_ACTION(big_word_right, 0,
 	return;
 }
 
-BIM_ACTION(delete_at_cursor, 0,
+BIM_ACTION(delete_at_cursor, ACTION_IS_RW,
 	"Delete the character at the cursor, or merge with previous line."
 )(void) {
 	if (env->col_no > 1) {
@@ -6268,7 +6272,7 @@ BIM_ACTION(delete_at_cursor, 0,
 	}
 }
 
-BIM_ACTION(delete_word, 0,
+BIM_ACTION(delete_word, ACTION_IS_RW,
 	"Delete the previous word."
 )(void) {
 	if (!env->lines[env->line_no-1]) return;
@@ -6302,7 +6306,7 @@ BIM_ACTION(delete_word, 0,
 	}
 }
 
-BIM_ACTION(insert_line_feed, 0,
+BIM_ACTION(insert_line_feed, ACTION_IS_RW,
 	"Insert a line break, splitting the current line into two."
 )(void) {
 	if (env->indent) {
@@ -6416,7 +6420,7 @@ void yank_text(int start_line, int start_col, int end_line, int end_col) {
 	}
 }
 
-BIM_ACTION(delete_at_column, ARG_IS_CUSTOM,
+BIM_ACTION(delete_at_column, ARG_IS_CUSTOM | ACTION_IS_RW,
 	"Delete from the current column backwards (`<backspace>`) or forwards (`<del>`)."
 )(int direction) {
 	if (direction == -1 && env->sel_col <= 0) return;
@@ -6641,7 +6645,7 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 		redraw_line((line)-1); \
 	} while (0)
 
-BIM_ACTION(adjust_indent, ARG_IS_CUSTOM,
+BIM_ACTION(adjust_indent, ARG_IS_CUSTOM | ACTION_IS_RW,
 	"Adjust the indentation on the selected lines (`<tab>` for deeper, `<shift-tab>` for shallower)."
 )(int direction) {
 	int lines_to_cover = 0;
@@ -6775,14 +6779,14 @@ BIM_ACTION(delete_and_yank_lines, 0,
 	set_modified();
 }
 
-BIM_ACTION(enter_insert, 0,
+BIM_ACTION(enter_insert, ACTION_IS_RW,
 	"Enter insert mode."
 )(void) {
 	env->mode = MODE_INSERT;
 	set_history_break();
 }
 
-BIM_ACTION(delete_lines_and_enter_insert, 0,
+BIM_ACTION(delete_lines_and_enter_insert, ACTION_IS_RW,
 	"Delete and yank the selected lines and then enter insert mode."
 )(void) {
 	delete_and_yank_lines();
@@ -6791,7 +6795,7 @@ BIM_ACTION(delete_lines_and_enter_insert, 0,
 	env->mode = MODE_INSERT;
 }
 
-BIM_ACTION(replace_chars_in_line, ARG_IS_PROMPT,
+BIM_ACTION(replace_chars_in_line, ARG_IS_PROMPT | ACTION_IS_RW,
 	"Replace characters in the selected lines."
 )(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
@@ -6812,7 +6816,7 @@ BIM_ACTION(leave_selection, 0,
 	recalculate_selected_lines();
 }
 
-BIM_ACTION(insert_char_at_column, ARG_IS_INPUT,
+BIM_ACTION(insert_char_at_column, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert a character on all lines at the current column."
 )(int c) {
 	char_t _c;
@@ -6858,7 +6862,7 @@ BIM_ACTION(insert_char_at_column, ARG_IS_INPUT,
 	env->col_no++;
 }
 
-BIM_ACTION(enter_col_insert, 0,
+BIM_ACTION(enter_col_insert, ACTION_IS_RW,
 	"Enter column insert mode."
 )(void) {
 	if (env->start_line < env->line_no) {
@@ -6870,14 +6874,14 @@ BIM_ACTION(enter_col_insert, 0,
 	env->mode = MODE_COL_INSERT;
 }
 
-BIM_ACTION(enter_col_insert_after, 0,
+BIM_ACTION(enter_col_insert_after, ACTION_IS_RW,
 	"Enter column insert mode after the selected column."
 )(void) {
 	env->sel_col += 1;
 	enter_col_insert();
 }
 
-BIM_ACTION(delete_column, 0,
+BIM_ACTION(delete_column, ACTION_IS_RW,
 	"(temporary) Delete the selected column."
 )(void) {
 	/* TODO maybe a flag to do this so we can just call delete_at_column with arg = 1? */
@@ -6925,7 +6929,7 @@ BIM_ACTION(yank_characters, 0,
 	yank_text(env->start_line, env->start_col, end_line, end_col);
 }
 
-BIM_ACTION(delete_and_yank_chars, 0,
+BIM_ACTION(delete_and_yank_chars, ACTION_IS_RW,
 	"Delete and yank the selected characters."
 )(void) {
 	int end_line = env->line_no;
@@ -6976,7 +6980,7 @@ BIM_ACTION(delete_and_yank_chars, 0,
 	set_modified();
 }
 
-BIM_ACTION(delete_chars_and_enter_insert, 0,
+BIM_ACTION(delete_chars_and_enter_insert, ACTION_IS_RW,
 	"Delete and yank the selected characters and then enter insert mode."
 )(void) {
 	delete_and_yank_chars();
@@ -6984,7 +6988,7 @@ BIM_ACTION(delete_chars_and_enter_insert, 0,
 	enter_insert();
 }
 
-BIM_ACTION(replace_chars, ARG_IS_PROMPT,
+BIM_ACTION(replace_chars, ARG_IS_PROMPT | ACTION_IS_RW,
 	"Replace the selected characters."
 )(int c) {
 	char_t _c = {codepoint_width(c), 0, c};
@@ -7043,7 +7047,7 @@ BIM_ACTION(enter_char_selection, 0,
 	redraw_line(env->line_no-1);
 }
 
-BIM_ACTION(insert_at_end_of_selection, 0,
+BIM_ACTION(insert_at_end_of_selection, ACTION_IS_RW,
 	"Move the cursor to the end of the selection and enter insert mode."
 )(void) {
 	recalculate_selected_lines();
@@ -7334,7 +7338,7 @@ BIM_ACTION(cursor_left_with_wrap, 0,
 	}
 }
 
-BIM_ACTION(prepend_and_insert, 0,
+BIM_ACTION(prepend_and_insert, ACTION_IS_RW,
 	"Insert a new line before the current line and enter insert mode."
 )(void) {
 	set_history_break();
@@ -7349,7 +7353,7 @@ BIM_ACTION(prepend_and_insert, 0,
 	env->mode = MODE_INSERT;
 }
 
-BIM_ACTION(append_and_insert, 0,
+BIM_ACTION(append_and_insert, ACTION_IS_RW,
 	"Insert a new line after the current line and enter insert mode."
 )(void) {
 	set_history_break();
@@ -7368,7 +7372,7 @@ BIM_ACTION(append_and_insert, 0,
 	env->mode = MODE_INSERT;
 }
 
-BIM_ACTION(insert_after_cursor, 0,
+BIM_ACTION(insert_after_cursor, ACTION_IS_RW,
 	"Place the cursor after the selected character and enter insert mode."
 )(void) {
 	if (env->col_no < env->lines[env->line_no-1]->actual + 1) {
@@ -7377,7 +7381,7 @@ BIM_ACTION(insert_after_cursor, 0,
 	enter_insert();
 }
 
-BIM_ACTION(delete_forward, 0,
+BIM_ACTION(delete_forward, ACTION_IS_RW,
 	"Delete the character under the cursor."
 )(void) {
 	if (env->col_no <= env->lines[env->line_no-1]->actual) {
@@ -7386,7 +7390,7 @@ BIM_ACTION(delete_forward, 0,
 	}
 }
 
-BIM_ACTION(delete_forward_and_insert, 0,
+BIM_ACTION(delete_forward_and_insert, ACTION_IS_RW,
 	"Delete the character under the cursor and enter insert mode."
 )(void) {
 	set_history_break();
@@ -7394,7 +7398,7 @@ BIM_ACTION(delete_forward_and_insert, 0,
 	env->mode = MODE_INSERT;
 }
 
-BIM_ACTION(paste, ARG_IS_CUSTOM,
+BIM_ACTION(paste, ARG_IS_CUSTOM | ACTION_IS_RW,
 	"Paste yanked text before (`P`) or after (`p`) the cursor."
 )(int direction) {
 	if (global_config.yanks) {
@@ -7468,7 +7472,7 @@ BIM_ACTION(paste, ARG_IS_CUSTOM,
 	}
 }
 
-BIM_ACTION(insert_at_end, 0,
+BIM_ACTION(insert_at_end, ACTION_IS_RW,
 	"Move the cursor to the end of the current line and enter insert mode."
 )(void) {
 	env->col_no = env->lines[env->line_no-1]->actual+1;
@@ -7476,7 +7480,7 @@ BIM_ACTION(insert_at_end, 0,
 	set_history_break();
 }
 
-BIM_ACTION(enter_replace, 0,
+BIM_ACTION(enter_replace, ACTION_IS_RW,
 	"Enter replace mode."
 )(void) {
 	env->mode = MODE_REPLACE;
@@ -7593,7 +7597,7 @@ BIM_ACTION(next_line_non_whitespace, 0,
 	first_non_whitespace();
 }
 
-BIM_ACTION(smart_backspace, 0,
+BIM_ACTION(smart_backspace, ACTION_IS_RW,
 	"Delete the preceding character, with special handling for indentation."
 )(void) {
 	if (!env->tabs && env->col_no > 1) {
@@ -7613,14 +7617,14 @@ BIM_ACTION(smart_backspace, 0,
 	delete_at_cursor();
 }
 
-BIM_ACTION(perform_omni_completion, 0,
+BIM_ACTION(perform_omni_completion, ACTION_IS_RW,
 	"(temporary) Perform smart symbol competion from ctags."
 )(void) {
 	/* This should probably be a submode */
 	while (omni_complete() == 1);
 }
 
-BIM_ACTION(smart_tab, 0,
+BIM_ACTION(smart_tab, ACTION_IS_RW,
 	"Insert a tab or spaces depending on indent mode. (Use ^V <tab> to guarantee a literal tab)"
 )(void) {
 	if (env->tabs) {
@@ -7632,7 +7636,7 @@ BIM_ACTION(smart_tab, 0,
 	}
 }
 
-BIM_ACTION(smart_comment_end, ARG_IS_INPUT,
+BIM_ACTION(smart_comment_end, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert a `/` ending a C-style comment."
 )(int c) {
 	/* smart *end* of comment anyway */
@@ -7651,7 +7655,7 @@ BIM_ACTION(smart_comment_end, ARG_IS_INPUT,
 	insert_char(c);
 }
 
-BIM_ACTION(smart_brace_end, ARG_IS_INPUT,
+BIM_ACTION(smart_brace_end, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert a closing brace and smartly position it if it is the first character on a line."
 )(int c) {
 	if (env->indent) {
