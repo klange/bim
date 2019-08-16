@@ -3729,6 +3729,31 @@ int search_matches(uint32_t a, uint32_t b, int mode) {
 	return 0;
 }
 
+int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *len) {
+	int k = j;
+	uint32_t * match = needle;
+	if (*match == '^') {
+		if (j != 0) return 0;
+		match++;
+	}
+	while (k < line->actual + 1) {
+		if (*match == '\0') {
+			if (len) *len = k - j;
+			return 1;
+		}
+		if (*match == '$') {
+			if (k != line->actual) return 0;
+			match++;
+			continue;
+		}
+		if (k == line->actual) break;
+		if (!search_matches(*match, line->text[k].codepoint, ignorecase)) break;
+		match++;
+		k++;
+	}
+	return 0;
+}
+
 /**
  * Replace text on a given line with other text.
  */
@@ -3736,36 +3761,28 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 	line_t * line = env->lines[line_no-1];
 	int j = col;
 	while (j < line->actual + 1) {
-		int k = j;
-		uint32_t * match = needle;
-		while (k < line->actual + 1) {
-			if (*match == '\0') {
-				/* Perform replacement */
-				for (uint32_t * n = needle; *n; ++n) {
-					line_delete(line, j+1, line_no-1);
-				}
-				int t = 0;
-				for (uint32_t * r = replacement; *r; ++r) {
-					char_t _c;
-					_c.codepoint = *r;
-					_c.flags = 0;
-					_c.display_width = codepoint_width(*r);
-					line_t * nline = line_insert(line, _c, j + t, line_no -1);
-					if (line != nline) {
-						env->lines[line_no-1] = nline;
-						line = nline;
-					}
-					t++;
-				}
-
-				*out_col = j + t;
-				set_modified();
-				return;
+		int match_len;
+		if (subsearch_matches(line,j,needle,ignorecase,&match_len)) {
+			/* Perform replacement */
+			for (int i = 0; i < match_len; ++i) {
+				line_delete(line, j+1, line_no-1);
 			}
-			if (k == line->actual) break;
-			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
-			match++;
-			k++;
+			int t = 0;
+			for (uint32_t * r = replacement; *r; ++r) {
+				char_t _c;
+				_c.codepoint = *r;
+				_c.flags = 0;
+				_c.display_width = codepoint_width(*r);
+				line_t * nline = line_insert(line, _c, j + t, line_no -1);
+				if (line != nline) {
+					env->lines[line_no-1] = nline;
+					line = nline;
+				}
+				t++;
+			}
+			*out_col = j + t;
+			set_modified();
+			return;
 		}
 		j++;
 	}
@@ -5308,7 +5325,7 @@ int smart_case(uint32_t * str) {
  *
  * This could be more complicated...
  */
-void find_match(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str) {
+void find_match(int from_line, int from_col, int * out_line, int * out_col, uint32_t * str, int * matchlen) {
 	int col = from_col;
 
 	int ignorecase = smart_case(str);
@@ -5318,18 +5335,10 @@ void find_match(int from_line, int from_col, int * out_line, int * out_col, uint
 
 		int j = col - 1;
 		while (j < line->actual + 1) {
-			int k = j;
-			uint32_t * match = str;
-			while (k < line->actual + 1) {
-				if (*match == '\0') {
-					*out_line = i;
-					*out_col = j + 1;
-					return;
-				}
-				if (k == line->actual) break;
-				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
-				match++;
-				k++;
+			if (subsearch_matches(line, j, str, ignorecase, matchlen)) {
+				*out_line = i;
+				*out_col = j + 1;
+				return;
 			}
 			j++;
 		}
@@ -5350,18 +5359,10 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 
 		int j = col - 1;
 		while (j > -1) {
-			int k = j;
-			uint32_t * match = str;
-			while (k < line->actual + 1) {
-				if (*match == '\0') {
-					*out_line = i;
-					*out_col = j + 1;
-					return;
-				}
-				if (k == line->actual) break;
-				if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
-				match++;
-				k++;
+			if (subsearch_matches(line, j, str, ignorecase, NULL)) {
+				*out_line = i;
+				*out_col = j + 1;
+				return;
 			}
 			j--;
 		}
@@ -5381,19 +5382,12 @@ void rehighlight_search(line_t * line) {
 	int j = 0;
 	int ignorecase = smart_case(global_config.search);
 	while (j < line->actual) {
-		int k = j;
-		uint32_t * match = global_config.search;
-		while (k < line->actual+1) {
-			if (*match == '\0') {
-				for (int i = j; i < k; ++i) {
-					line->text[i].flags |= FLAG_SEARCH;
-				}
-				break;
+		int matchlen = 0;
+		if (subsearch_matches(line, j, global_config.search, ignorecase, &matchlen)) {
+			for (int i = j; matchlen > 0; ++i, matchlen--) {
+				line->text[i].flags |= FLAG_SEARCH;
 			}
-			if (k == line->actual) break;
-			if (!(search_matches(*match, line->text[k].codepoint, ignorecase))) break;
-			match++;
-			k++;
+			break;
 		}
 		j++;
 	}
@@ -5410,11 +5404,11 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	}
 	int line = -1, col = -1, _line = 1, _col = 1;
 	do {
-		find_match(_line, _col, &line, &col, buffer);
+		int matchlen;
+		find_match(_line, _col, &line, &col, buffer, &matchlen);
 		if (line != -1) {
 			line_t * l = env->lines[line-1];
-			uint32_t * t = buffer;
-			for (int i = col; *t; ++i, ++t) {
+			for (int i = col; matchlen > 0; ++i, --matchlen) {
 				l->text[i-1].flags |= FLAG_SEARCH;
 			}
 		}
@@ -5504,10 +5498,10 @@ BIM_ACTION(search_next, 0,
 	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
 	int line = -1, col = -1;
-	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search);
+	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search, NULL);
 
 	if (line == -1) {
-		find_match(1,1, &line, &col, global_config.search);
+		find_match(1,1, &line, &col, global_config.search, NULL);
 		if (line == -1) return;
 	}
 
@@ -8020,7 +8014,7 @@ void normal_mode(void) {
 						buffer[global_config.command_buffer->actual] = 0;
 						int line = -1, col = -1;
 						if (global_config.search_direction == 1) {
-							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
+							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer, NULL);
 						} else {
 							find_match_backwards(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
 						}
