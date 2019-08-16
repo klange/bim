@@ -3746,7 +3746,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			match++;
 			continue;
 		}
-		if (*match == '\\' && (match[1] == '$' || match[1] == '^')) {
+		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\')) {
 			match++;
 		}
 		if (k == line->actual) break;
@@ -6452,9 +6452,7 @@ BIM_ACTION(delete_at_column, ARG_IS_CUSTOM | ACTION_IS_RW,
 	redraw_text();
 }
 
-BIM_ACTION(search_under_cursor, 0,
-	"Search for the word currently under the cursor."
-)(void) {
+uint32_t * get_word_under_cursor(void) {
 	/* Figure out size */
 	int c_before = 0;
 	int c_after = 0;
@@ -6470,25 +6468,33 @@ BIM_ACTION(search_under_cursor, 0,
 		c_after++;
 		i++;
 	}
-	if (!c_before && !c_after) return;
+	if (!c_before && !c_after) return NULL;
 
 	/* Populate with characters */
-	if (global_config.search) free(global_config.search);
-	global_config.search = malloc(sizeof(uint32_t) * (c_before+c_after+1));
+	uint32_t * out = malloc(sizeof(uint32_t) * (c_before+c_after+1));
 	int j = 0;
 	while (c_before) {
-		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
+		out[j] = env->lines[env->line_no-1]->text[env->col_no-c_before].codepoint;
 		c_before--;
 		j++;
 	}
 	int x = 0;
 	while (c_after) {
-		global_config.search[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
+		out[j] = env->lines[env->line_no-1]->text[env->col_no+x].codepoint;
 		j++;
 		x++;
 		c_after--;
 	}
-	global_config.search[j] = 0;
+	out[j] = 0;
+
+	return out;
+}
+
+BIM_ACTION(search_under_cursor, 0,
+	"Search for the word currently under the cursor."
+)(void) {
+	if (global_config.search) free(global_config.search);
+	global_config.search = get_word_under_cursor();
 
 	/* Find it */
 	search_next();
@@ -7060,17 +7066,19 @@ BIM_ACTION(insert_at_end_of_selection, ACTION_IS_RW,
 struct completion_match {
 	char * string;
 	char * file;
+	char * search;
 };
 
 void free_completion_match(struct completion_match * match) {
 	if (match->string) free(match->string);
 	if (match->file) free(match->file);
+	if (match->search) free(match->search);
 }
 
 /**
  * Read ctags file to find matches for a symbol
  */
-int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_count) {
+int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_count, int complete_match) {
 	int matches_len = 4;
 	*matches_count = 0;
 	*matches = malloc(sizeof(struct completion_match) * (matches_len));
@@ -7083,11 +7091,15 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 		int i = 0;
 		while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
 		if (comp[i] == '\0') {
+			if (complete_match && tmp[i] != '\t') continue;
 			int j = i;
 			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
 			tmp[j] = '\0'; j++;
 			char * file = &tmp[j];
 			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+			tmp[j] = '\0'; j++;
+			char * search = &tmp[j];
+			while (!(tmp[j] == '/' && tmp[j+1] == ';' && tmp[j+2] == '"' && tmp[j+3] == '\t') && (tmp[j] != '\n' && tmp[j] != '\0')) j++;
 			tmp[j] = '\0'; j++;
 
 			/* Dedup */
@@ -7108,6 +7120,7 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 			}
 			(*matches)[*matches_count].string = strdup(tmp);
 			(*matches)[*matches_count].file = strdup(file);
+			(*matches)[*matches_count].search = strdup(search);
 			(*matches_count)++;
 		}
 	}
@@ -7218,7 +7231,7 @@ int omni_complete(void) {
 	int matches_count;
 
 	/* TODO just reading ctags is rather mediocre; can we do something cool here? */
-	if (read_tags(tmp, &matches, &matches_count)) goto _completion_done;
+	if (read_tags(tmp, &matches, &matches_count, 0)) goto _completion_done;
 
 	/* Draw box with matches at cursor-width(tmp) */
 	draw_completion_matches(tmp, matches, matches_count, 0);
@@ -7276,6 +7289,87 @@ _finish_completion:
 	free(matches);
 	free(tmp);
 	return retval;
+}
+
+/**
+ * Set the search string from a UTF-8 sequence.
+ * Since the search string is normally a series of codepoints, this saves
+ * some effort when trying to search for things we pulled from the outside world.
+ * (eg., ctags search terms)
+ */
+void set_search_from_bytes(char * bytes) {
+	if (global_config.search) free(global_config.search);
+	global_config.search = malloc(sizeof(uint32_t) * (strlen(bytes) + 1));
+	uint32_t * s = global_config.search;
+	char * tmp = bytes;
+	uint32_t c, istate = 0;
+	while (*tmp) {
+		if (!decode(&istate, &c, *tmp)) {
+			*s = c;
+			s++;
+			*s = 0;
+		} else if (istate == UTF8_REJECT) {
+			istate = 0;
+		}
+		tmp++;
+	}
+	render_error("Set search text to (%s)", bytes);
+}
+
+BIM_ACTION(goto_definition, 0,
+	"Jump to the definition of the word under under cursor."
+)(void) {
+	uint32_t * word = get_word_under_cursor();
+	if (!word) {
+		render_error("No match");
+		return;
+	}
+
+	struct completion_match *matches;
+	int matches_count;
+
+	if (read_tags(word, &matches, &matches_count, 1)) {
+		render_error("No tags file");
+		goto _done;
+	}
+
+	if (!matches_count) {
+		render_error("No match");
+		goto _done;
+	}
+
+	if (!strcmp(matches[0].file, env->file_name)) {
+		set_search_from_bytes(&matches[0].search[1]);
+		search_next();
+	} else {
+		/* Check buffers */
+		for (int i = 0; i < buffers_len; ++i) {
+			if (buffers[i]->file_name && !strcmp(matches[0].file,buffers[i]->file_name)) {
+				if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
+				env = buffers[i];
+				redraw_tabbar();
+				set_search_from_bytes(&matches[0].search[1]);
+				search_next();
+				goto _done;
+			}
+		}
+		/* Okay, let's try opening */
+		buffer_t * old_buf = env;
+		open_file(matches[0].file);
+		if (env != old_buf) {
+			set_search_from_bytes(&matches[0].search[1]);
+			search_next();
+		} else {
+			render_error("Could not locate file containing definition");
+		}
+	}
+
+_done:
+	for (int i = 0; i < matches_count; ++i) {
+		free_completion_match(&matches[i]);
+	}
+	free(matches);
+	free(word);
 }
 
 /**
@@ -7714,6 +7808,7 @@ struct action_map NORMAL_MAP[] = {
 	{'u',           undo_history, opt_rw, 0},
 	{KEY_CTRL_R,    redo_history, opt_rw, 0},
 	{KEY_CTRL_L,    redraw_all, 0, 0},
+	{KEY_CTRL_G,    goto_definition, 0, 0},
 	{'i',           enter_insert, opt_rw, 0},
 	{'R',           enter_replace, opt_rw, 0},
 	{-1, NULL, 0, 0},
