@@ -7315,7 +7315,6 @@ void set_search_from_bytes(char * bytes) {
 		}
 		tmp++;
 	}
-	render_error("Set search text to (%s)", bytes);
 }
 
 BIM_ACTION(goto_definition, 0,
