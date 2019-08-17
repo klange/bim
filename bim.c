@@ -7099,7 +7099,9 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
 			tmp[j] = '\0'; j++;
 			char * search = &tmp[j];
-			while (!(tmp[j] == '/' && tmp[j+1] == ';' && tmp[j+2] == '"' && tmp[j+3] == '\t') && (tmp[j] != '\n' && tmp[j] != '\0')) j++;
+			while (!(tmp[j] == '/' && tmp[j+1] == ';' && tmp[j+2] == '"' && tmp[j+3] == '\t') /* /normal searches/ */
+			       && !(tmp[j] == ';' && tmp[j+1] == '"' && tmp[j+2] == '\t') /* Old ctags line number searches */
+			       && (tmp[j] != '\n' && tmp[j] != '\0')) j++;
 			tmp[j] = '\0'; j++;
 
 			/* Dedup */
@@ -7338,15 +7340,22 @@ BIM_ACTION(goto_definition, 0,
 		goto _done;
 	}
 
+#define _perform_correct_search(i) do { \
+		if (matches[i].search[0] == '/') { \
+			set_search_from_bytes(&matches[i].search[1]); \
+			search_next(); \
+		} else { \
+			goto_line(atoi(matches[i].search)); \
+		} \
+	} while (0)
+
 	if (env->file_name && !strcmp(matches[0].file, env->file_name)) {
-		set_search_from_bytes(&matches[0].search[1]);
-		search_next();
+		_perform_correct_search(0);
 	} else {
 		/* Check if there were other matches that are in this file */
 		for (int i =1; env->file_name && i < matches_count; ++i) {
 			if (!strcmp(matches[i].file, env->file_name)) {
-				set_search_from_bytes(&matches[i].search[1]);
-				search_next();
+				_perform_correct_search(i);
 				goto _done;
 			}
 		}
@@ -7356,8 +7365,7 @@ BIM_ACTION(goto_definition, 0,
 				if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
 				env = buffers[i];
 				redraw_tabbar();
-				set_search_from_bytes(&matches[0].search[1]);
-				search_next();
+				_perform_correct_search(i);
 				goto _done;
 			}
 		}
@@ -7365,8 +7373,7 @@ BIM_ACTION(goto_definition, 0,
 		buffer_t * old_buf = env;
 		open_file(matches[0].file);
 		if (env != old_buf) {
-			set_search_from_bytes(&matches[0].search[1]);
-			search_next();
+			_perform_correct_search(0);
 		} else {
 			render_error("Could not locate file containing definition");
 		}
