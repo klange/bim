@@ -5369,7 +5369,7 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 			}
 			j--;
 		}
-		col = (i > 1) ? (env->lines[i-2]->actual) : -1;
+		col = (i > 1) ? (env->lines[i-2]->actual + 1) : -1;
 	}
 }
 
