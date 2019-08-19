@@ -21,6 +21,8 @@
 | `^G` | `goto_definition` | Jump to the definition of the word under under cursor. |
 | `i` | `enter_insert` | Enter insert mode. |
 | `R` | `enter_replace` | Enter replace mode. |
+| `<shift-up>` | `enter_line_selection_and_cursor_up` | Enter line selection and move the cursor up one line. |
+| `<shift-down>` | `enter_line_selection_and_cursor_down` | Enter line selection and move the cursor down one line. |
 
 ## Insert
 
@@ -64,6 +66,8 @@
 | `x` | `delete_and_yank_lines` | Delete and yank the selected lines. |
 | `s` | `delete_lines_and_enter_insert` | Delete and yank the selected lines and then enter insert mode. |
 | `r` | `replace_chars_in_line` | Replace characters in the selected lines. |
+| `<shift-up>` | `cursor_up` | Move the cursor up one line. |
+| `<shift-down>` | `cursor_down` | Move the cursor one line down. |
 
 ## Char Selection
 

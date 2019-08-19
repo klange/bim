@@ -7790,6 +7790,20 @@ BIM_ACTION(smart_brace_end, ARG_IS_INPUT | ACTION_IS_RW,
 	insert_char(c);
 }
 
+BIM_ACTION(enter_line_selection_and_cursor_up, 0,
+	"Enter line selection and move the cursor up one line."
+)(void) {
+	enter_line_selection();
+	cursor_up();
+}
+
+BIM_ACTION(enter_line_selection_and_cursor_down, 0,
+	"Enter line selection and move the cursor down one line."
+)(void) {
+	enter_line_selection();
+	cursor_down();
+}
+
 struct action_map {
 	int key;
 	void (*method)();
@@ -7825,6 +7839,8 @@ struct action_map NORMAL_MAP[] = {
 	{KEY_CTRL_G,    goto_definition, 0, 0},
 	{'i',           enter_insert, opt_rw, 0},
 	{'R',           enter_replace, opt_rw, 0},
+	{KEY_SHIFT_UP,   enter_line_selection_and_cursor_up, 0, 0},
+	{KEY_SHIFT_DOWN, enter_line_selection_and_cursor_down, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -7865,6 +7881,9 @@ struct action_map LINE_SELECTION_MAP[] = {
 	{'x',           delete_and_yank_lines, opt_rw | opt_norm, 0},
 	{'s',           delete_lines_and_enter_insert, opt_rw, 0},
 	{'r',           replace_chars_in_line, opt_char | opt_rw, 0},
+
+	{KEY_SHIFT_UP,   cursor_up, 0, 0},
+	{KEY_SHIFT_DOWN, cursor_down, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
