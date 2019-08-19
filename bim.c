@@ -6500,34 +6500,28 @@ BIM_ACTION(search_under_cursor, 0,
 	search_next();
 }
 
-/**
- * Handler for f,F,t,T
- * Find the selected character based on the search requirement:
- * f: forward, stop on character
- * F: backward, stop on character
- * t: forward, stop before character
- * T: backward, stop after character
- */
-BIM_ACTION(find_character, ARG_IS_PROMPT | ARG_IS_INPUT,
-	"Find a character forward (`f`, `t`), backward (`F`, `T`), and place the cursor on (`f`, `F`) or before (`t`, `T`) it."
+BIM_ACTION(find_character_forward, ARG_IS_PROMPT | ARG_IS_INPUT,
+	"Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it."
 )(int type, int c) {
-	if (type == 'f' || type == 't') {
-		for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
-			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
-				env->col_no = i - !!(type == 't');
-				place_cursor_actual();
-				set_preferred_column();
-				return;
-			}
+	for (int i = env->col_no+1; i <= env->lines[env->line_no-1]->actual; ++i) {
+		if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+			env->col_no = i - !!(type == 't');
+			place_cursor_actual();
+			set_preferred_column();
+			return;
 		}
-	} else if (type == 'F' || type == 'T') {
-		for (int i = env->col_no-1; i >= 1; --i) {
-			if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
-				env->col_no = i + !!(type == 'T');
-				place_cursor_actual();
-				set_preferred_column();
-				return;
-			}
+	}
+}
+
+BIM_ACTION(find_character_backward, ARG_IS_PROMPT | ARG_IS_INPUT,
+	"Find a character backward on the current line and place the cursor on (`F`) or after (`T`) it."
+)(int type, int c) {
+	for (int i = env->col_no-1; i >= 1; --i) {
+		if (env->lines[env->line_no-1]->text[i-1].codepoint == c) {
+			env->col_no = i + !!(type == 'T');
+			place_cursor_actual();
+			set_preferred_column();
+			return;
 		}
 	}
 }
@@ -7942,10 +7936,10 @@ struct action_map NAVIGATION_MAP[] = {
 	{'B',           big_word_left, opt_rep, 0},
 	{'W',           big_word_right, opt_rep, 0},
 
-	{'f',           find_character, opt_rep | opt_arg | opt_char, 'f'},
-	{'F',           find_character, opt_rep | opt_arg | opt_char, 'F'},
-	{'t',           find_character, opt_rep | opt_arg | opt_char, 't'},
-	{'T',           find_character, opt_rep | opt_arg | opt_char, 'T'},
+	{'f',           find_character_forward, opt_rep | opt_arg | opt_char, 'f'},
+	{'F',           find_character_backward, opt_rep | opt_arg | opt_char, 'F'},
+	{'t',           find_character_forward, opt_rep | opt_arg | opt_char, 't'},
+	{'T',           find_character_backward, opt_rep | opt_arg | opt_char, 'T'},
 
 	{'G',           goto_line, opt_nav, 0},
 	{'*',           search_under_cursor, 0, 0},
