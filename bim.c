@@ -2425,6 +2425,13 @@ BIM_ACTION(redraw_all, 0,
 	redraw_commandline();
 }
 
+void pause_for_key(void) {
+	int c;
+	while ((c = bim_getch())== -1);
+	bim_unget(c);
+	redraw_all();
+}
+
 /**
  * Redraw all screen elements except the other split view.
  */
@@ -4368,11 +4375,7 @@ BIM_COMMAND(history,"history","Display command history") {
 	render_commandline_message("\n");
 	redraw_tabbar();
 	redraw_commandline();
-	/* Pause */
-	int c;
-	while ((c = bim_getch())== -1);
-	bim_unget(c);
-	redraw_all();
+	pause_for_key();
 	return 0;
 }
 
@@ -4524,15 +4527,7 @@ BIM_COMMAND(help,"help","Show help text.") {
 	redraw_tabbar();
 	redraw_commandline();
 	/* Wait for a character so we can redraw the screen before continuing */
-	int c;
-	while ((c = bim_getch())== -1);
-	/* Make sure that key press actually gets used */
-	bim_unget(c);
-	/*
-	 * Redraw everything to hide the help message and get the
-	 * upper few lines of text on screen again
-	 */
-	redraw_all();
+	pause_for_key();
 	return 0;
 }
 
@@ -4762,10 +4757,15 @@ BIM_COMMAND(buffers,"buffers","Show the open buffers") {
 	}
 	redraw_tabbar();
 	redraw_commandline();
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 	int c;
-	while ((c = bim_getch())== -1);
-	bim_unget(c);
-	redraw_all();
+	render_commandline_message("(press a key)");
+	while ((c = bim_getkey(200)) == KEY_TIMEOUT);
+	render_commandline_message("%d = %s", c, name_from_key(c));
 	return 0;
 }
 
@@ -8714,6 +8714,80 @@ void dump_mapping(const char * description, struct action_map * map) {
 		m++;
 	}
 	printf("\n");
+}
+
+BIM_COMMAND(whatis,"whatis","Describe actions bound to a key in different modes.") {
+	int key = 0;
+
+	if (argc < 2) {
+		render_commandline_message("(press a key)");
+		while ((key = bim_getkey(200)) == KEY_TIMEOUT);
+	} else if (strlen(argv[1]) > 1 && argv[1][0] == '^') {
+		/* See if it's a valid ctrl key */
+		if (argv[1][2] != '\0') {
+			goto _invalid_key_name;
+		}
+		if ((unsigned char)argv[1][1] < '@' || (unsigned char)argv[1][1] > '@' + '_') {
+			goto _invalid_key_name;
+		}
+		key = argv[1][1] - '@';
+	} else if (argv[1][1] != '\0') {
+		for (unsigned int i = 0; i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+			if (!strcmp(KeyNames[i].name,argv[1])) {
+				key = KeyNames[i].keycode;
+			}
+		}
+		if (!key) goto _invalid_key_name;
+	} else {
+		key = (unsigned char)argv[1][0];
+	}
+
+	struct MappingNames {
+		char * name;
+		struct action_map * map;
+	} maps[] = {
+		{"Normal", NORMAL_MAP},
+		{"Insert", INSERT_MAP},
+		{"Replace", REPLACE_MAP},
+		{"Line Selection", LINE_SELECTION_MAP},
+		{"Char Selection", CHAR_SELECTION_MAP},
+		{"Col Selection", COL_SELECTION_MAP},
+		{"Col Insert", COL_INSERT_MAP},
+		{"Navigation (Select)", NAVIGATION_MAP},
+		{"Escape (Select, Insert)", ESCAPE_MAP},
+		{"Command", COMMAND_MAP},
+		{"Search", SEARCH_MAP},
+		{"Input (Command, Search)", INPUT_BUFFER_MAP},
+		{NULL, NULL},
+	};
+
+	render_commandline_message("");
+	int found_something = 0;
+
+	for (struct MappingNames * map = maps; map->name; ++map) {
+		/* See if this key is mapped */
+		struct action_map * m = map->map;
+		while (m->key != -1) {
+			if (m->key == key) {
+				struct action_def * action = find_action(m->method);
+				render_commandline_message("%s: %s\n", map->name, action ? action->description : "(unmapped)");
+				found_something = 1;
+				break;
+			}
+			m++;
+		}
+	}
+
+	if (!found_something) {
+		render_commandline_message("Nothing bound for this key");
+	}
+
+	pause_for_key();
+
+	return 0;
+_invalid_key_name:
+	render_error("Invalid key name");
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
