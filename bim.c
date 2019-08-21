@@ -3870,7 +3870,7 @@ static void html_convert_color(const char * color_string) {
  * Based on vim's :TOhtml
  * Convert syntax-highlighted buffer contents to HTML.
  */
-BIM_COMMAND(tohtml,"tohtml","Convert to the document to an HTML representation with syntax highlighting.") {
+BIM_COMMAND(tohtml,"tohtml","Convert the document to an HTML representation with syntax highlighting.") {
 	buffer_t * old = env;
 	env = buffer_new();
 	setup_buffer(env);
@@ -4300,7 +4300,7 @@ BIM_PREFIX_COMMAND(repsome,"s","Perform a replacement over selected lines") {
 	return replace_text(range_top, range_bot, cmd[1], &cmd[2]);
 }
 
-BIM_PREFIX_COMMAND(repall,"%s","Perform a replacement over the entire fire.") {
+BIM_PREFIX_COMMAND(repall,"%s","Perform a replacement over the entire file.") {
 	return replace_text(1, env->line_count, cmd[2], &cmd[3]);
 }
 
@@ -4477,23 +4477,49 @@ BIM_COMMAND(noh,"noh","Clear search term") {
 }
 
 BIM_COMMAND(help,"help","Show help text.") {
-	render_commandline_message(""); /* To clear command line */
-	render_commandline_message("\n");
-	render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
-	render_commandline_message("\n");
-	render_commandline_message(" Available commands:\n");
-	render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
-	render_commandline_message("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
-	render_commandline_message("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
-	render_commandline_message("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
-	render_commandline_message("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
-	render_commandline_message("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
-	render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
-	render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
-	render_commandline_message("\n");
-	render_commandline_message(" Bim %s\n", BIM_VERSION);
-	render_commandline_message(" %s\n", BIM_COPYRIGHT);
-	render_commandline_message("\n");
+	if (argc < 2) {
+		render_commandline_message(""); /* To clear command line */
+		render_commandline_message("\n");
+		render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
+		render_commandline_message("\n");
+		render_commandline_message(" Available commands:\n");
+		render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
+		render_commandline_message("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
+		render_commandline_message("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
+		render_commandline_message("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
+		render_commandline_message("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
+		render_commandline_message("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
+		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
+		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
+		render_commandline_message("\n");
+		render_commandline_message(" Bim %s\n", BIM_VERSION);
+		render_commandline_message(" %s\n", BIM_COPYRIGHT);
+		render_commandline_message("\n");
+	} else {
+		int found = 0;
+		for (struct command_def * c = regular_commands; !found && regular_commands && c->name; ++c) {
+			if (!strcmp(c->name, argv[1])) {
+				render_commandline_message(""); /* To clear command line */
+				render_commandline_message("Help description for `%s`:\n", c->name);
+				render_commandline_message("  %s\n", c->description);
+				found = 1;
+				break;
+			}
+		}
+		for (struct command_def * c = prefix_commands; !found && prefix_commands && c->name; ++c) {
+			if (!strcmp(c->name, argv[1])) {
+				render_commandline_message(""); /* To clear command line */
+				render_commandline_message("Help description for `%s`:\n", c->name);
+				render_commandline_message("  %s\n", c->description);
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			render_error("Unknown command: %s", argv[1]);
+			return 1;
+		}
+	}
 	/* Redrawing the tabbar makes it look like we just shifted the whole view up */
 	redraw_tabbar();
 	redraw_commandline();
@@ -4864,7 +4890,7 @@ void command_tab_complete(char * buffer) {
 		} \
 	} while (0)
 
-	if (arg == 0) {
+	if (arg == 0 || (arg == 1 && !strcmp(args[0], "help"))) {
 		/* Complete command names */
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 			add_candidate(c->name);
