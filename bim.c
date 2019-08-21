@@ -7599,7 +7599,13 @@ BIM_ACTION(delete_forward, ACTION_IS_RW,
 	if (env->col_no <= env->lines[env->line_no-1]->actual) {
 		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
 		redraw_text();
+	} else if (env->col_no == env->lines[env->line_no-1]->actual + 1) {
+		merge_lines(env->lines, env->line_no);
+		redraw_text();
 	}
+	set_modified();
+	redraw_statusbar();
+	place_cursor_actual();
 }
 
 BIM_ACTION(delete_forward_and_insert, ACTION_IS_RW,
