@@ -274,6 +274,8 @@ struct theme_def {
 
 extern struct theme_def * themes;
 
+extern void add_colorscheme(struct theme_def theme);
+
 struct syntax_state {
 	line_t * line;
 	int line_no;
@@ -348,9 +350,34 @@ struct action_def {
 #define BIM_ACTION(name, options, description) \
 	void name (); /* Define the action with unknown arguments */ \
 	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action(#name, name, options, description); \
+		add_action((struct action_def){#name, name, options, description}); \
 	} \
 	void name
+
+struct command_def {
+	char * name;
+	int (*command)(char *, int, char * arg[]);
+	const char * description;
+};
+
+#define BIM_COMMAND(cmd_name, cmd_str, description) \
+	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
+	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
+		add_command((struct command_def){cmd_str, bim_command_ ## cmd_name, description}); \
+	} \
+	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
+
+#define BIM_ALIAS(alias, alias_name, cmd_name) \
+	void __attribute__((constructor)) _install_alias_ ## alias_name (void) { \
+		add_command((struct command_def){alias, bim_command_ ## cmd_name, "Alias for " #cmd_name}); \
+	}
+
+#define BIM_PREFIX_COMMAND(cmd_name, cmd_prefix, description) \
+	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
+	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
+		add_prefix_command((struct command_def){cmd_prefix, bim_command_ ## cmd_name, description}); \
+	} \
+	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
 
 extern buffer_t * env;
 extern buffer_t * left_buffer;
@@ -361,7 +388,7 @@ extern int nav_buffer;
 extern int    buffers_len;
 extern int    buffers_avail;
 extern buffer_t ** buffers;
-extern char * bim_command_names[];
+extern char ** bim_command_names;
 
 extern const char * flag_to_color(int _flag);
 extern void redraw_line(int x);
@@ -384,11 +411,12 @@ extern int update_biminfo(buffer_t * buf);
 extern buffer_t * buffer_close(buffer_t * buf);
 extern int to_eight(uint32_t codepoint, char * out);
 extern char * name_from_key(enum Key keycode);
-extern void add_action(const char * raw_name, void (*action)(), int options, const char * description);
+extern void add_action(struct action_def action);
 extern void open_file(char * file);
 extern void recalculate_selected_lines(void);
+extern void add_command(struct command_def command);
+extern void add_prefix_command(struct command_def command);
 
-extern void add_colorscheme(const char * name, void (*load)(void));
 extern void add_syntax(struct syntax_definition def);
 
 #endif /* _BIM_CORE_H */

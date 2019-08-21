@@ -105,35 +105,29 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
-char * bim_command_names[] = {
-	"help","recalc","syntax","tabn","tabp","tabnew","theme","colorscheme",
-	"tabs","tabstop","spaces","noh","clearyank","indent","noindent",
-	"padding","hlparen","hlcurrent","relativenumber","cursorcolumn",
-	"smartcase","split","splitpercent","unsplit","git","colorgutter",
-	"tohtml","buffers","s/","e","w","q","qa","q!","qa!","history","crnl",
-	"numbers","version","wq",
-	NULL
-};
+char ** bim_command_names;
 
-int action_count = 0;
-int action_space = 0;
-struct action_def * mappable_actions = NULL;
-
-void add_action(const char * raw_name, void (*action)(), int options, const char * description) {
-	if (action_space == 0) {
-		action_space = 4;
-		mappable_actions = calloc(sizeof(struct action_def), action_space);
-	} else if (action_count + 1 == action_space) {
-		action_space *= 2;
-		mappable_actions = realloc(mappable_actions, sizeof(struct action_def) * action_space);
-		for (int i = action_count; i < action_space; ++i) mappable_actions[i].name = NULL;
+#define FLEXIBLE_ARRAY(name, add_name, type, zero) \
+	int flex_ ## name ## _count = 0; \
+	int flex_ ## name ## _space = 0; \
+	type * name = NULL; \
+	void add_name (type input) { \
+		if (flex_ ## name ## _space == 0) { \
+			flex_ ## name ## _space = 4; \
+			name = calloc(sizeof(type), flex_ ## name ## _space); \
+		} else if (flex_ ## name ## _count + 1 == flex_ ## name ## _space) { \
+			flex_ ## name ## _space *= 2; \
+			name = realloc(name, sizeof(type) * flex_ ## name ## _space); \
+			for (int i = flex_ ## name ## _count; i < flex_ ## name ## _space; ++i) name[i] = zero; \
+		} \
+		name[flex_ ## name ## _count] = input; \
+		flex_ ## name ## _count ++; \
 	}
-	mappable_actions[action_count].name = (char*)raw_name; /* TODO _ to - */
-	mappable_actions[action_count].action = action;
-	mappable_actions[action_count].options = options;
-	mappable_actions[action_count].description = description;
-	action_count++;
-}
+
+FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_def){NULL,NULL,0,NULL}))
+FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
+FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
+FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
 
 /**
  * Special implementation of getch with a timeout
@@ -595,24 +589,6 @@ const char * COLOR_BOLD      = "@9";
 const char * COLOR_LINK      = "@9";
 const char * COLOR_ESCAPE    = "@9";
 const char * current_theme = "none";
-
-int theme_count = 0;
-int theme_space = 0;
-struct theme_def * themes = NULL;
-
-void add_colorscheme(const char * name, void (*load)(void)) {
-	if (theme_space == 0) {
-		theme_space = 4;
-		themes = calloc(sizeof(struct theme_def), theme_space);
-	} else if (theme_count + 1 == theme_space) {
-		theme_space *= 2;
-		themes = realloc(themes, sizeof(struct theme_def) * theme_space);
-		for (int i = theme_count; i < theme_space; ++i) themes[i].name = NULL;
-	}
-	themes[theme_count].name = name;
-	themes[theme_count].load = load;
-	theme_count++;
-}
 
 /**
  * Convert syntax highlighting flag to color code
@@ -3896,7 +3872,7 @@ static void html_convert_color(const char * color_string) {
  * Based on vim's :TOhtml
  * Convert syntax-highlighted buffer contents to HTML.
  */
-void convert_to_html(void) {
+BIM_COMMAND(tohtml,"tohtml","Convert to the document to an HTML representation with syntax highlighting.") {
 	buffer_t * old = env;
 	env = buffer_new();
 	setup_buffer(env);
@@ -4082,159 +4058,724 @@ void convert_to_html(void) {
 		recalculate_syntax(env->lines[i],i);
 	}
 	redraw_all();
+
+	return 0;
+}
+
+BIM_ALIAS("TOhtml",tohtml,tohtml)
+
+int _prefix_command_run_script(char * cmd) {
+	if (env->mode == MODE_LINE_SELECTION) {
+		int range_top, range_bot;
+		range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+		range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+
+		int in[2];
+		pipe(in);
+		int out[2];
+		pipe(out);
+		int child = fork();
+
+		/* Open child process and set up pipes */
+		if (child == 0) {
+			FILE * dev_null = fopen("/dev/null","w"); /* for stderr */
+			close(out[0]);
+			close(in[1]);
+			dup2(out[1], STDOUT_FILENO);
+			dup2(in[0], STDIN_FILENO);
+			dup2(fileno(dev_null), STDERR_FILENO);
+			if (*cmd == '!') {
+				system(&cmd[1]); /* Yes we can just do this */
+			} else {
+				char * const args[] = {"python3","-c",&cmd[1],NULL};
+				execvp("python3",args);
+			}
+			exit(1);
+		} else if (child < 0) {
+			render_error("Failed to fork");
+			return 1;
+		}
+		close(out[1]);
+		close(in[0]);
+
+		/* Write lines to child process */
+		FILE * f = fdopen(in[1],"w");
+		for (int i = range_top; i <= range_bot; ++i) {
+			line_t * line = env->lines[i-1];
+			for (int j = 0; j < line->actual; j++) {
+				char_t c = line->text[j];
+				if (c.codepoint == 0) {
+					char buf[1] = {0};
+					fwrite(buf, 1, 1, f);
+				} else {
+					char tmp[8] = {0};
+					int i = to_eight(c.codepoint, tmp);
+					fwrite(tmp, i, 1, f);
+				}
+			}
+			fputc('\n', f);
+		}
+		fclose(f);
+		close(in[1]);
+
+		/* Read results from child process into a new buffer */
+		FILE * result = fdopen(out[0],"r");
+		buffer_t * old = env;
+		env = buffer_new();
+		setup_buffer(env);
+		env->loading = 1;
+		uint8_t buf[BLOCK_SIZE];
+		state = 0;
+		while (!feof(result) && !ferror(result)) {
+			size_t r = fread(buf, 1, BLOCK_SIZE, result);
+			add_buffer(buf, r);
+		}
+		if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
+			env->lines = remove_line(env->lines, env->line_no-1);
+		}
+		fclose(result);
+		env->loading = 0;
+
+		/* Return to the original buffer and replace the selected lines with the output */
+		buffer_t * new = env;
+		env = old;
+		for (int i = range_top; i <= range_bot; ++i) {
+			/* Remove the existing lines */
+			env->lines = remove_line(env->lines, range_top-1);
+		}
+		for (int i = 0; i < new->line_count; ++i) {
+			/* Add the new lines */
+			env->lines = add_line(env->lines, range_top + i - 1);
+			replace_line(env->lines, range_top + i - 1, new->lines[i]);
+			recalculate_tabs(env->lines[range_top+i-1]);
+		}
+
+		env->modified = 1;
+
+		/* Close the temporary buffer */
+		buffer_close(new);
+	} else {
+		/* Reset and draw some line feeds */
+		reset();
+		printf("\n\n");
+
+		/* Set buffered for shell application */
+		set_buffered();
+
+		/* Call the shell and wait for completion */
+		if (*cmd == '!') {
+			system(&cmd[1]);
+		} else {
+			setenv("PYCMD",&cmd[1],1);
+			system("python3 -c \"$PYCMD\"");
+		}
+
+		/* Return to the editor, wait for user to press enter. */
+		set_unbuffered();
+		printf("\n\nPress ENTER to continue.");
+		int c;
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+
+		/* Redraw the screen */
+		redraw_all();
+	}
+
+	/* Done processing command */
+	return 0;
+}
+
+BIM_PREFIX_COMMAND(bang,"!","Executes shell commands.") {
+	(void)argc, (void)argv;
+	return _prefix_command_run_script(cmd);
+}
+
+BIM_PREFIX_COMMAND(tick,"`","Executes Python commands.") {
+	(void)argc, (void)argv;
+	return _prefix_command_run_script(cmd);
+}
+
+int replace_text(int range_top, int range_bot, char divider, char * needle) {
+	char * c = needle;
+	char * replacement = NULL;
+	char * options = "";
+
+	while (*c) {
+		if (*c == divider) {
+			*c = '\0';
+			replacement = c + 1;
+			break;
+		}
+		c++;
+	}
+
+	if (!replacement) {
+		render_error("nothing to replace with");
+		return 1;
+	}
+
+	c = replacement;
+	while (*c) {
+		if (*c == divider) {
+			*c = '\0';
+			options = c + 1;
+			break;
+		}
+		c++;
+	}
+
+	int global = 0;
+	int case_insensitive = 0;
+
+	/* Parse options */
+	while (*options) {
+		switch (*options) {
+			case 'g':
+				global = 1;
+				break;
+			case 'i':
+				case_insensitive = 1;
+				break;
+		}
+		options++;
+	}
+
+	uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
+	uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
+
+	{
+		int i = 0;
+		uint32_t c, state = 0;
+		for (char * cin = needle; *cin; cin++) {
+			if (!decode(&state, &c, *cin)) {
+				needle_c[i] = c;
+				i++;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+		}
+		needle_c[i] = 0;
+		i = 0;
+		c = 0;
+		state = 0;
+		for (char * cin = replacement; *cin; cin++) {
+			if (!decode(&state, &c, *cin)) {
+				replacement_c[i] = c;
+				i++;
+			} else if (state == UTF8_REJECT) {
+				state = 0;
+			}
+		}
+		replacement_c[i] = 0;
+	}
+
+	int replacements = 0;
+	for (int line = range_top; line <= range_bot; ++line) {
+		int col = 0;
+		while (col != -1) {
+			perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
+			if (col != -1) replacements++;
+			if (!global) break;
+		}
+	}
+	free(needle_c);
+	free(replacement_c);
+	if (replacements) {
+		render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
+		set_history_break();
+		redraw_text();
+	} else {
+		render_error("Pattern not found: %s", needle);
+	}
+
+	return 0;
+}
+
+BIM_PREFIX_COMMAND(repsome,"s","Perform a replacement over selected lines") {
+	int range_top, range_bot;
+	if (env->mode == MODE_LINE_SELECTION) {
+		range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
+		range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
+	} else {
+		range_top = env->line_no;
+		range_bot = env->line_no;
+	}
+	return replace_text(range_top, range_bot, cmd[1], &cmd[2]);
+}
+
+BIM_PREFIX_COMMAND(repall,"%s","Perform a replacement over the entire fire.") {
+	return replace_text(1, env->line_count, cmd[2], &cmd[3]);
+}
+
+BIM_COMMAND(e,"e","Open a file") {
+	if (argc > 1) {
+		/* This actually opens a new tab */
+		open_file(argv[1]);
+		update_title();
+	} else {
+		if (env->modified) {
+			render_error("File is modified, can not reload.");
+			return 1;
+		}
+
+		buffer_t * old_env = env;
+		open_file(env->file_name);
+		buffer_t * new_env = env;
+		env = old_env;
+
+#define SWAP(T,a,b) do { T x = a; a = b; b = x; } while (0)
+		SWAP(line_t **, env->lines, new_env->lines);
+		SWAP(int, env->line_count, new_env->line_count);
+		SWAP(int, env->line_avail, new_env->line_avail);
+
+		buffer_close(new_env); /* Should probably also free, this needs editing. */
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(tabnew,"tabnew","Open a new tab") {
+	if (argc > 1) {
+		open_file(argv[1]);
+		update_title();
+	} else {
+		env = buffer_new();
+		setup_buffer(env);
+		redraw_all();
+		update_title();
+	}
+	return 0;
+}
+
+BIM_COMMAND(w,"w","Write a file") {
+	/* w: write file */
+	if (argc > 1) {
+		write_file(argv[1]);
+	} else {
+		write_file(env->file_name);
+	}
+	return 0;
+}
+
+BIM_COMMAND(wq,"wq","Write and close buffer") {
+	write_file(env->file_name);
+	close_buffer();
+	return 0;
+}
+
+BIM_COMMAND(history,"history","Display command history") {
+	render_commandline_message(""); /* To clear command line */
+	for (int i = COMMAND_HISTORY_MAX; i > 1; --i) {
+		if (command_history[i-1]) render_commandline_message("%d:%s\n", i-1, command_history[i-1]);
+	}
+	render_commandline_message("\n");
+	redraw_tabbar();
+	redraw_commandline();
+	/* Pause */
+	int c;
+	while ((c = bim_getch())== -1);
+	bim_unget(c);
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(q,"q","Close buffer") {
+	if (left_buffer && left_buffer == right_buffer) {
+		unsplit();
+		return 0;
+	}
+	if (env->modified) {
+		render_error("No write since last change. Use :q! to force exit.");
+	} else {
+		close_buffer();
+	}
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(qbang,"q!","Force close buffer") {
+	close_buffer();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(qa,"qa","Try to close all buffers") {
+	try_quit();
+	return 0;
+}
+
+BIM_ALIAS("qall",qall,qa)
+
+BIM_COMMAND(qabang,"qa!","Force exit") {
+	/* Forcefully exit editor */
+	while (buffers_len) {
+		buffer_close(buffers[0]);
+	}
+	quit(NULL);
+	return 1; /* doesn't return */
+}
+
+BIM_COMMAND(tabp,"tabp","Previous tab") {
+	previous_tab();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(tabn,"tabn","Next tab") {
+	next_tab();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(git,"git","Show or change status of git integration") {
+	if (argc < 2) {
+		render_status_message("git=%d", env->checkgitstatusonwrite);
+	} else {
+		env->checkgitstatusonwrite = !!atoi(argv[1]);
+		if (env->checkgitstatusonwrite && !env->modified && env->file_name) {
+			git_examine(env->file_name);
+			redraw_text();
+		}
+	}
+	return 0;
+}
+
+BIM_COMMAND(colorgutter,"colorgutter","Show or change status of gutter colorization for unsaved modifications") {
+	if (argc < 2) {
+		render_status_message("colorgutter=%d", global_config.color_gutter);
+	} else {
+		global_config.color_gutter = !!atoi(argv[1]);
+		redraw_text();
+	}
+	return 0;
+}
+
+BIM_COMMAND(indent,"indent","Enable smart indentation") {
+	env->indent = 1;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
+	env->indent = 0;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(cursorcolumn,"cursorcolumn","Show the visual column offset of the cursor.") {
+	render_status_message("cursorcolumn=%d", env->preferred_column);
+	return 0;
+}
+
+BIM_COMMAND(noh,"noh","Clear search term") {
+	if (global_config.search) {
+		free(global_config.search);
+		global_config.search = NULL;
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
+		}
+		redraw_text();
+	}
+	return 0;
+}
+
+BIM_COMMAND(help,"help","Show help text.") {
+	render_commandline_message(""); /* To clear command line */
+	render_commandline_message("\n");
+	render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
+	render_commandline_message("\n");
+	render_commandline_message(" Available commands:\n");
+	render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
+	render_commandline_message("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
+	render_commandline_message("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
+	render_commandline_message("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
+	render_commandline_message("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
+	render_commandline_message("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
+	render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
+	render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
+	render_commandline_message("\n");
+	render_commandline_message(" Bim %s\n", BIM_VERSION);
+	render_commandline_message(" %s\n", BIM_COPYRIGHT);
+	render_commandline_message("\n");
+	/* Redrawing the tabbar makes it look like we just shifted the whole view up */
+	redraw_tabbar();
+	redraw_commandline();
+	/* Wait for a character so we can redraw the screen before continuing */
+	int c;
+	while ((c = bim_getch())== -1);
+	/* Make sure that key press actually gets used */
+	bim_unget(c);
+	/*
+	 * Redraw everything to hide the help message and get the
+	 * upper few lines of text on screen again
+	 */
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(version,"version","Show version information.") {
+	render_status_message("Bim %s", BIM_VERSION);
+	return 0;
+}
+
+BIM_COMMAND(theme,"theme","Set color theme") {
+	if (argc < 2) {
+		render_status_message("theme=%s", current_theme);
+	} else {
+		for (struct theme_def * d = themes; themes && d->name; ++d) {
+			if (!strcmp(argv[1], d->name)) {
+				d->load();
+				redraw_all();
+				return 0;
+			}
+		}
+	}
+	return 0;
+}
+
+BIM_ALIAS("colorscheme",colorscheme,theme)
+
+BIM_COMMAND(splitpercent,"splitpercent","Display or change view split") {
+	if (argc < 2) {
+		render_status_message("splitpercent=%d", global_config.split_percent);
+		return 0;
+	} else {
+		global_config.split_percent = atoi(argv[1]);
+		if (left_buffer) {
+			update_split_size();
+			redraw_all();
+		}
+	}
+	return 0;
+}
+
+BIM_COMMAND(split,"split","Split the current view.") {
+	buffer_t * original = env;
+	if (argc > 1) {
+		int is_not_number = 0;
+		for (char * c = argv[1]; *c; ++c) is_not_number |= !isdigit(*c);
+		if (is_not_number) {
+			/* Open a file for the new split */
+			open_file(argv[1]);
+			right_buffer = buffers[buffers_len-1];
+		} else {
+			/* Use an existing buffer for the new split */
+			int other = atoi(argv[1]);
+			if (other >= buffers_len || other < 0) {
+				render_error("Invalid buffer number: %d", other);
+				return 1;
+			}
+			right_buffer = buffers[other];
+		}
+	} else {
+		/* Use the current buffer for the new split */
+		right_buffer = original;
+	}
+	left_buffer = original;
+	update_split_size();
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(unsplit,"unsplit","Show only one buffer on screen") {
+	unsplit();
+	return 0;
+}
+
+BIM_COMMAND(syntax,"syntax","Show or set the active syntax highlighter") {
+	if (argc < 2) {
+		render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
+	} else {
+		set_syntax_by_name(argv[1]);
+	}
+	return 0;
+}
+
+BIM_COMMAND(recalc,"recalc","Recalculate syntax for the entire file.") {
+	for (int i = 0; i < env->line_count; ++i) {
+		env->lines[i]->istate = -1;
+	}
+	env->loading = 1;
+	for (int i = 0; i < env->line_count; ++i) {
+		recalculate_syntax(env->lines[i],i);
+	}
+	env->loading = 0;
+	redraw_all();
+	return 0;
+}
+
+BIM_COMMAND(tabs,"tabs","Use tabs for indentation") {
+	env->tabs = 1;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(spaces,"spaces","Use spaces for indentation") {
+	env->tabs = 0;
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(tabstop,"tabstop","Show or set the tabstop (width of an indentation unit)") {
+	if (argc < 2) {
+		render_status_message("tabstop=%d", env->tabstop);
+	} else {
+		int t = atoi(argv[1]);
+		if (t > 0 && t < 32) {
+			env->tabstop = t;
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_tabs(env->lines[i]);
+			}
+			redraw_all();
+		} else {
+			render_error("Invalid tabstop: %s", argv[1]);
+		}
+	}
+	return 0;
+}
+
+BIM_COMMAND(clearyear,"clearyank","Clear the yank buffer") {
+	if (global_config.yanks) {
+		for (unsigned int i = 0; i < global_config.yank_count; ++i) {
+			free(global_config.yanks[i]);
+		}
+		free(global_config.yanks);
+		global_config.yanks = NULL;
+		global_config.yank_count = 0;
+		redraw_statusbar();
+	}
+	return 0;
+}
+
+BIM_COMMAND(padding,"padding","Show or set cursor padding when scrolling vertically") {
+	if (argc < 2) {
+		render_status_message("padding=%d", global_config.cursor_padding);
+	} else {
+		global_config.cursor_padding = atoi(argv[1]);
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(smartcase,"smartcase","Show or set the status of the smartcase search option") {
+	if (argc < 2) {
+		render_status_message("smartcase=%d", global_config.smart_case);
+	} else {
+		global_config.smart_case = atoi(argv[1]);
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(hlparen,"hlparen","Show or set the configuration option to highlight matching braces") {
+	if (argc < 2) {
+		render_status_message("hlparen=%d", global_config.highlight_parens);
+	} else {
+		global_config.highlight_parens = atoi(argv[1]);
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i],i);
+		}
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(hlcurrent,"hlcurrent","Show or set the configuration option to highlight the current line") {
+	if (argc < 2) {
+		render_status_message("hlcurrent=%d", global_config.highlight_current_line);
+	} else {
+		global_config.highlight_current_line = atoi(argv[1]);
+		if (!global_config.highlight_current_line) {
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->is_current = 0;
+			}
+		}
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(crnl,"crnl","Show or set the line ending mode") {
+	if (argc < 2) {
+		render_status_message("crnl=%d", env->crnl);
+	} else {
+		env->crnl = !!atoi(argv[1]);
+		redraw_statusbar();
+	}
+	return 0;
+}
+
+BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+	if (argc < 2) {
+		render_status_message("numbers=%d", global_config.numbers);
+	} else {
+		global_config.numbers = !!atoi(argv[1]);
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(relativenumbers,"relativenumbers","Show or set the display of relative line numbers") {
+	if (argc < 2) {
+		render_status_message("relativenumber=%d", global_config.relative_lines);
+	} else {
+		global_config.relative_lines = atoi(argv[1]);
+		if (!global_config.relative_lines) {
+			for (int i = 0; i < env->line_count; ++i) {
+				env->lines[i]->is_current = 0;
+			}
+		}
+		redraw_text();
+		place_cursor_actual();
+	}
+	return 0;
+}
+
+BIM_COMMAND(buffers,"buffers","Show the open buffers") {
+	for (int i = 0; i < buffers_len; ++i) {
+		render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
+	}
+	redraw_tabbar();
+	redraw_commandline();
+	int c;
+	while ((c = bim_getch())== -1);
+	bim_unget(c);
+	redraw_all();
+	return 0;
 }
 
 /**
  * Process a user command.
  */
 void process_command(char * cmd) {
-	/* Special case ! to run shell commands without parsing tokens */
-	int c;
-
 	/* Add command to history */
 	insert_command_history(cmd);
 
-	if (*cmd == '!' || *cmd == '`') {
-		if (env->mode == MODE_LINE_SELECTION) {
-			int range_top, range_bot;
-			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
-			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
-
-			int in[2];
-			pipe(in);
-			int out[2];
-			pipe(out);
-			int child = fork();
-
-			/* Open child process and set up pipes */
-			if (child == 0) {
-				FILE * dev_null = fopen("/dev/null","w"); /* for stderr */
-				close(out[0]);
-				close(in[1]);
-				dup2(out[1], STDOUT_FILENO);
-				dup2(in[0], STDIN_FILENO);
-				dup2(fileno(dev_null), STDERR_FILENO);
-				if (*cmd == '!') {
-					system(&cmd[1]); /* Yes we can just do this */
-				} else {
-					char * const args[] = {"python3","-c",&cmd[1],NULL};
-					execvp("python3",args);
-				}
-				exit(1);
-			} else if (child < 0) {
-				render_error("Failed to fork");
-				return;
-			}
-			close(out[1]);
-			close(in[0]);
-
-			/* Write lines to child process */
-			FILE * f = fdopen(in[1],"w");
-			for (int i = range_top; i <= range_bot; ++i) {
-				line_t * line = env->lines[i-1];
-				for (int j = 0; j < line->actual; j++) {
-					char_t c = line->text[j];
-					if (c.codepoint == 0) {
-						char buf[1] = {0};
-						fwrite(buf, 1, 1, f);
-					} else {
-						char tmp[8] = {0};
-						int i = to_eight(c.codepoint, tmp);
-						fwrite(tmp, i, 1, f);
-					}
-				}
-				fputc('\n', f);
-			}
-			fclose(f);
-			close(in[1]);
-
-			/* Read results from child process into a new buffer */
-			FILE * result = fdopen(out[0],"r");
-			buffer_t * old = env;
-			env = buffer_new();
-			setup_buffer(env);
-			env->loading = 1;
-			uint8_t buf[BLOCK_SIZE];
-			state = 0;
-			while (!feof(result) && !ferror(result)) {
-				size_t r = fread(buf, 1, BLOCK_SIZE, result);
-				add_buffer(buf, r);
-			}
-			if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
-				env->lines = remove_line(env->lines, env->line_no-1);
-			}
-			fclose(result);
-			env->loading = 0;
-
-			/* Return to the original buffer and replace the selected lines with the output */
-			buffer_t * new = env;
-			env = old;
-			for (int i = range_top; i <= range_bot; ++i) {
-				/* Remove the existing lines */
-				env->lines = remove_line(env->lines, range_top-1);
-			}
-			for (int i = 0; i < new->line_count; ++i) {
-				/* Add the new lines */
-				env->lines = add_line(env->lines, range_top + i - 1);
-				replace_line(env->lines, range_top + i - 1, new->lines[i]);
-				recalculate_tabs(env->lines[range_top+i-1]);
-			}
-
-			env->modified = 1;
-
-			/* Close the temporary buffer */
-			buffer_close(new);
-		} else {
-			/* Reset and draw some line feeds */
-			reset();
-			printf("\n\n");
-
-			/* Set buffered for shell application */
-			set_buffered();
-
-			/* Call the shell and wait for completion */
-			if (*cmd == '!') {
-				system(&cmd[1]);
-			} else {
-				setenv("PYCMD",&cmd[1],1);
-				system("python3 -c \"$PYCMD\"");
-			}
-
-			/* Return to the editor, wait for user to press enter. */
-			set_unbuffered();
-			printf("\n\nPress ENTER to continue.");
-			while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
-
-			/* Redraw the screen */
-			redraw_all();
+	/* First, check prefix commands */
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		if (strstr(cmd, c->name) == cmd &&
+		    (!isalpha(cmd[strlen(c->name)]) || !isalpha(cmd[0]))) {
+			c->command(cmd, 0, NULL);
+			return;
 		}
-
-		/* Done processing command */
-		return;
 	}
 
-	/* Arguments aren't really tokenized, but the first command before a space is extracted */
-	char *argv[3]; /* If a specific command wants to tokenize further, it can do that later. */
-	int argc = 0;
-	if (*cmd) argc++;
-
-	int i = 0;
-	char tmp[512] = {0};
-
-	/* Collect up until first space for argv[0] */
+	char * argv[3] = {NULL, NULL, NULL};
+	int argc = !!(*cmd);
+	char cmd_name[512] = {0};
 	for (char * c = cmd; *c; ++c) {
-		if (i == 511) break;
+		if (c-cmd == 511) break;
 		if (*c == ' ') {
-			tmp[i] = '\0';
+			cmd_name[c-cmd] = '\0';
 			argv[1] = c+1;
 			if (*argv[1]) argc++;
 			break;
-		} else {
-			tmp[i] = *c;
 		}
-		i++;
+		cmd_name[c-cmd] = *c;
 	}
-	argv[0] = tmp;
+
+	argv[0] = cmd_name;
 	argv[argc] = NULL;
 
 	if (argc < 1) {
@@ -4242,477 +4783,23 @@ void process_command(char * cmd) {
 		return;
 	}
 
-	int all_lines = 0;
-
-	if (argv[0][0] == '%') {
-		all_lines = 1;
-		argv[0]++;
+	/* Now check regular commands */
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		if (!strcmp(argv[0], c->name)) {
+			c->command(cmd, argc, argv);
+			return;
+		}
 	}
 
-	if (!strcmp(argv[0], "e")) {
-		/* e: edit file */
-		if (argc > 1) {
-			/* This actually opens a new tab */
-			open_file(argv[1]);
-			update_title();
-		} else {
-			if (env->modified) {
-				render_error("File is modified, can not reload.");
-				return;
-			}
+	global_config.break_from_selection = 1;
 
-			buffer_t * old_env = env;
-			open_file(env->file_name);
-			buffer_t * new_env = env;
-			env = old_env;
-
-#define SWAP(T,a,b) do { T x = a; a = b; b = x; } while (0)
-			SWAP(line_t **, env->lines, new_env->lines);
-			SWAP(int, env->line_count, new_env->line_count);
-			SWAP(int, env->line_avail, new_env->line_avail);
-
-			buffer_close(new_env); /* Should probably also free, this needs editing. */
-			redraw_all();
-		}
-	} else if (argv[0][0] == 's' && !isalpha(argv[0][1])) {
-		if (!argv[0][1]) {
-			render_error("expected substitution argument");
-			return;
-		}
-		if (env->readonly) {
-			render_error("Buffer is read-only");
-			return;
-		}
-		/* Substitution */
-		int range_top, range_bot;
-		if (env->mode == MODE_LINE_SELECTION) {
-			range_top = env->start_line < env->line_no ? env->start_line : env->line_no;
-			range_bot = env->start_line < env->line_no ? env->line_no : env->start_line;
-		} else if (all_lines) {
-			range_top = 1;
-			range_bot = env->line_count;
-		} else {
-			range_top = env->line_no;
-			range_bot = env->line_no;
-		}
-
-		/* Determine replacement parameters */
-		char divider = cmd[1];
-
-		char * needle = &cmd[2];
-		char * c = needle;
-		char * replacement = NULL;
-		char * options = "";
-
-		while (*c) {
-			if (*c == divider) {
-				*c = '\0';
-				replacement = c + 1;
-				break;
-			}
-			c++;
-		}
-
-		if (!replacement) {
-			render_error("nothing to replace with");
-			return;
-		}
-
-		c = replacement;
-		while (*c) {
-			if (*c == divider) {
-				*c = '\0';
-				options = c + 1;
-				break;
-			}
-			c++;
-		}
-
-		int global = 0;
-		int case_insensitive = 0;
-
-		/* Parse options */
-		while (*options) {
-			switch (*options) {
-				case 'g':
-					global = 1;
-					break;
-				case 'i':
-					case_insensitive = 1;
-					break;
-			}
-			options++;
-		}
-
-		uint32_t * needle_c = malloc(sizeof(uint32_t) * (strlen(needle) + 1));
-		uint32_t * replacement_c = malloc(sizeof(uint32_t) * (strlen(replacement) + 1));
-
-		{
-			int i = 0;
-			uint32_t c, state = 0;
-			for (char * cin = needle; *cin; cin++) {
-				if (!decode(&state, &c, *cin)) {
-					needle_c[i] = c;
-					i++;
-				} else if (state == UTF8_REJECT) {
-					state = 0;
-				}
-			}
-			needle_c[i] = 0;
-			i = 0;
-			c = 0;
-			state = 0;
-			for (char * cin = replacement; *cin; cin++) {
-				if (!decode(&state, &c, *cin)) {
-					replacement_c[i] = c;
-					i++;
-				} else if (state == UTF8_REJECT) {
-					state = 0;
-				}
-			}
-			replacement_c[i] = 0;
-		}
-
-		int replacements = 0;
-		for (int line = range_top; line <= range_bot; ++line) {
-			int col = 0;
-			while (col != -1) {
-				perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
-				if (col != -1) replacements++;
-				if (!global) break;
-			}
-		}
-		free(needle_c);
-		free(replacement_c);
-		if (replacements) {
-			render_status_message("replaced %d instance%s of %s", replacements, replacements == 1 ? "" : "s", needle);
-			set_history_break();
-			redraw_text();
-		} else {
-			render_error("Pattern not found: %s", needle);
-		}
-	} else if (!strcmp(argv[0], "tabnew")) {
-		if (argc > 1) {
-			open_file(argv[1]);
-			update_title();
-		} else {
-			env = buffer_new();
-			setup_buffer(env);
-			redraw_all();
-			update_title();
-		}
-	} else if (!strcmp(argv[0], "w")) {
-		/* w: write file */
-		if (argc > 1) {
-			write_file(argv[1]);
-		} else {
-			write_file(env->file_name);
-		}
-	} else if (!strcmp(argv[0], "history")) {
-		render_commandline_message(""); /* To clear command line */
-		for (int i = COMMAND_HISTORY_MAX; i > 1; --i) {
-			if (command_history[i-1]) render_commandline_message("%d:%s\n", i-1, command_history[i-1]);
-		}
-		render_commandline_message("\n");
-		redraw_tabbar();
-		redraw_commandline();
-		int c;
-		while ((c = bim_getch())== -1);
-		bim_unget(c);
-		redraw_all();
-	} else if (!strcmp(argv[0], "wq")) {
-		/* wq: write file and close buffer; if there's no file to write to, may do weird things */
-		write_file(env->file_name);
-		close_buffer();
-	} else if (!strcmp(argv[0], "q")) {
-		/* close buffer if unmodified */
-		if (left_buffer && left_buffer == right_buffer) {
-			unsplit();
-			return;
-		}
-		if (env->modified) {
-			render_error("No write since last change. Use :q! to force exit.");
-		} else {
-			close_buffer();
-		}
-		update_title();
-	} else if (!strcmp(argv[0], "q!")) {
-		/* close buffer without warning if unmodified */
-		close_buffer();
-		update_title();
-	} else if (!strcmp(argv[0], "qa") || !strcmp(argv[0], "qall")) {
-		/* Close all */
-		try_quit();
-	} else if (!strcmp(argv[0], "qa!")) {
-		/* Forcefully exit editor */
-		while (buffers_len) {
-			buffer_close(buffers[0]);
-		}
-		quit(NULL);
-	} else if (!strcmp(argv[0], "tabp")) {
-		/* Next tab */
-		previous_tab();
-		update_title();
-	} else if (!strcmp(argv[0], "tabn")) {
-		/* Previous tab */
-		next_tab();
-		update_title();
-	} else if (!strcmp(argv[0], "git")) {
-		if (argc < 2) {
-			render_status_message("git=%d", env->checkgitstatusonwrite);
-		} else {
-			env->checkgitstatusonwrite = !!atoi(argv[1]);
-			if (env->checkgitstatusonwrite && !env->modified && env->file_name) {
-				git_examine(env->file_name);
-				redraw_text();
-			}
-		}
-	} else if (!strcmp(argv[0], "colorgutter")) {
-		if (argc < 2) {
-			render_status_message("colorgutter=%d", global_config.color_gutter);
-		} else {
-			global_config.color_gutter = !!atoi(argv[1]);
-			redraw_text();
-		}
-	} else if (!strcmp(argv[0], "indent")) {
-		env->indent = 1;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "noindent")) {
-		env->indent = 0;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "cursorcolumn")) {
-		render_status_message("cursorcolumn=%d", env->preferred_column);
-	} else if (!strcmp(argv[0], "noh")) {
-		if (global_config.search) {
-			free(global_config.search);
-			global_config.search = NULL;
-			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
-			}
-			redraw_text();
-		}
-	} else if (!strcmp(argv[0], "help")) {
-		/*
-		 * The repeated calls to redraw_commandline here make use
-		 * of scrolling to draw this multiline help message on
-		 * the same background as the command line.
-		 */
-		render_commandline_message(""); /* To clear command line */
-		render_commandline_message("\n");
-		render_commandline_message(" \033[1mbim - a text editor \033[22m\n");
-		render_commandline_message("\n");
-		render_commandline_message(" Available commands:\n");
-		render_commandline_message("   Quit with \033[3m:q\033[23m, \033[3m:qa\033[23m, \033[3m:q!\033[23m, \033[3m:qa!\033[23m\n");
-		render_commandline_message("   Write out with \033[3m:w \033[4mfile\033[24;23m\n");
-		render_commandline_message("   Set syntax with \033[3m:syntax \033[4mlanguage\033[24;23m\n");
-		render_commandline_message("   Open a new tab with \033[3m:e \033[4mpath/to/file\033[24;23m\n");
-		render_commandline_message("   \033[3m:tabn\033[23m and \033[3m:tabp\033[23m can be used to switch tabs\n");
-		render_commandline_message("   Set the color scheme with \033[3m:theme \033[4mtheme\033[24;23m\n");
-		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
-		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
-		render_commandline_message("\n");
-		render_commandline_message(" Bim %s\n", BIM_VERSION);
-		render_commandline_message(" %s\n", BIM_COPYRIGHT);
-		render_commandline_message("\n");
-		/* Redrawing the tabbar makes it look like we just shifted the whole view up */
-		redraw_tabbar();
-		redraw_commandline();
-		/* Wait for a character so we can redraw the screen before continuing */
-		int c;
-		while ((c = bim_getch())== -1);
-		/* Make sure that key press actually gets used */
-		bim_unget(c);
-		/*
-		 * Redraw everything to hide the help message and get the
-		 * upper few lines of text on screen again
-		 */
-		redraw_all();
-	} else if (!strcmp(argv[0], "version")) {
-		render_status_message("Bim %s", BIM_VERSION);
-	} else if (!strcmp(argv[0], "theme") || !strcmp(argv[0],"colorscheme")) {
-		if (argc < 2) {
-			render_status_message("theme=%s", current_theme);
-			return;
-		}
-		for (struct theme_def * d = themes; themes && d->name; ++d) {
-			if (!strcmp(argv[1], d->name)) {
-				d->load();
-				redraw_all();
-				return;
-			}
-		}
-	} else if (!strcmp(argv[0], "splitpercent")) {
-		if (argc < 2) {
-			render_status_message("splitpercent=%d", global_config.split_percent);
-			return;
-		} else {
-			global_config.split_percent = atoi(argv[1]);
-			if (left_buffer) {
-				update_split_size();
-				redraw_all();
-			}
-		}
-	} else if (!strcmp(argv[0], "split")) {
-		/* Force split the current buffer; will become unsplit under certain circumstances */
-		buffer_t * original = env;
-		if (argc > 1) {
-			int is_not_number = 0;
-			for (char * c = argv[1]; *c; ++c) is_not_number |= !isdigit(*c);
-			if (is_not_number) {
-				open_file(argv[1]);
-				right_buffer = buffers[buffers_len-1];
-			} else {
-				int other = atoi(argv[1]);
-				if (other >= buffers_len || other < 0) {
-					render_error("Invalid buffer number: %d", other);
-					return;
-				}
-				right_buffer = buffers[other];
-			}
-		} else {
-			right_buffer = original;
-		}
-		left_buffer = original;
-		update_split_size();
-		redraw_all();
-	} else if (!strcmp(argv[0], "unsplit")) {
-		unsplit();
-	} else if (!strcmp(argv[0], "syntax")) {
-		if (argc < 2) {
-			render_status_message("syntax=%s", env->syntax ? env->syntax->name : "none");
-			return;
-		}
-		set_syntax_by_name(argv[1]);
-	} else if (!strcmp(argv[0], "recalc")) {
-		for (int i = 0; i < env->line_count; ++i) {
-			env->lines[i]->istate = -1;
-		}
-		env->loading = 1;
-		for (int i = 0; i < env->line_count; ++i) {
-			recalculate_syntax(env->lines[i],i);
-		}
-		env->loading = 0;
-		redraw_all();
-	} else if (!strcmp(argv[0], "tabs")) {
-		env->tabs = 1;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "spaces")) {
-		env->tabs = 0;
-		redraw_statusbar();
-	} else if (!strcmp(argv[0], "tabstop")) {
-		if (argc < 2) {
-			render_status_message("tabstop=%d", env->tabstop);
-		} else {
-			int t = atoi(argv[1]);
-			if (t > 0 && t < 32) {
-				env->tabstop = t;
-				for (int i = 0; i < env->line_count; ++i) {
-					recalculate_tabs(env->lines[i]);
-				}
-				redraw_all();
-			} else {
-				render_error("Invalid tabstop: %s", argv[1]);
-			}
-		}
-	} else if (!strcmp(argv[0], "clearyank")) {
-		if (global_config.yanks) {
-			for (unsigned int i = 0; i < global_config.yank_count; ++i) {
-				free(global_config.yanks[i]);
-			}
-			free(global_config.yanks);
-			global_config.yanks = NULL;
-			global_config.yank_count = 0;
-			redraw_statusbar();
-		}
-	} else if (!strcmp(argv[0], "padding")) {
-		if (argc < 2) {
-			render_status_message("padding=%d", global_config.cursor_padding);
-		} else {
-			global_config.cursor_padding = atoi(argv[1]);
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "smartcase")) {
-		if (argc < 2) {
-			render_status_message("smartcase=%d", global_config.smart_case);
-		} else {
-			global_config.smart_case = atoi(argv[1]);
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "hlparen")) {
-		if (argc < 2) {
-			render_status_message("hlparen=%d", global_config.highlight_parens);
-		} else {
-			global_config.highlight_parens = atoi(argv[1]);
-			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
-			}
-			redraw_text();
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "hlcurrent")) {
-		if (argc < 2) {
-			render_status_message("hlcurrent=%d", global_config.highlight_current_line);
-		} else {
-			global_config.highlight_current_line = atoi(argv[1]);
-			if (!global_config.highlight_current_line) {
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->is_current = 0;
-				}
-			}
-			redraw_text();
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0], "crnl")) {
-		if (argc < 2) {
-			render_status_message("crnl=%d", env->crnl);
-		} else {
-			env->crnl = !!atoi(argv[1]);
-			redraw_statusbar();
-		}
-	} else if (!strcmp(argv[0], "numbers")) {
-		if (argc < 2) {
-			render_status_message("numbers=%d", global_config.numbers);
-		} else {
-			global_config.numbers = !!atoi(argv[1]);
-			redraw_all();
-		}
-	} else if (!strcmp(argv[0], "relativenumber")) {
-		if (argc < 2) {
-			render_status_message("relativenumber=%d", global_config.relative_lines);
-		} else {
-			global_config.relative_lines = atoi(argv[1]);
-			if (!global_config.relative_lines) {
-				for (int i = 0; i < env->line_count; ++i) {
-					env->lines[i]->is_current = 0;
-				}
-			}
-			redraw_text();
-			place_cursor_actual();
-		}
-	} else if (!strcmp(argv[0],"TOhtml") || !strcmp(argv[0],"tohtml")) { /* TOhtml is for vim compatibility */
-		convert_to_html();
-	} else if (!strcmp(argv[0],"buffers")) {
-		for (int i = 0; i < buffers_len; ++i) {
-			render_commandline_message("%d: %s\n", i, buffers[i]->file_name ? buffers[i]->file_name : "(no name)");
-		}
-		redraw_tabbar();
-		redraw_commandline();
-		int c;
-		while ((c = bim_getch())== -1);
-		bim_unget(c);
-		redraw_all();
-	} else if (argv[0][0] == '-' && isdigit(argv[0][1])) {
-		global_config.break_from_selection = 1;
+	if (argv[0][0] == '-' && isdigit(argv[0][1])) {
 		goto_line(env->line_no-atoi(&argv[0][1]));
 	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
-		global_config.break_from_selection = 1;
 		goto_line(env->line_no+atoi(&argv[0][1]));
 	} else if (isdigit(*argv[0])) {
-		/* Go to line number */
-		global_config.break_from_selection = 1;
 		goto_line(atoi(argv[0]));
 	} else {
-		/* Unrecognized command */
 		render_error("Not an editor command: %s", argv[0]);
 	}
 }
@@ -8551,6 +8638,18 @@ void detect_weird_terminals(void) {
 void initialize(void) {
 	setlocale(LC_ALL, "");
 
+	bim_command_names = malloc(sizeof(char*) * (flex_regular_commands_count + flex_prefix_commands_count + 1));
+	int i = 0;
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		bim_command_names[i] = c->name;
+		i++;
+	}
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		bim_command_names[i] = c->name;
+		i++;
+	}
+	bim_command_names[i] = NULL;
+
 	detect_weird_terminals();
 	load_bimrc();
 
@@ -8578,7 +8677,7 @@ void init_terminal(void) {
 
 struct action_def * find_action(void (*action)()) {
 	if (!action) return NULL;
-	for (int i = 0; i < action_count; ++i) {
+	for (int i = 0; i < flex_mappable_actions_count; ++i) {
 		if (action == mappable_actions[i].action) return &mappable_actions[i];
 	}
 	return NULL;

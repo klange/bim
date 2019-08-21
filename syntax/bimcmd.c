@@ -6,6 +6,22 @@ int cmd_qualifier(int c) { return c != -1 && c != ' '; }
 extern int syn_bash_calculate(struct syntax_state * state);
 extern int syn_py_calculate(struct syntax_state * state);
 
+static int bimcmd_paint_replacement(struct syntax_state * state) {
+	paint(1, FLAG_KEYWORD);
+	char special = charat();
+	paint(1, FLAG_TYPE);
+	while (charat() != -1 && charat() != special) {
+		paint(1, FLAG_DIFFMINUS);
+	}
+	if (charat() == special) paint(1, FLAG_TYPE);
+	while (charat() != -1 && charat() != special) {
+		paint(1, FLAG_DIFFPLUS);
+	}
+	if (charat() == special) paint(1, FLAG_TYPE);
+	while (charat() != -1) paint(1, FLAG_NUMERAL);
+	return -1;
+}
+
 int syn_bimcmd_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
 		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
@@ -20,19 +36,11 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) return -1;
 			}
 			if (match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier)) return -1;
-		} else if (charat() == 's' && !isalpha(nextchar())) {
+		} else if (charat() == '%' && nextchar() == 's') {
 			paint(1, FLAG_KEYWORD);
-			char special = charat();
-			paint(1, FLAG_TYPE);
-			while (charat() != -1 && charat() != special) {
-				paint(1, FLAG_DIFFMINUS);
-			}
-			if (charat() == special) paint(1, FLAG_TYPE);
-			while (charat() != -1 && charat() != special) {
-				paint(1, FLAG_DIFFPLUS);
-			}
-			if (charat() == special) paint(1, FLAG_TYPE);
-			while (charat() != -1) paint(1, FLAG_NUMERAL);
+			return bimcmd_paint_replacement(state);
+		} else if (charat() == 's' && !isalpha(nextchar())) {
+			return bimcmd_paint_replacement(state);
 		} else if (find_keywords(state, bim_command_names, FLAG_KEYWORD, cmd_qualifier)) {
 			return -1;
 		} else if (charat() == '!') {
