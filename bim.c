@@ -1376,7 +1376,7 @@ void get_initial_termios(void) {
 
 void set_unbuffered(void) {
 	struct termios new = old;
-	new.c_iflag &= (~ICRNL);
+	new.c_iflag &= (~ICRNL) & (~IXON);
 	new.c_lflag &= (~ICANON) & (~ECHO) & (~ISIG);
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
