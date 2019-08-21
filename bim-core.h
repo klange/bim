@@ -388,7 +388,6 @@ extern int nav_buffer;
 extern int    buffers_len;
 extern int    buffers_avail;
 extern buffer_t ** buffers;
-extern char ** bim_command_names;
 
 extern const char * flag_to_color(int _flag);
 extern void redraw_line(int x);

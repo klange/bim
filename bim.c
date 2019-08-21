@@ -105,8 +105,6 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
-char ** bim_command_names;
-
 #define FLEXIBLE_ARRAY(name, add_name, type, zero) \
 	int flex_ ## name ## _count = 0; \
 	int flex_ ## name ## _space = 0; \
@@ -4868,9 +4866,13 @@ void command_tab_complete(char * buffer) {
 
 	if (arg == 0) {
 		/* Complete command names */
-		for (char ** c = bim_command_names; *c; ++c) {
-			add_candidate(*c);
+		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+			add_candidate(c->name);
 		}
+		for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+			add_candidate(c->name);
+		}
+
 		goto _accept_candidate;
 	}
 
@@ -8637,18 +8639,6 @@ void detect_weird_terminals(void) {
  */
 void initialize(void) {
 	setlocale(LC_ALL, "");
-
-	bim_command_names = malloc(sizeof(char*) * (flex_regular_commands_count + flex_prefix_commands_count + 1));
-	int i = 0;
-	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-		bim_command_names[i] = c->name;
-		i++;
-	}
-	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
-		bim_command_names[i] = c->name;
-		i++;
-	}
-	bim_command_names[i] = NULL;
 
 	detect_weird_terminals();
 	load_bimrc();

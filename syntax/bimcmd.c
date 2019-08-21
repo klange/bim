@@ -22,6 +22,19 @@ static int bimcmd_paint_replacement(struct syntax_state * state) {
 	return -1;
 }
 
+extern struct command_def * regular_commands;
+extern struct command_def * prefix_commands;
+
+static int bimcmd_find_commands(struct syntax_state * state) {
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		if (match_and_paint(state, c->name, FLAG_KEYWORD, cmd_qualifier)) return 1;
+	}
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		if (match_and_paint(state, c->name, FLAG_KEYWORD, cmd_qualifier)) return 1;
+	}
+	return 0;
+}
+
 int syn_bimcmd_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
 		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
@@ -41,7 +54,7 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 			return bimcmd_paint_replacement(state);
 		} else if (charat() == 's' && !isalpha(nextchar())) {
 			return bimcmd_paint_replacement(state);
-		} else if (find_keywords(state, bim_command_names, FLAG_KEYWORD, cmd_qualifier)) {
+		} else if (bimcmd_find_commands(state)) {
 			return -1;
 		} else if (charat() == '!') {
 			paint(1, FLAG_NUMERAL);
