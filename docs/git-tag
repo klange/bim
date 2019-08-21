@@ -1,0 +1,5 @@
+#!/bin/bash
+
+command -v git >/dev/null 2>/dev/null || exit 0
+
+echo -n "-DGIT_TAG='\"$(git rev-parse --short HEAD)\"'"

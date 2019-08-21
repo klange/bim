@@ -4496,7 +4496,7 @@ BIM_COMMAND(help,"help","Show help text.") {
 		render_commandline_message("   Set the behavior of the tab key with \033[3m:tabs\033[23m or \033[3m:spaces\033[23m\n");
 		render_commandline_message("   Set tabstop with \033[3m:tabstop \033[4mwidth\033[24;23m\n");
 		render_commandline_message("\n");
-		render_commandline_message(" Bim %s\n", BIM_VERSION);
+		render_commandline_message(" Bim %s%s\n", BIM_VERSION, BIM_BUILD_DATE);
 		render_commandline_message(" %s\n", BIM_COPYRIGHT);
 		render_commandline_message("\n");
 	} else {
@@ -4533,7 +4533,7 @@ BIM_COMMAND(help,"help","Show help text.") {
 }
 
 BIM_COMMAND(version,"version","Show version information.") {
-	render_status_message("Bim %s", BIM_VERSION);
+	render_status_message("Bim %s%s", BIM_VERSION, BIM_BUILD_DATE);
 	return 0;
 }
 
@@ -8846,7 +8846,7 @@ int main(int argc, char * argv[]) {
 				break;
 			case '-':
 				if (!strcmp(optarg,"version")) {
-					fprintf(stderr, "bim %s %s\n", BIM_VERSION, BIM_COPYRIGHT);
+					fprintf(stderr, "bim %s%s - %s\n", BIM_VERSION, BIM_BUILD_DATE, BIM_COPYRIGHT);
 					fprintf(stderr, " Available syntax highlighters:");
 					for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
 						fprintf(stderr, " %s", s->name);

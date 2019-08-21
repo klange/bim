@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I.
+CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell docs/git-tag)
 
 prefix=/usr/local
 exec_prefix=$(prefix)
