@@ -3029,6 +3029,22 @@ BIM_ACTION(open_file_from_line, 0,
 	redraw_all();
 }
 
+int line_matches(line_t * line, char * string) {
+	uint32_t c, state = 0;
+	int i = 0;
+	while (*string) {
+		if (!decode(&state, &c, *string)) {
+			if (i >= line->actual) return 0;
+			if (line->text[i].codepoint != c) return 0;
+			string++;
+			i++;
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
+	}
+	return 1;
+}
+
 /**
  * Create a new buffer from a file.
  */
@@ -3109,6 +3125,15 @@ void open_file(char * file) {
 
 	if (global_config.highlight_on_open) {
 		env->syntax = match_syntax(file);
+		if (!env->syntax) {
+			if (line_matches(env->lines[0], "<?xml")) set_syntax_by_name("xml");
+			else if (line_matches(env->lines[0], "<!doctype")) set_syntax_by_name("xml");
+			else if (line_matches(env->lines[0], "#!/usr/bin/env bash")) set_syntax_by_name("bash");
+			else if (line_matches(env->lines[0], "#!/bin/bash")) set_syntax_by_name("bash");
+			else if (line_matches(env->lines[0], "#!/bin/sh")) set_syntax_by_name("bash");
+			else if (line_matches(env->lines[0], "#!/usr/bin/env python")) set_syntax_by_name("py");
+			else if (line_matches(env->lines[0], "#!/usr/bin/env groovy")) set_syntax_by_name("groovy");
+		}
 		if (!env->syntax && global_config.syntax_fallback) {
 			set_syntax_by_name(global_config.syntax_fallback);
 		}
