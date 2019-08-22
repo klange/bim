@@ -25,6 +25,6 @@ int syn_conf_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_conf_ext[] = {".conf",".ini",".git/config",NULL};
+char * syn_conf_ext[] = {".conf",".ini",".git/config",".cfg",".properties",NULL};
 
 BIM_SYNTAX(conf, 1)
