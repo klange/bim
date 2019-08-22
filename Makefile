@@ -40,6 +40,14 @@ uninstall:
 .PHONY: tags
 tags:
 	ctags --c-kinds=+lx bim.c bim-*.h themes/* syntax/*
+	# Action definitions create functions with the same name
 	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_ACTION.([a-zA-Z_]*),/\1/f/' --append bim.c
+	# Command definitions are prefixed with bim_command_
 	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_COMMAND.([a-zA-Z_]*),/bim_command_\1/f/' --append bim.c
 	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_PREFIX_COMMAND.([a-zA-Z_]*),/bim_command_\1/f/' --append bim.c
+	# Flexible arrays create arrays, functions, count, and space objects
+	ctags --langdef=bim --language-force=bim --regex-bim='/^FLEXIBLE_ARRAY.([a-zA-Z_]*),/\1/v/' --append bim.c
+	ctags --langdef=bim --language-force=bim --regex-bim='/^FLEXIBLE_ARRAY.[a-zA-Z_]*,([a-zA-Z_]*),/\1/f/' --append bim.c
+	ctags --langdef=bim --language-force=bim --regex-bim='/^FLEXIBLE_ARRAY.([a-zA-Z_]*),/flex_\1_count/v/' --append bim.c
+	ctags --langdef=bim --language-force=bim --regex-bim='/^FLEXIBLE_ARRAY.([a-zA-Z_]*),/flex_\1_space/v/' --append bim.c
+	
