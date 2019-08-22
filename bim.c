@@ -3730,6 +3730,11 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 		}
 		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\')) {
 			match++;
+		} else if (*match == '\\' && match[1] == 't') {
+			if (line->text[k].codepoint != '\t') break;
+			match += 2;
+			k++;
+			continue;
 		}
 		if (k == line->actual) break;
 		if (!search_matches(*match, line->text[k].codepoint, ignorecase)) break;
