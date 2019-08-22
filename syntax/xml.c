@@ -76,6 +76,6 @@ _comment:
 	return -1;
 }
 
-char * syn_xml_ext[] = {".xml",".htm",".html",NULL}; // TODO other stuff that uses xml (it's a lot!); FIXME htm/html are temporary; make dedicated SGML ones for this
+char * syn_xml_ext[] = {".xml",".htm",".html",".iml",NULL}; // TODO other stuff that uses xml (it's a lot!); FIXME htm/html are temporary; make dedicated SGML ones for this
 
 BIM_SYNTAX(xml, 1)
