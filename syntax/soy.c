@@ -44,7 +44,7 @@ int syn_soy_calculate(struct syntax_state * state) {
 	}
 
 	if (state->state > 0 && state->state <= 4) {
-		return syn_xml->calculate(state);
+		return syn_xml ? syn_xml->calculate(state) : 0;
 	} else if (state->state == 5) {
 		if (paint_c_comment(state) == 1) return 5;
 		return 0;
@@ -73,7 +73,7 @@ int syn_soy_calculate(struct syntax_state * state) {
 			if (paint_c_comment(state) == 1) return 5;
 			return 0;
 		} else {
-			return syn_xml->calculate(state);
+			return syn_xml ? syn_xml->calculate(state) : 0;
 		}
 	}
 
