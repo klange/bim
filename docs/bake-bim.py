@@ -53,6 +53,7 @@ for line in bim:
                 bim_out.append('/* Included from {} */'.format(header))
                 for l in headers[header]:
                     bim_out.append(l)
+                bim_out.append('/* End of {} */'.format(header))
 
 # Add each pruned theme.
 for theme in themes:
