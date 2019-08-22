@@ -2,8 +2,9 @@
 """
 Produce a single-file bim-baked.c
 """
-
+import datetime
 import glob
+import subprocess
 
 def read_file(file):
     with open(file) as f:
@@ -18,6 +19,8 @@ def prune(lines):
             pass
         else:
             lines_out.append(line)
+    while lines_out[0] == '\n':
+        lines_out = lines_out[1:]
     return lines_out
 
 headers = {
@@ -26,11 +29,17 @@ headers = {
     'bim-syntax.h': prune(read_file('bim-syntax.h')),
 }
 
-themes = [prune(read_file(x)) for x in glob.glob('themes/*.c')]
-syntax = [prune(read_file(x)) for x in glob.glob('syntax/*.c')]
+themes = [prune(read_file(x)) for x in sorted(glob.glob('themes/*.c'))]
+syntax = [prune(read_file(x)) for x in sorted(glob.glob('syntax/*.c'))]
+
+gitsha = subprocess.check_output(['git','rev-parse','HEAD']).decode('utf-8').strip()
 
 bim_out = [
-    '/* This is a baked, single-file version of bim. */',
+    '/**',
+    ' * This is a baked, single-file version of bim.',
+    f' * It was built {datetime.datetime.now().strftime("%c")}',
+    f' * It is based on git commit {gitsha}',
+    ' */',
 ]
 
 for line in bim:
@@ -40,6 +49,7 @@ for line in bim:
         # Replace contents with headers
         for header in headers.keys():
             if header in line:
+                bim_out.append('')
                 bim_out.append('/* Included from {} */'.format(header))
                 for l in headers[header]:
                     bim_out.append(l)
