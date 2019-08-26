@@ -5156,6 +5156,9 @@ done:
  * Draw the command buffer and any prefix.
  */
 void render_command_input_buffer(void) {
+
+	if (!global_config.command_buffer) return;
+
 	/* Place the cursor at the bottom of the screen */
 	place_cursor(1, global_config.term_height);
 	paint_line(COLOR_BG);
