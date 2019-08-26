@@ -426,6 +426,7 @@ extern void open_file(char * file);
 extern void recalculate_selected_lines(void);
 extern void add_command(struct command_def command);
 extern void add_prefix_command(struct command_def command);
+extern void render_command_input_buffer(void);
 
 extern void add_syntax(struct syntax_definition def);
 

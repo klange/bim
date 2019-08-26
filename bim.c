@@ -2418,6 +2418,9 @@ BIM_ACTION(redraw_all, 0,
 	}
 	redraw_statusbar();
 	redraw_commandline();
+	if (global_config.overlay_mode == OVERLAY_MODE_COMMAND || global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+		render_command_input_buffer();
+	}
 }
 
 void pause_for_key(void) {
