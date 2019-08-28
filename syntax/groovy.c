@@ -24,23 +24,6 @@ static char * groovy_primitives[] = {
 	NULL
 };
 
-static int paint_single_string(struct syntax_state * state) {
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '\'') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return 0;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-	return 0;
-}
-
 static int paint_triple_single(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (charat() == '\'') {

@@ -1,25 +1,8 @@
 #include "bim-core.h"
 #include "bim-syntax.h"
 
-static struct syntax_definition * syn_xml = NULL;
-static int _initialized = 0;
-
-static int paint_single_string(struct syntax_state * state) {
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '\'') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return 0;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-	return 0;
-}
+static struct syntax_definition * soy_syn_xml = NULL;
+static int _soy_initialized = 0;
 
 static char * soy_keywords[] = {
 	"call","template","param","namespace","let","and","if","else","elseif",
@@ -38,13 +21,13 @@ int soy_keyword_qualifier(int c) {
 }
 
 int syn_soy_calculate(struct syntax_state * state) {
-	if (!_initialized) {
-		_initialized = 1;
-		syn_xml  = find_syntax_calculator("xml");
+	if (!_soy_initialized) {
+		_soy_initialized = 1;
+		soy_syn_xml  = find_syntax_calculator("xml");
 	}
 
 	if (state->state > 0 && state->state <= 4) {
-		return syn_xml ? syn_xml->calculate(state) : 0;
+		return soy_syn_xml ? soy_syn_xml->calculate(state) : 0;
 	} else if (state->state == 5) {
 		if (paint_c_comment(state) == 1) return 5;
 		return 0;
@@ -73,7 +56,7 @@ int syn_soy_calculate(struct syntax_state * state) {
 			if (paint_c_comment(state) == 1) return 5;
 			return 0;
 		} else {
-			return syn_xml ? syn_xml->calculate(state) : 0;
+			return soy_syn_xml ? soy_syn_xml->calculate(state) : 0;
 		}
 	}
 
