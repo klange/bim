@@ -62,6 +62,7 @@ global_config_t global_config = {
 	.color_gutter = 1, /* shows modified lines */
 	.relative_lines = 0,
 	.numbers = 1,
+	.horizontal_shift_scrolling = 0, /* Whether to shift the whole screen when scrolling horizontally */
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -1998,7 +1999,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
-		for (; j - offset < width; ++j) {
+		if (j < offset) j = offset;
+		for (; j < width + offset; ++j) {
 			printf(" ");
 		}
 	}
@@ -2033,7 +2035,7 @@ void draw_line_number(int x) {
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
-	printf("%d%c", x + 1, (x+1 == env->line_no && env->coffset > 0) ? '<' : ' ');
+	printf("%d%c", x + 1, ((x+1 == env->line_no || global_config.horizontal_shift_scrolling) && env->coffset > 0) ? '<' : ' ');
 }
 
 /**
@@ -2122,7 +2124,7 @@ void redraw_line(int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no) ? env->coffset : 0, x+1);
+	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
 
 }
 
@@ -4631,6 +4633,17 @@ BIM_COMMAND(split,"split","Split the current view.") {
 
 BIM_COMMAND(unsplit,"unsplit","Show only one buffer on screen") {
 	unsplit();
+	return 0;
+}
+
+BIM_COMMAND(horizontalscrolling,"horizontalscrolling","Set the horizontal scrolling mode") {
+	if (argc < 2) {
+		render_status_message("horizontalscrolling=%d", global_config.horizontal_shift_scrolling);
+		return 0;
+	} else {
+		global_config.horizontal_shift_scrolling = !!atoi(argv[1]);
+		redraw_all();
+	}
 	return 0;
 }
 
@@ -7970,6 +7983,14 @@ BIM_ACTION(enter_line_selection_and_cursor_down, 0,
 	cursor_down();
 }
 
+BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
+	"Shift the current line or screen view horiztonally, depending on settings."
+)(int amount) {
+	env->coffset += amount;
+	if (env->coffset < 0) env->coffset = 0;
+	redraw_text();
+}
+
 struct action_map {
 	int key;
 	void (*method)();
@@ -8107,6 +8128,9 @@ struct action_map NAVIGATION_MAP[] = {
 	{'w',           word_right, opt_rep, 0},
 	{'B',           big_word_left, opt_rep, 0},
 	{'W',           big_word_right, opt_rep, 0},
+
+	{'<',           shift_horizontally, opt_arg, -1},
+	{'>',           shift_horizontally, opt_arg, 1},
 
 	{'f',           find_character_forward, opt_rep | opt_arg | opt_char, 'f'},
 	{'F',           find_character_backward, opt_rep | opt_arg | opt_char, 'F'},

@@ -181,6 +181,7 @@ typedef struct {
 	unsigned int color_gutter:1;
 	unsigned int relative_lines:1;
 	unsigned int numbers:1;
+	unsigned int horizontal_shift_scrolling:1;
 
 	int cursor_padding;
 	int split_percent;
