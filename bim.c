@@ -5986,6 +5986,11 @@ BIM_ACTION(replace_char, ARG_IS_PROMPT | ACTION_IS_RW,
 )(unsigned int c) {
 	if (env->col_no < 1 || env->col_no > env->lines[env->line_no-1]->actual) return;
 
+	if (c >= KEY_ESCAPE) {
+		render_error("Invalid key for replacement");
+		return;
+	}
+
 	char_t _c;
 	_c.codepoint = c;
 	_c.flags = 0;
@@ -6945,6 +6950,10 @@ BIM_ACTION(delete_lines_and_enter_insert, ACTION_IS_RW,
 BIM_ACTION(replace_chars_in_line, ARG_IS_PROMPT | ACTION_IS_RW,
 	"Replace characters in the selected lines."
 )(int c) {
+	if (c >= KEY_ESCAPE) {
+		render_error("Invalid key for replacement");
+		return;
+	}
 	char_t _c = {codepoint_width(c), 0, c};
 	int start_point = env->start_line < env->line_no ? env->start_line : env->line_no;
 	int end_point = env->start_line < env->line_no ? env->line_no : env->start_line;
@@ -7138,6 +7147,11 @@ BIM_ACTION(delete_chars_and_enter_insert, ACTION_IS_RW,
 BIM_ACTION(replace_chars, ARG_IS_PROMPT | ACTION_IS_RW,
 	"Replace the selected characters."
 )(int c) {
+	if (c >= KEY_ESCAPE) {
+		render_error("Invalid key for replacement");
+		return;
+	}
+
 	char_t _c = {codepoint_width(c), 0, c};
 	/* This should probably be a function line "do_over_range" or something */
 	if (env->start_line == env->line_no) {
@@ -8359,7 +8373,7 @@ void normal_mode(void) {
 				refresh = 2;
 			} else if (handle_action(ESCAPE_MAP, key)) {
 				/* Do nothing */
-			} else {
+			} else if (key < KEY_ESCAPE) {
 				insert_char(key);
 				refresh |= 1;
 			}
@@ -8371,14 +8385,16 @@ void normal_mode(void) {
 					redraw_text();
 				} else if (!handle_action(ESCAPE_MAP, key)) {
 					/* Perform replacement */
-					if (env->col_no <= env->lines[env->line_no - 1]->actual) {
-						replace_char(key);
-						env->col_no += 1;
-					} else {
-						insert_char(key);
-						redraw_line(env->line_no-1);
+					if (key < KEY_ESCAPE) {
+						if (env->col_no <= env->lines[env->line_no - 1]->actual) {
+							replace_char(key);
+							env->col_no += 1;
+						} else {
+							insert_char(key);
+							redraw_line(env->line_no-1);
+						}
+						set_preferred_column();
 					}
-					set_preferred_column();
 				}
 			}
 		} else if (env->mode == MODE_LINE_SELECTION) {
@@ -8483,7 +8499,7 @@ void normal_mode(void) {
 				refresh = 0;
 			} else if (handle_action(COL_INSERT_MAP, key)) {
 				/* pass */
-			} else {
+			} else if (key < KEY_ESCAPE) {
 				insert_char_at_column(key);
 				refresh = 1;
 			}
