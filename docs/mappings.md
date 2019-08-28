@@ -128,6 +128,8 @@
 | `w` | `word_right` | Move the cursor right to the start of the next word. |
 | `B` | `big_word_left` | Move the cursor left to the previous WORD. |
 | `W` | `big_word_right` | Move the cursor right to the start of the next WORD. |
+| `<` | `shift_horizontally` | Shift the current line or screen view horiztonally, depending on settings. |
+| `>` | `shift_horizontally` | Shift the current line or screen view horiztonally, depending on settings. |
 | `f` | `find_character_forward` | Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it. |
 | `F` | `find_character_backward` | Find a character backward on the current line and place the cursor on (`F`) or after (`T`) it. |
 | `t` | `find_character_forward` | Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it. |
@@ -167,6 +169,7 @@
 | `<end>` | `cursor_end` | Move the cursor to the end of the line, or past the end in insert mode. |
 | `<page-up>` | `go_page_up` | Jump up a screenful. |
 | `<page-down>` | `go_page_down` | Jump down a screenful. |
+| `^Z` | `suspend` | Suspend bim and the rest of the job it was run in. |
 
 ## Command
 
