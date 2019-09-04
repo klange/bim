@@ -8892,6 +8892,82 @@ _invalid_key_name:
 	return 1;
 }
 
+BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
+	if (argc < 2) {
+		/* Print colors */
+		render_commandline_message("COLOR_FG        %s\n", COLOR_FG);
+		render_commandline_message("COLOR_BG        %s\n", COLOR_BG);
+		render_commandline_message("COLOR_ALT_FG    %s\n", COLOR_ALT_FG);
+		render_commandline_message("COLOR_ALT_BG    %s\n", COLOR_ALT_BG);
+		render_commandline_message("COLOR_NUMBER_FG %s\n", COLOR_NUMBER_FG);
+		render_commandline_message("COLOR_NUMBER_BG %s\n", COLOR_NUMBER_BG);
+		render_commandline_message("COLOR_STATUS_FG %s\n", COLOR_STATUS_FG);
+		render_commandline_message("COLOR_STATUS_BG %s\n", COLOR_STATUS_BG);
+		render_commandline_message("COLOR_TABBAR_BG %s\n", COLOR_TABBAR_BG);
+		render_commandline_message("COLOR_TAB_BG    %s\n", COLOR_TAB_BG);
+		render_commandline_message("COLOR_ERROR_FG  %s\n", COLOR_ERROR_FG);
+		render_commandline_message("COLOR_ERROR_BG  %s\n", COLOR_ERROR_BG);
+		render_commandline_message("COLOR_SEARCH_FG %s\n", COLOR_SEARCH_FG);
+		render_commandline_message("COLOR_SEARCH_BG %s\n", COLOR_SEARCH_BG);
+		render_commandline_message("COLOR_KEYWORD   %s\n", COLOR_KEYWORD);
+		render_commandline_message("COLOR_STRING    %s\n", COLOR_STRING);
+		render_commandline_message("COLOR_COMMENT   %s\n", COLOR_COMMENT);
+		render_commandline_message("COLOR_TYPE      %s\n", COLOR_TYPE);
+		render_commandline_message("COLOR_PRAGMA    %s\n", COLOR_PRAGMA);
+		render_commandline_message("COLOR_NUMERAL   %s\n", COLOR_NUMERAL);
+		render_commandline_message("COLOR_SELECTFG  %s\n", COLOR_SELECTFG);
+		render_commandline_message("COLOR_SELECTBG  %s\n", COLOR_SELECTBG);
+		render_commandline_message("COLOR_RED       %s\n", COLOR_RED);
+		render_commandline_message("COLOR_GREEN     %s\n", COLOR_GREEN);
+		render_commandline_message("COLOR_BOLD      %s\n", COLOR_BOLD);
+		render_commandline_message("COLOR_LINK      %s\n", COLOR_LINK);
+		render_commandline_message("COLOR_ESCAPE    %s\n", COLOR_ESCAPE);
+		pause_for_key();
+	} else {
+		char * colorname = argv[1];
+		char * space = strstr(colorname, " ");
+		if (!space) {
+			render_error(":setcolor <colorname> <colorvalue>");
+			return 1;
+		}
+		char * colorvalue = space + 1;
+		*space = '\0';
+		if (!strcmp("COLOR_FG", colorname)) COLOR_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_BG", colorname)) COLOR_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_ALT_FG", colorname)) COLOR_ALT_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_ALT_BG", colorname)) COLOR_ALT_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_NUMBER_FG", colorname)) COLOR_NUMBER_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_NUMBER_BG", colorname)) COLOR_NUMBER_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_STATUS_FG", colorname)) COLOR_STATUS_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_STATUS_BG", colorname)) COLOR_STATUS_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_TABBAR_BG", colorname)) COLOR_TABBAR_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_TAB_BG", colorname)) COLOR_TAB_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_ERROR_FG", colorname)) COLOR_ERROR_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_ERROR_BG", colorname)) COLOR_ERROR_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_SEARCH_FG", colorname)) COLOR_SEARCH_FG = strdup(colorvalue);
+		else if (!strcmp("COLOR_SEARCH_BG", colorname)) COLOR_SEARCH_BG = strdup(colorvalue);
+		else if (!strcmp("COLOR_KEYWORD", colorname)) COLOR_KEYWORD = strdup(colorvalue);
+		else if (!strcmp("COLOR_STRING", colorname)) COLOR_STRING = strdup(colorvalue);
+		else if (!strcmp("COLOR_COMMENT", colorname)) COLOR_COMMENT = strdup(colorvalue);
+		else if (!strcmp("COLOR_TYPE", colorname)) COLOR_TYPE = strdup(colorvalue);
+		else if (!strcmp("COLOR_PRAGMA", colorname)) COLOR_PRAGMA = strdup(colorvalue);
+		else if (!strcmp("COLOR_NUMERAL", colorname)) COLOR_NUMERAL = strdup(colorvalue);
+		else if (!strcmp("COLOR_SELECTFG", colorname)) COLOR_SELECTFG = strdup(colorvalue);
+		else if (!strcmp("COLOR_SELECTBG", colorname)) COLOR_SELECTBG = strdup(colorvalue);
+		else if (!strcmp("COLOR_RED", colorname)) COLOR_RED = strdup(colorvalue);
+		else if (!strcmp("COLOR_GREEN", colorname)) COLOR_GREEN = strdup(colorvalue);
+		else if (!strcmp("COLOR_BOLD", colorname)) COLOR_BOLD = strdup(colorvalue);
+		else if (!strcmp("COLOR_LINK", colorname)) COLOR_LINK = strdup(colorvalue);
+		else if (!strcmp("COLOR_ESCAPE", colorname)) COLOR_ESCAPE = strdup(colorvalue);
+		else {
+			render_error("Unknown color: %s", colorname);
+			return 1;
+		}
+		return 0;
+	}
+	return 0;
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
