@@ -8939,7 +8939,11 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		/* Print colors */
 		struct ColorName * c = color_names;
 		while (c->name) {
-			render_commandline_message("%20s = %s\n", c->name, *c->value);
+			render_commandline_message("%20s = ", c->name);
+			set_colors(*c->value, *c->value);
+			printf("   ");
+			set_colors(COLOR_FG, COLOR_BG);
+			printf(" %s\n", *c->value);
 			c++;
 		}
 		pause_for_key();
