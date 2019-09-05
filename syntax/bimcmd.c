@@ -61,6 +61,11 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				}
 			}
 			return -1;
+		} else if (match_and_paint(state, "action", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct action_def * a = mappable_actions; a->name; ++a) {
+				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) return -1;
+			}
 		} else if (charat() == '%' && nextchar() == 's') {
 			paint(1, FLAG_KEYWORD);
 			return bimcmd_paint_replacement(state);

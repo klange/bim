@@ -5024,6 +5024,13 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
+	if (arg == 1 && (!strcmp(args[0], "action"))) {
+		for (struct action_def * a = mappable_actions; a->name; ++a) {
+			add_candidate(a->name);
+		}
+		goto _accept_candidate;
+	}
+
 	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript"))) {
 		/* Complete file paths */
 
@@ -9020,6 +9027,60 @@ BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse o
 	else if (!strcmp(argv[1],"can_256color")) return !global_config.can_256color;
 	else if (!strcmp(argv[1],"can_italic")) return !global_config.can_italic;
 	render_error("Unknown property '%s'", argv[1]);
+	return 1;
+}
+
+BIM_COMMAND(action,"action","Execute a bim action") {
+	if (argc < 2) {
+		render_error("Expected :action <action-name> [arg [arg [arg...]]]");
+		return 1;
+	}
+
+	/* Split argument on spaces */
+	char * action = argv[1];
+	char * arg1 = NULL, * arg2 = NULL, * arg3 = NULL;
+	arg1 = strstr(argv[1]," ");
+	if (arg1) {
+		*arg1 = '\0';
+		arg1++;
+		arg2 = strstr(arg1," ");
+		if (arg2) {
+			*arg2 = '\0';
+			arg2++;
+			arg3 = strstr(arg1," ");
+			if (arg3) {
+				*arg3 = '\0';
+				arg3++;
+			}
+		}
+	}
+
+	/* Find the action */
+	for (int i = 0; i < flex_mappable_actions_count; ++i) {
+		if (!strcmp(mappable_actions[i].name, action)) {
+			/* Count arguments */
+			int args = 0;
+			if (mappable_actions[i].options & ARG_IS_CUSTOM) args++;
+			if (mappable_actions[i].options & ARG_IS_INPUT) args++;
+			if (mappable_actions[i].options & ARG_IS_PROMPT) args++;
+
+			if (args == 0) {
+				mappable_actions[i].action();
+			} else if (args == 1) {
+				if (!arg1) { render_error("Expected one argument"); return 1; }
+				mappable_actions[i].action(atoi(arg1));
+			} else if (args == 2) {
+				if (!arg2) { render_error("Expected two arguments"); return 1; }
+				mappable_actions[i].action(atoi(arg1), atoi(arg2));
+			} else if (args == 3) {
+				if (!arg3) { render_error("Expected three arguments"); return 1; }
+				mappable_actions[i].action(atoi(arg1), atoi(arg2), atoi(arg3));
+			}
+			return 0;
+		}
+	}
+
+	render_error("Unknown action: %s", action);
 	return 1;
 }
 

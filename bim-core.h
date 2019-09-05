@@ -354,6 +354,8 @@ struct action_def {
 	const char * description;
 };
 
+extern struct action_def * mappable_actions;
+
 #define ARG_IS_INPUT   0x01 /* Takes the key that triggered it as the first argument */
 #define ARG_IS_CUSTOM  0x02 /* Takes a custom argument which is specific to the method */
 #define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
