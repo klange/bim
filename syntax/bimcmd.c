@@ -37,7 +37,10 @@ static int bimcmd_find_commands(struct syntax_state * state) {
 
 int syn_bimcmd_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
-		if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
+		if (charat() == '#') {
+			while (charat() != -1) paint(1, FLAG_COMMENT);
+			return -1;
+		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
 			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
 			while (charat() == ' ') skip();
 			for (struct theme_def * s = themes; themes && s->name; ++s) {
@@ -49,6 +52,15 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				if (match_and_paint(state, s->name, FLAG_TYPE, cmd_qualifier)) return -1;
 			}
 			if (match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier)) return -1;
+		} else if (match_and_paint(state, "setcolor", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct ColorName * c = color_names; c->name; ++c) {
+				if (match_and_paint(state, c->name, FLAG_TYPE, cmd_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_STRING);
+					return -1;
+				}
+			}
+			return -1;
 		} else if (charat() == '%' && nextchar() == 's') {
 			paint(1, FLAG_KEYWORD);
 			return bimcmd_paint_replacement(state);
@@ -71,6 +83,6 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_bimcmd_ext[] = {NULL}; /* no files */
+char * syn_bimcmd_ext[] = {".bimscript",NULL}; /* no files */
 
 BIM_SYNTAX(bimcmd, 1)

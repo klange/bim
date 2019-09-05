@@ -431,4 +431,11 @@ extern void render_command_input_buffer(void);
 
 extern void add_syntax(struct syntax_definition def);
 
+struct ColorName {
+	const char * name;
+	const char ** value;
+};
+
+extern struct ColorName color_names[];
+
 #endif /* _BIM_CORE_H */

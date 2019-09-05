@@ -106,6 +106,38 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
+struct ColorName color_names[] = {
+	{"text-fg", &COLOR_FG},
+	{"text-bg", &COLOR_BG},
+	{"alternate-fg", &COLOR_ALT_FG},
+	{"alternate-bg", &COLOR_ALT_BG},
+	{"number-fg", &COLOR_NUMBER_FG},
+	{"number-bg", &COLOR_NUMBER_BG},
+	{"status-fg", &COLOR_STATUS_FG},
+	{"status-bg", &COLOR_STATUS_BG},
+	{"tabbar-bg", &COLOR_TABBAR_BG},
+	{"tab-bg", &COLOR_TAB_BG},
+	{"error-fg", &COLOR_ERROR_FG},
+	{"error-bg", &COLOR_ERROR_BG},
+	{"search-fg", &COLOR_SEARCH_FG},
+	{"search-bg", &COLOR_SEARCH_BG},
+	{"keyword", &COLOR_KEYWORD},
+	{"string", &COLOR_STRING},
+	{"comment", &COLOR_COMMENT},
+	{"type", &COLOR_TYPE},
+	{"pragma", &COLOR_PRAGMA},
+	{"numeral", &COLOR_NUMERAL},
+	{"select-fg", &COLOR_SELECTFG},
+	{"select-bg", &COLOR_SELECTBG},
+	{"red", &COLOR_RED},
+	{"green", &COLOR_GREEN},
+	{"bold", &COLOR_BOLD},
+	{"link", &COLOR_LINK},
+	{"escape", &COLOR_ESCAPE},
+	{NULL,NULL},
+};
+
+
 #define FLEXIBLE_ARRAY(name, add_name, type, zero) \
 	int flex_ ## name ## _count = 0; \
 	int flex_ ## name ## _space = 0; \
@@ -4836,16 +4868,15 @@ BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 /**
  * Process a user command.
  */
-void process_command(char * cmd) {
-	/* Add command to history */
-	insert_command_history(cmd);
+int process_command(char * cmd) {
+
+	if (*cmd == '#') return 0;
 
 	/* First, check prefix commands */
 	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
 		if (strstr(cmd, c->name) == cmd &&
 		    (!isalpha(cmd[strlen(c->name)]) || !isalpha(cmd[0]))) {
-			c->command(cmd, 0, NULL);
-			return;
+			return c->command(cmd, 0, NULL);
 		}
 	}
 
@@ -4868,14 +4899,13 @@ void process_command(char * cmd) {
 
 	if (argc < 1) {
 		/* no op */
-		return;
+		return 0;
 	}
 
 	/* Now check regular commands */
 	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 		if (!strcmp(argv[0], c->name)) {
-			c->command(cmd, argc, argv);
-			return;
+			return c->command(cmd, argc, argv);
 		}
 	}
 
@@ -4883,12 +4913,16 @@ void process_command(char * cmd) {
 
 	if (argv[0][0] == '-' && isdigit(argv[0][1])) {
 		goto_line(env->line_no-atoi(&argv[0][1]));
+		return 0;
 	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
 		goto_line(env->line_no+atoi(&argv[0][1]));
+		return 0;
 	} else if (isdigit(*argv[0])) {
 		goto_line(atoi(argv[0]));
+		return 0;
 	} else {
 		render_error("Not an editor command: %s", argv[0]);
+		return 1;
 	}
 }
 
@@ -4983,7 +5017,14 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w"))) {
+	if (arg == 1 && (!strcmp(args[0], "setcolor"))) {
+		for (struct ColorName * c = color_names; c->name; ++c) {
+			add_candidate(c->name);
+		}
+		goto _accept_candidate;
+	}
+
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript"))) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
@@ -5314,6 +5355,7 @@ BIM_ACTION(command_accept, 0,
 
 	/* Run the converted command */
 	global_config.break_from_selection = 0;
+	insert_command_history(tmp);
 	process_command(tmp);
 	free(tmp);
 
@@ -8895,33 +8937,11 @@ _invalid_key_name:
 BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 	if (argc < 2) {
 		/* Print colors */
-		render_commandline_message("COLOR_FG        %s\n", COLOR_FG);
-		render_commandline_message("COLOR_BG        %s\n", COLOR_BG);
-		render_commandline_message("COLOR_ALT_FG    %s\n", COLOR_ALT_FG);
-		render_commandline_message("COLOR_ALT_BG    %s\n", COLOR_ALT_BG);
-		render_commandline_message("COLOR_NUMBER_FG %s\n", COLOR_NUMBER_FG);
-		render_commandline_message("COLOR_NUMBER_BG %s\n", COLOR_NUMBER_BG);
-		render_commandline_message("COLOR_STATUS_FG %s\n", COLOR_STATUS_FG);
-		render_commandline_message("COLOR_STATUS_BG %s\n", COLOR_STATUS_BG);
-		render_commandline_message("COLOR_TABBAR_BG %s\n", COLOR_TABBAR_BG);
-		render_commandline_message("COLOR_TAB_BG    %s\n", COLOR_TAB_BG);
-		render_commandline_message("COLOR_ERROR_FG  %s\n", COLOR_ERROR_FG);
-		render_commandline_message("COLOR_ERROR_BG  %s\n", COLOR_ERROR_BG);
-		render_commandline_message("COLOR_SEARCH_FG %s\n", COLOR_SEARCH_FG);
-		render_commandline_message("COLOR_SEARCH_BG %s\n", COLOR_SEARCH_BG);
-		render_commandline_message("COLOR_KEYWORD   %s\n", COLOR_KEYWORD);
-		render_commandline_message("COLOR_STRING    %s\n", COLOR_STRING);
-		render_commandline_message("COLOR_COMMENT   %s\n", COLOR_COMMENT);
-		render_commandline_message("COLOR_TYPE      %s\n", COLOR_TYPE);
-		render_commandline_message("COLOR_PRAGMA    %s\n", COLOR_PRAGMA);
-		render_commandline_message("COLOR_NUMERAL   %s\n", COLOR_NUMERAL);
-		render_commandline_message("COLOR_SELECTFG  %s\n", COLOR_SELECTFG);
-		render_commandline_message("COLOR_SELECTBG  %s\n", COLOR_SELECTBG);
-		render_commandline_message("COLOR_RED       %s\n", COLOR_RED);
-		render_commandline_message("COLOR_GREEN     %s\n", COLOR_GREEN);
-		render_commandline_message("COLOR_BOLD      %s\n", COLOR_BOLD);
-		render_commandline_message("COLOR_LINK      %s\n", COLOR_LINK);
-		render_commandline_message("COLOR_ESCAPE    %s\n", COLOR_ESCAPE);
+		struct ColorName * c = color_names;
+		while (c->name) {
+			render_commandline_message("%20s = %s\n", c->name, *c->value);
+			c++;
+		}
 		pause_for_key();
 	} else {
 		char * colorname = argv[1];
@@ -8932,40 +8952,71 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		}
 		char * colorvalue = space + 1;
 		*space = '\0';
-		if (!strcmp("COLOR_FG", colorname)) COLOR_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_BG", colorname)) COLOR_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_ALT_FG", colorname)) COLOR_ALT_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_ALT_BG", colorname)) COLOR_ALT_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_NUMBER_FG", colorname)) COLOR_NUMBER_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_NUMBER_BG", colorname)) COLOR_NUMBER_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_STATUS_FG", colorname)) COLOR_STATUS_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_STATUS_BG", colorname)) COLOR_STATUS_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_TABBAR_BG", colorname)) COLOR_TABBAR_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_TAB_BG", colorname)) COLOR_TAB_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_ERROR_FG", colorname)) COLOR_ERROR_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_ERROR_BG", colorname)) COLOR_ERROR_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_SEARCH_FG", colorname)) COLOR_SEARCH_FG = strdup(colorvalue);
-		else if (!strcmp("COLOR_SEARCH_BG", colorname)) COLOR_SEARCH_BG = strdup(colorvalue);
-		else if (!strcmp("COLOR_KEYWORD", colorname)) COLOR_KEYWORD = strdup(colorvalue);
-		else if (!strcmp("COLOR_STRING", colorname)) COLOR_STRING = strdup(colorvalue);
-		else if (!strcmp("COLOR_COMMENT", colorname)) COLOR_COMMENT = strdup(colorvalue);
-		else if (!strcmp("COLOR_TYPE", colorname)) COLOR_TYPE = strdup(colorvalue);
-		else if (!strcmp("COLOR_PRAGMA", colorname)) COLOR_PRAGMA = strdup(colorvalue);
-		else if (!strcmp("COLOR_NUMERAL", colorname)) COLOR_NUMERAL = strdup(colorvalue);
-		else if (!strcmp("COLOR_SELECTFG", colorname)) COLOR_SELECTFG = strdup(colorvalue);
-		else if (!strcmp("COLOR_SELECTBG", colorname)) COLOR_SELECTBG = strdup(colorvalue);
-		else if (!strcmp("COLOR_RED", colorname)) COLOR_RED = strdup(colorvalue);
-		else if (!strcmp("COLOR_GREEN", colorname)) COLOR_GREEN = strdup(colorvalue);
-		else if (!strcmp("COLOR_BOLD", colorname)) COLOR_BOLD = strdup(colorvalue);
-		else if (!strcmp("COLOR_LINK", colorname)) COLOR_LINK = strdup(colorvalue);
-		else if (!strcmp("COLOR_ESCAPE", colorname)) COLOR_ESCAPE = strdup(colorvalue);
-		else {
-			render_error("Unknown color: %s", colorname);
-			return 1;
+		struct ColorName * c = color_names;
+		while (c->name) {
+			if (!strcmp(c->name, colorname)) {
+				*(c->value) = strdup(colorvalue);
+				return 0;
+			}
+			c++;
 		}
-		return 0;
+		render_error("Unknown color: %s", colorname);
+		return 1;
 	}
 	return 0;
+}
+
+BIM_COMMAND(runscript,"runscript","Run a script file") {
+	if (argc < 2) {
+		render_error("Expected a script to run");
+		return 1;
+	}
+
+	/* Run commands */
+	FILE * f = fopen(argv[1],"r");
+	if (!f) {
+		render_error("Failed to open script");
+		return 1;
+	}
+
+	int retval = 0;
+
+	char linebuf[4096];
+
+	while (!feof(f)) {
+		memset(linebuf, 0, 4096);
+		fgets(linebuf, 4095, f);
+		/* Remove linefeed */
+		char * s = strstr(linebuf, "\n");
+		if (s) *s = '\0';
+		int result = process_command(linebuf);
+		if (result != 0) {
+			retval = result;
+			break;
+		}
+	}
+
+	fclose(f);
+	return retval;
+}
+
+BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse of the property") {
+	if (argc < 2) {
+		return 1;
+	}
+	if (!strcmp(argv[1],"can_scroll")) return !global_config.can_scroll;
+	else if (!strcmp(argv[1],"can_hideshow")) return !global_config.can_hideshow;
+	else if (!strcmp(argv[1],"can_altscreen")) return !global_config.can_altscreen;
+	else if (!strcmp(argv[1],"can_mouse")) return !global_config.can_mouse;
+	else if (!strcmp(argv[1],"can_unicode")) return !global_config.can_unicode;
+	else if (!strcmp(argv[1],"can_bright")) return !global_config.can_bright;
+	else if (!strcmp(argv[1],"can_title")) return !global_config.can_title;
+	else if (!strcmp(argv[1],"can_bce")) return !global_config.can_bce;
+	else if (!strcmp(argv[1],"can_24bit")) return !global_config.can_24bit;
+	else if (!strcmp(argv[1],"can_256color")) return !global_config.can_256color;
+	else if (!strcmp(argv[1],"can_italic")) return !global_config.can_italic;
+	render_error("Unknown property '%s'", argv[1]);
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
