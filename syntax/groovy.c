@@ -79,6 +79,6 @@ int syn_groovy_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_groovy_ext[] = {".groovy",".jenkinsfile",NULL};
+char * syn_groovy_ext[] = {".groovy",".jenkinsfile",".gradle",NULL};
 
 BIM_SYNTAX(groovy, 1)
