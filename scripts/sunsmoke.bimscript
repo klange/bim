@@ -29,4 +29,4 @@ setcolor bold 2;230;230;230;1
 setcolor link 2;51;162;230;4
 setcolor escape 2;113;203;173
 
-recalc
+action redraw_all
