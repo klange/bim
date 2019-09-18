@@ -9,6 +9,7 @@ static struct syntax_definition * syn_xml = NULL;
 static struct syntax_definition * syn_make = NULL;
 static struct syntax_definition * syn_diff = NULL;
 static struct syntax_definition * syn_rust = NULL;
+static struct syntax_definition * syn_bash = NULL;
 
 static int _initialized = 0;
 
@@ -23,6 +24,7 @@ int syn_markdown_calculate(struct syntax_state * state) {
 		syn_make = find_syntax_calculator("make");
 		syn_diff = find_syntax_calculator("diff");
 		syn_rust = find_syntax_calculator("rust");
+		syn_bash = find_syntax_calculator("bash");
 	}
 	if (state->state < 1) {
 		while (charat() != -1) {
@@ -52,8 +54,10 @@ int syn_markdown_calculate(struct syntax_state * state) {
 						nest(syn_make->calculate, 600);
 					} else if (syn_diff && match_forward(state, "diff")) {
 						nest(syn_diff->calculate, 700);
+					} else if (syn_bash && match_forward(state, "bash")) {
+						nest(syn_bash->calculate, 800);
 					} else if (syn_rust && match_forward(state, "rust")) {
-						nest(syn_rust->calculate, 800); /* Keep this at the end for now */
+						nest(syn_rust->calculate, 900); /* Keep this at the end for now */
 					}
 					return 1;
 				}
@@ -122,8 +126,10 @@ _nope:
 			nest(syn_make->calculate, 600);
 		} else if (state->state < 799) {
 			nest(syn_diff->calculate, 700);
+		} else if (state->state < 899) {
+			nest(syn_bash->calculate, 800);
 		} else {
-			nest(syn_rust->calculate, 800);
+			nest(syn_rust->calculate, 900);
 		}
 	}
 	return -1;
