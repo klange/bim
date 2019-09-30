@@ -35,10 +35,28 @@ static int bimcmd_find_commands(struct syntax_state * state) {
 	return 0;
 }
 
+static char * bimscript_comments[] = {
+	"@author","@version","@url","@description",
+	NULL
+};
+
+static int bcmd_at_keyword_qualifier(int c) {
+	return isalnum(c) || (c == '_') || (c == '@');
+}
+
 int syn_bimcmd_calculate(struct syntax_state * state) {
 	if (state->i == 0) {
+		while (charat() == ' ') skip();
 		if (charat() == '#') {
-			while (charat() != -1) paint(1, FLAG_COMMENT);
+			while (charat() != -1) {
+				if (charat() == '@') {
+					if (!find_keywords(state, bimscript_comments, FLAG_ESCAPE, bcmd_at_keyword_qualifier)) {
+						paint(1, FLAG_COMMENT);
+					}
+				} else {
+					paint(1, FLAG_COMMENT);
+				}
+			}
 			return -1;
 		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
 			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
