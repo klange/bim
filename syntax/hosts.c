@@ -17,7 +17,7 @@ int syn_hosts_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_hosts_ext[] = {"hosts"};
+char * syn_hosts_ext[] = {"hosts",NULL};
 
 BIM_SYNTAX(hosts, 1)
 
