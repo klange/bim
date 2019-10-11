@@ -5621,7 +5621,6 @@ void rehighlight_search(line_t * line) {
 			for (int i = j; matchlen > 0; ++i, matchlen--) {
 				line->text[i].flags |= FLAG_SEARCH;
 			}
-			break;
 		}
 		j++;
 	}
