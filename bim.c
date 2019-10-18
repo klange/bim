@@ -5134,6 +5134,7 @@ _accept_candidate:
 		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_str);
 		/* Print candidates in status bar */
 		char * tmp = malloc(global_config.term_width+1);
+		int n = 1;
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
@@ -5146,8 +5147,10 @@ _accept_candidate:
 				}
 			}
 			if (offset + 1 + (signed)strlen(printed_candidate) > global_config.term_width - 5) {
-				strcat(tmp, "...");
-				break;
+				n += 1;
+				offset = 0;
+				tmp = realloc(tmp, (global_config.term_width + 1) * n);
+				strcat(tmp,"\n");
 			}
 			if (offset > 0) {
 				strcat(tmp, " ");
@@ -5156,7 +5159,20 @@ _accept_candidate:
 			strcat(tmp, printed_candidate);
 			offset += strlen(printed_candidate);
 		}
-		render_status_message("%s", tmp);
+		redraw_all();
+		if (n > 1) {
+			char * j = tmp;
+			for (int i = 0; i < n-1; ++i) {
+				char * c = tmp;
+				while (*c != '\n') c++;
+				*c = '\0';
+				render_status_message("%s\n\n", j);
+				j = c+1;
+			}
+			render_status_message("%s", j);
+		} else {
+			render_status_message("%s", tmp);
+		}
 		free(tmp);
 
 		/* Complete to longest common substring */
