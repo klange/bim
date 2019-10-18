@@ -4989,6 +4989,8 @@ void command_tab_complete(char * buffer) {
 		} \
 	} while (0)
 
+	int _candidates_are_files = 0;
+
 	if (arg == 0 || (arg == 1 && !strcmp(args[0], "help"))) {
 		/* Complete command names */
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
@@ -5058,6 +5060,8 @@ void command_tab_complete(char * buffer) {
 			free(tmp);
 			goto done;
 		}
+
+		_candidates_are_files = 1;
 
 		struct dirent * ent = readdir(dirp);
 		while (ent != NULL) {
@@ -5133,7 +5137,15 @@ _accept_candidate:
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
-			if (offset + 1 + (signed)strlen(candidates[i]) > global_config.term_width - 5) {
+			char * printed_candidate = candidates[i];
+			if (_candidates_are_files) {
+				for (char * c = printed_candidate; *c; ++c) {
+					if (c[0] == '/' && c[1] != '\0') {
+						printed_candidate = c+1;
+					}
+				}
+			}
+			if (offset + 1 + (signed)strlen(printed_candidate) > global_config.term_width - 5) {
 				strcat(tmp, "...");
 				break;
 			}
@@ -5141,8 +5153,8 @@ _accept_candidate:
 				strcat(tmp, " ");
 				offset++;
 			}
-			strcat(tmp, candidates[i]);
-			offset += strlen(candidates[i]);
+			strcat(tmp, printed_candidate);
+			offset += strlen(printed_candidate);
 		}
 		render_status_message("%s", tmp);
 		free(tmp);
