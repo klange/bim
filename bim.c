@@ -1777,12 +1777,13 @@ void redraw_tabbar(void) {
 
 		if (offset + size >= global_config.term_width) {
 			if (global_config.term_width - offset - 1 > 0) {
-				printf("%*s", global_config.term_width - offset - 1, title);
+				title[global_config.term_width - offset - 1] = '\0';
 			}
-			break;
-		} else {
 			printf("%s", title);
+			break;
 		}
+
+		printf("%s", title);
 
 		offset += size;
 	}
