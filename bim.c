@@ -5235,7 +5235,7 @@ done:
 	while (*t) { \
 		if (!decode(&state, &c, *t)) { \
 			char_t _c = {codepoint_width(c), 0, c}; \
-			line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
+			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
 			global_config.command_col_no++; \
 		} else if (state == UTF8_REJECT) state = 0; \
 		t++; \
