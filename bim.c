@@ -3282,7 +3282,9 @@ void try_quit(void) {
 /**
  * Switch to the previous buffer
  */
-void previous_tab(void) {
+BIM_ACTION(previous_tab, 0,
+	"Switch the previoius tab"
+)(void) {
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
@@ -3309,7 +3311,9 @@ void previous_tab(void) {
 /**
  * Switch to the next buffer
  */
-void next_tab(void) {
+BIM_ACTION(next_tab, 0,
+	"Switch to the next tab"
+)(void) {
 	for (int i = 0; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 		if (_env == env) {
@@ -8106,6 +8110,8 @@ struct action_map NORMAL_MAP[] = {
 	{'R',           enter_replace, opt_rw, 0},
 	{KEY_SHIFT_UP,   enter_line_selection_and_cursor_up, 0, 0},
 	{KEY_SHIFT_DOWN, enter_line_selection_and_cursor_down, 0, 0},
+	{KEY_ALT_UP,    previous_tab, 0, 0},
+	{KEY_ALT_DOWN,  next_tab, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
