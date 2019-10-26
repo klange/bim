@@ -929,7 +929,7 @@ void set_history_break(void) {
 /**
  * Insert a character into an existing line.
  */
-line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
+__attribute__((warn_unused_result)) line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
 	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
