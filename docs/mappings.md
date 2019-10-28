@@ -23,6 +23,8 @@
 | `R` | `enter_replace` | Enter replace mode. |
 | `<shift-up>` | `enter_line_selection_and_cursor_up` | Enter line selection and move the cursor up one line. |
 | `<shift-down>` | `enter_line_selection_and_cursor_down` | Enter line selection and move the cursor down one line. |
+| `<alt-up>` | `previous_tab` | Switch the previoius tab |
+| `<alt-down>` | `next_tab` | Switch to the next tab |
 
 ## Insert
 
