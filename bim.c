@@ -1214,6 +1214,10 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 		lines = realloc(lines, sizeof(line_t *) * env->line_avail);
 	}
 
+	if (!env->loading) {
+		unhighlight_matching_paren();
+	}
+
 	/* Shift later lines down */
 	if (line < env->line_count) {
 		memmove(&lines[line+2], &lines[line+1], sizeof(line_t *) * (env->line_count - line));
