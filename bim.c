@@ -2655,8 +2655,12 @@ void highlight_matching_paren(void) {
  */
 void unhighlight_matching_paren(void) {
 	if (env->highlighting_paren > 0 && env->highlighting_paren <= env->line_count) {
-		recalculate_syntax(env->lines[env->highlighting_paren-1], env->highlighting_paren-1);
-		redraw_line(env->highlighting_paren-1);
+		for (int i = env->highlighting_paren - 1; i <= env->highlighting_paren + 1; ++i) {
+			if (i >= 1 && i <= env->line_count) {
+				recalculate_syntax(env->lines[i-1], i-1);
+				redraw_line(i-1);
+			}
+		}
 		env->highlighting_paren = -1;
 	}
 }
