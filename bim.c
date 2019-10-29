@@ -3827,7 +3827,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 				int _break = -1;
 				int _len = -1;
 				if (!match[greedy ? 2 : 3]) {
-					_len = line->actual - _j;
+					_len = greedy ? (line->actual - _j) : 0;
 					_break = _j;
 				} else {
 					while (_j < line->actual + 1 && _j >= k) {
