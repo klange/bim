@@ -3820,7 +3820,37 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			match++;
 			continue;
 		}
-		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\')) {
+		if (*match == '.') {
+			if (match[1] == '*') {
+				int _j = k;
+				int _break = -1;
+				int _len = -1;
+				if (!match[2]) {
+					_len = line->actual - _j;
+					_break = _j;
+				} else {
+					while (_j < line->actual + 1) {
+						int len;
+						if (subsearch_matches(line, _j, &match[2], ignorecase, &len)) {
+							_break = _j;
+							_len = len;
+						}
+						_j++;
+					}
+				}
+				if (_break != -1) {
+					if (len) *len = (_break - j) + _len;
+					return 1;
+				}
+				return 0;
+			} else {
+				if (k >= line->actual) return 0;
+				match++;
+				k++;
+				continue;
+			}
+		}
+		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\' || match[1] == '.')) {
 			match++;
 		} else if (*match == '\\' && match[1] == 't') {
 			if (line->text[k].codepoint != '\t') break;
