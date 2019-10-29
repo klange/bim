@@ -3822,18 +3822,20 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 		}
 		if (*match == '.') {
 			if (match[1] == '*') {
+				int greedy = !(match[2] == '?');
 				int _j = k;
 				int _break = -1;
 				int _len = -1;
-				if (!match[2]) {
+				if (!match[greedy ? 2 : 3]) {
 					_len = line->actual - _j;
 					_break = _j;
 				} else {
 					while (_j < line->actual + 1) {
 						int len;
-						if (subsearch_matches(line, _j, &match[2], ignorecase, &len)) {
+						if (subsearch_matches(line, _j, &match[greedy ? 2 : 3], ignorecase, &len)) {
 							_break = _j;
 							_len = len;
+							if (!greedy) break;
 						}
 						_j++;
 					}
