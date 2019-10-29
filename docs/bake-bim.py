@@ -33,6 +33,7 @@ themes = [prune(read_file(x)) for x in sorted(glob.glob('themes/*.c'))]
 syntax = [prune(read_file(x)) for x in sorted(glob.glob('syntax/*.c'))]
 
 gitsha = subprocess.check_output(['git','rev-parse','HEAD']).decode('utf-8').strip()
+gitsha_short = subprocess.check_output(['git','rev-parse','--short','HEAD']).decode('utf-8').strip()
 
 bim_out = [
     '/**',
@@ -40,6 +41,7 @@ bim_out = [
     f' * It was built {datetime.datetime.now().strftime("%c")}',
     f' * It is based on git commit {gitsha}',
     ' */',
+    f'#define GIT_TAG "{gitsha_short}-baked"',
 ]
 
 for line in bim:
