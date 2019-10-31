@@ -250,6 +250,7 @@ typedef struct _env {
 	unsigned int indent:1;
 	unsigned int checkgitstatusonwrite:1;
 	unsigned int crnl:1;
+	unsigned int numbers:1;
 
 	int highlighting_paren;
 

@@ -398,6 +398,7 @@ buffer_t * buffer_new(void) {
 	buffers[buffers_len]->left = 0;
 	buffers[buffers_len]->width = global_config.term_width;
 	buffers[buffers_len]->highlighting_paren = -1;
+	buffers[buffers_len]->numbers = global_config.numbers;
 	buffers_len++;
 
 	return buffers[buffers_len-1];
@@ -2064,7 +2065,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
  * Get the width of the line number region
  */
 int num_width(void) {
-	if (!global_config.numbers) return -2; /* Accounts for the padding */
+	if (!env->numbers) return -2; /* Accounts for the padding */
 	int w = log_base_10(env->line_count) + 1;
 	if (w < 2) return 2;
 	return w;
@@ -2074,7 +2075,7 @@ int num_width(void) {
  * Draw the gutter and line numbers.
  */
 void draw_line_number(int x) {
-	if (!global_config.numbers) return;
+	if (!env->numbers) return;
 	/* Draw the line number */
 	if (env->lines[x]->is_current) {
 		set_colors(COLOR_NUMBER_BG, COLOR_NUMBER_FG);
@@ -4875,11 +4876,21 @@ BIM_COMMAND(crnl,"crnl","Show or set the line ending mode") {
 	return 0;
 }
 
-BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+BIM_COMMAND(global_numbers,"global.numbers","Set whether numbers are displayed by default") {
 	if (argc < 2) {
-		render_status_message("numbers=%d", global_config.numbers);
+		render_status_message("global.numbers=%d", global_config.numbers);
 	} else {
 		global_config.numbers = !!atoi(argv[1]);
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
+	if (argc < 2) {
+		render_status_message("numbers=%d", env->numbers);
+	} else {
+		env->numbers = !!atoi(argv[1]);
 		redraw_all();
 	}
 	return 0;
@@ -7903,7 +7914,7 @@ BIM_ACTION(enter_replace, ACTION_IS_RW,
 BIM_ACTION(toggle_numbers, 0,
 	"Toggle the display of line numbers."
 )(void) {
-	global_config.numbers = !global_config.numbers;
+	env->numbers = !env->numbers;
 	redraw_all();
 	place_cursor_actual();
 }
