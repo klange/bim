@@ -66,6 +66,7 @@ global_config_t global_config = {
 	.hide_statusbar = 0,
 	.tabs_visible = 1,
 	.autohide_tabs = 0,
+	.smart_complete = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -4914,6 +4915,15 @@ BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display 
 	return 0;
 }
 
+BIM_COMMAND(smartcomplete,"smartcomplete","Enable autocompletion while typing") {
+	if (argc < 2) {
+		render_status_message("smartcomplete=%d",global_config.smart_complete);
+	} else {
+		global_config.smart_complete = !!atoi(argv[1]);
+	}
+	return 0;
+}
+
 BIM_COMMAND(global_autohide_tabs,"global.autohidetabs","Whether to show the tab bar when there is only one tab") {
 	if (argc < 2) {
 		render_status_message("global.autohidetabs=%d", global_config.autohide_tabs);
@@ -7555,7 +7565,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 /**
  * Autocomplete words (function/variable names, etc.) in input mode.
  */
-int omni_complete(void) {
+int omni_complete(int quit_quietly_on_none) {
 	int c;
 
 	/* Pull the word from before the cursor */
@@ -7566,6 +7576,8 @@ int omni_complete(void) {
 		c_before++;
 		i--;
 	}
+
+	if (!c_before && quit_quietly_on_none) return 0;
 
 	/* Populate with characters */
 	uint32_t * tmp = malloc(sizeof(uint32_t) * (c_before+1));
@@ -7590,6 +7602,7 @@ int omni_complete(void) {
 	if (read_tags(tmp, &matches, &matches_count, 0)) goto _completion_done;
 
 	/* Draw box with matches at cursor-width(tmp) */
+	if (quit_quietly_on_none && matches_count == 0) return 0;
 	draw_completion_matches(tmp, matches, matches_count, 0);
 
 	int retval = 0;
@@ -8092,7 +8105,7 @@ BIM_ACTION(perform_omni_completion, ACTION_IS_RW,
 	"(temporary) Perform smart symbol competion from ctags."
 )(void) {
 	/* This should probably be a submode */
-	while (omni_complete() == 1);
+	while (omni_complete(0) == 1);
 }
 
 BIM_ACTION(smart_tab, ACTION_IS_RW,
@@ -8591,6 +8604,10 @@ void normal_mode(void) {
 				/* Do nothing */
 			} else if (key < KEY_ESCAPE) {
 				insert_char(key);
+				if (global_config.smart_complete) {
+					redraw_line(env->line_no-1);
+					while (omni_complete(1) == 1);
+				}
 				refresh |= 1;
 			}
 		} else if (env->mode == MODE_REPLACE) {
