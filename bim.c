@@ -64,6 +64,8 @@ global_config_t global_config = {
 	.numbers = 1,
 	.horizontal_shift_scrolling = 0, /* Whether to shift the whole screen when scrolling horizontally */
 	.hide_statusbar = 0,
+	.tabs_visible = 1,
+	.autohide_tabs = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -402,6 +404,7 @@ buffer_t * buffer_new(void) {
 	buffers[buffers_len]->numbers = global_config.numbers;
 	buffers[buffers_len]->gutter = 1;
 	buffers_len++;
+	global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
 
 	return buffers[buffers_len-1];
 }
@@ -573,6 +576,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* There is one less buffer */
 	buffers_len--;
+	global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
 	if (!buffers_len) { 
 		/* There are no more buffers. */
 		return NULL;
@@ -1754,6 +1758,7 @@ int draw_tab_name(buffer_t * _env, char * out) {
  * The active buffer is highlighted.
  */
 void redraw_tabbar(void) {
+	if (!global_config.tabs_visible) return;
 	/* Hide cursor while rendering UI */
 	hide_cursor();
 
@@ -2125,7 +2130,7 @@ void recalculate_current_line(void) {
 	if (something_changed && global_config.relative_lines) {
 		for (int i = env->offset; i < env->offset + global_config.term_height - global_config.bottom_size - 1 && i < env->line_count; ++i) {
 			/* Place cursor for line number */
-			place_cursor(2 + env->left, (i)-env->offset+2);
+			place_cursor(1 + gutter_width() + env->left, (i)-env->offset + 1 + global_config.tabs_visible);
 			draw_line_number(i);
 		}
 	}
@@ -2140,7 +2145,7 @@ void redraw_line(int x) {
 	if (env->loading) return;
 
 	/* Determine if this line is visible. */
-	if (x - env->offset < 0 || x - env->offset > global_config.term_height - global_config.bottom_size - 2) {
+	if (x - env->offset < 0 || x - env->offset > global_config.term_height - global_config.bottom_size - 1 - global_config.tabs_visible) {
 		return;
 	}
 
@@ -2151,7 +2156,7 @@ void redraw_line(int x) {
 	hide_cursor();
 
 	/* Move cursor to upper left most cell of this line */
-	place_cursor(1 + env->left,2 + j);
+	place_cursor(1 + env->left,1 + global_config.tabs_visible + j);
 
 	/* Draw a gutter on the left. */
 	if (env->gutter) {
@@ -2198,7 +2203,7 @@ void redraw_line(int x) {
  * Draw a ~ line where there is no buffer text.
  */
 void draw_excess_line(int j) {
-	place_cursor(1+env->left,2 + j);
+	place_cursor(1+env->left,1 + global_config.tabs_visible + j);
 	paint_line(COLOR_ALT_BG);
 	set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	printf("~");
@@ -2220,7 +2225,7 @@ void redraw_text(void) {
 	hide_cursor();
 
 	/* Figure out the available size of the text region */
-	int l = global_config.term_height - global_config.bottom_size - 1;
+	int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 	int j = 0;
 
 	/* Draw each line */
@@ -2710,7 +2715,7 @@ void place_cursor_actual(void) {
 
 	int needs_redraw = 0;
 
-	while (y < 2 + global_config.cursor_padding && env->offset > 0) {
+	while (y < 2 + global_config.tabs_visible + global_config.cursor_padding && env->offset > 0) {
 		y++;
 		env->offset--;
 		needs_redraw = 1;
@@ -2750,7 +2755,7 @@ void place_cursor_actual(void) {
 	recalculate_current_line();
 
 	/* Move the actual terminal cursor */
-	place_cursor(x+env->left,y);
+	place_cursor(x+env->left,y - !global_config.tabs_visible);
 
 	/* Show the cursor */
 	show_cursor();
@@ -3608,7 +3613,7 @@ BIM_ACTION(cursor_down, 0,
 		}
 
 		/* If we've scrolled past the bottom of the screen, scroll the screen */
-		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - 1 - global_config.cursor_padding) {
+		if (env->line_no > env->offset + global_config.term_height - global_config.bottom_size - global_config.tabs_visible - global_config.cursor_padding) {
 			env->offset += 1;
 
 			/* Tell terminal to scroll */
@@ -3616,7 +3621,7 @@ BIM_ACTION(cursor_down, 0,
 				shift_up(1);
 
 				/* A new line appears on screen at the bottom, draw it */
-				int l = global_config.term_height - global_config.bottom_size - 1;
+				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				if (env->offset + l < env->line_count + 1) {
 					redraw_line(env->offset + l-1);
 				} else {
@@ -4909,6 +4914,17 @@ BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display 
 	return 0;
 }
 
+BIM_COMMAND(global_autohide_tabs,"global.autohidetabs","Whether to show the tab bar when there is only one tab") {
+	if (argc < 2) {
+		render_status_message("global.autohidetabs=%d", global_config.autohide_tabs);
+	} else {
+		global_config.autohide_tabs = !!atoi(argv[1]);
+		global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
+		redraw_all();
+	}
+	return 0;
+}
+
 BIM_COMMAND(numbers,"numbers","Show or set the display of line numbers") {
 	if (argc < 2) {
 		render_status_message("numbers=%d", env->numbers);
@@ -6037,7 +6053,7 @@ BIM_ACTION(handle_mouse, 0,
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
 				shift_up(shifted);
-				int l = global_config.term_height - global_config.bottom_size - 1;
+				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				for (int i = 0; i < shifted; ++i) {
 					if (env->offset + l - i < env->line_count + 1) {
 						redraw_line(env->offset + l-1-i);
@@ -6064,7 +6080,7 @@ BIM_ACTION(handle_mouse, 0,
 		if (x < 0) return;
 		if (y < 0) return;
 
-		if (y == 1) {
+		if (y == 1 && global_config.tabs_visible) {
 			/* Pick from tabs */
 			int _x = 0;
 			if (env->mode != MODE_NORMAL && env->mode != MODE_INSERT) return; /* Don't let the tab be switched in other modes for now */
@@ -6099,7 +6115,7 @@ BIM_ACTION(handle_mouse, 0,
 		}
 
 		/* Figure out y coordinate */
-		int line_no = y + env->offset - 1;
+		int line_no = y + env->offset - global_config.tabs_visible;
 		int col_no = -1;
 
 		if (line_no > env->line_count) {
@@ -7484,8 +7500,8 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 	}
 
 	/* Figure out how much space we have to display the window */
-	int cursor_y = env->line_no - env->offset + 1;
-	int max_y = global_config.term_height - 2 - cursor_y;
+	int cursor_y = env->line_no - env->offset + global_config.tabs_visible;
+	int max_y = global_config.term_height - global_config.bottom_size - cursor_y;
 
 	/* Find a good place to put the box horizontally */
 	int num_size = num_width() + gutter_width();
@@ -7499,7 +7515,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 
 	int box_width = max_width;
 	int box_x = x;
-	int box_y = cursor_y+1;
+	int box_y = cursor_y + 1;
 	if (max_width > env->width - num_width() - gutter_width()) {
 		box_width = env->width - num_width() - gutter_width();
 		box_x = num_width() + gutter_width() + 1;
@@ -8877,6 +8893,11 @@ void load_bimrc(void) {
 
 		if (!strcmp(l,"numbers") && value) {
 			global_config.numbers = !!atoi(value);
+		}
+
+		if (!strcmp(l,"autohidetabs") && value) {
+			global_config.autohide_tabs = !!atoi(value);
+			global_config.tabs_visible = 0;
 		}
 	}
 

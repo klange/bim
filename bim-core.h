@@ -183,6 +183,8 @@ typedef struct {
 	unsigned int numbers:1;
 	unsigned int horizontal_shift_scrolling:1;
 	unsigned int hide_statusbar:1;
+	unsigned int tabs_visible:1;
+	unsigned int autohide_tabs:1;
 
 	int cursor_padding;
 	int split_percent;
