@@ -4,6 +4,7 @@
 char * syn_bimrc_keywords[] = {
 	"history","padding","hlparen","hlcurrent","splitpercent","numbers",
 	"shiftscrolling","scrollamount","git","colorgutter","relativenumber",
+	"statusbar","autohidetabs",
 	NULL
 };
 

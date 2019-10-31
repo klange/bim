@@ -8899,6 +8899,11 @@ void load_bimrc(void) {
 			global_config.autohide_tabs = !!atoi(value);
 			global_config.tabs_visible = 0;
 		}
+
+		if (!strcmp(l,"statusbar") && value) {
+			global_config.hide_statusbar = !atoi(value);
+			global_config.bottom_size = global_config.hide_statusbar ? 1 : 2;
+		}
 	}
 
 	fclose(bimrc);
