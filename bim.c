@@ -399,6 +399,7 @@ buffer_t * buffer_new(void) {
 	buffers[buffers_len]->width = global_config.term_width;
 	buffers[buffers_len]->highlighting_paren = -1;
 	buffers[buffers_len]->numbers = global_config.numbers;
+	buffers[buffers_len]->gutter = 1;
 	buffers_len++;
 
 	return buffers[buffers_len-1];
@@ -2145,31 +2146,33 @@ void redraw_line(int x) {
 	place_cursor(1 + env->left,2 + j);
 
 	/* Draw a gutter on the left. */
-	switch (env->lines[x]->rev_status) {
-		case 1:
-			set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
-			printf(" ");
-			break;
-		case 2:
-			set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
-			printf(" ");
-			break;
-		case 3:
-			set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
-			printf(" ");
-			break;
-		case 4:
-			set_colors(COLOR_ALT_FG, COLOR_RED);
-			printf("▆");
-			break;
-		case 5:
-			set_colors(COLOR_KEYWORD, COLOR_RED);
-			printf("▆");
-			break;
-		default:
-			set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
-			printf(" ");
-			break;
+	if (env->gutter) {
+		switch (env->lines[x]->rev_status) {
+			case 1:
+				set_colors(COLOR_NUMBER_FG, COLOR_GREEN);
+				printf(" ");
+				break;
+			case 2:
+				set_colors(COLOR_NUMBER_FG, global_config.color_gutter ? COLOR_SEARCH_BG : COLOR_ALT_FG);
+				printf(" ");
+				break;
+			case 3:
+				set_colors(COLOR_NUMBER_FG, COLOR_KEYWORD);
+				printf(" ");
+				break;
+			case 4:
+				set_colors(COLOR_ALT_FG, COLOR_RED);
+				printf("▆");
+				break;
+			case 5:
+				set_colors(COLOR_KEYWORD, COLOR_RED);
+				printf("▆");
+				break;
+			default:
+				set_colors(COLOR_NUMBER_FG, COLOR_ALT_FG);
+				printf(" ");
+				break;
+		}
 	}
 
 	draw_line_number(x);
@@ -2179,7 +2182,7 @@ void redraw_line(int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - 3 - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
+	render_line(env->lines[x], env->width - env->gutter - 2 - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
 
 }
 
@@ -2684,7 +2687,7 @@ void place_cursor_actual(void) {
 	if (env->col_no  < 1) env->col_no  = 1;
 
 	/* Account for the left hand gutter */
-	int num_size = num_width() + 3;
+	int num_size = num_width() + 2 + env->gutter;
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -6088,7 +6091,7 @@ BIM_ACTION(handle_mouse, 0,
 		}
 
 		/* Account for the left hand gutter */
-		int num_size = num_width() + 3;
+		int num_size = num_width() + 2 + env->gutter;
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
 
 		/* Determine where the cursor is physically */
@@ -7465,7 +7468,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 	int max_y = global_config.term_height - 2 - cursor_y;
 
 	/* Find a good place to put the box horizontally */
-	int num_size = num_width() + 3;
+	int num_size = num_width() + 2 + env->gutter;
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -7919,6 +7922,14 @@ BIM_ACTION(toggle_numbers, 0,
 	place_cursor_actual();
 }
 
+BIM_ACTION(toggle_gutter, 0,
+	"Toggle the display of the revision status gutter."
+)(void) {
+	env->gutter = !env->gutter;
+	redraw_all();
+	place_cursor_actual();
+}
+
 BIM_ACTION(toggle_indent, 0,
 	"Toggle smart indentation."
 )(void) {
@@ -8299,6 +8310,7 @@ struct action_map NAVIGATION_MAP[] = {
 struct action_map ESCAPE_MAP[] = {
 	{KEY_F1,        toggle_numbers, 0, 0},
 	{KEY_F2,        toggle_indent, 0, 0},
+	{KEY_F3,        toggle_gutter, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
 
 	{KEY_UP,        cursor_up, opt_rep, 0},
