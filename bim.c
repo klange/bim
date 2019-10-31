@@ -63,6 +63,7 @@ global_config_t global_config = {
 	.relative_lines = 0,
 	.numbers = 1,
 	.horizontal_shift_scrolling = 0, /* Whether to shift the whole screen when scrolling horizontally */
+	.hide_statusbar = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -2286,6 +2287,7 @@ void redraw_alt_buffer(buffer_t * buf) {
  * The right side of the tatus bar shows the line number and column.
  */
 void redraw_statusbar(void) {
+	if (global_config.hide_statusbar) return;
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -4891,6 +4893,17 @@ BIM_COMMAND(global_numbers,"global.numbers","Set whether numbers are displayed b
 		render_status_message("global.numbers=%d", global_config.numbers);
 	} else {
 		global_config.numbers = !!atoi(argv[1]);
+		redraw_all();
+	}
+	return 0;
+}
+
+BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display the statusbar") {
+	if (argc < 2) {
+		render_status_message("global.statusbar=%d",!global_config.hide_statusbar);
+	} else {
+		global_config.hide_statusbar = !atoi(argv[1]);
+		global_config.bottom_size = global_config.hide_statusbar ? 1 : 2;
 		redraw_all();
 	}
 	return 0;
