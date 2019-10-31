@@ -2066,10 +2066,17 @@ void render_line(line_t * line, int width, int offset, int line_no) {
  * Get the width of the line number region
  */
 int num_width(void) {
-	if (!env->numbers) return -2; /* Accounts for the padding */
-	int w = log_base_10(env->line_count) + 1;
-	if (w < 2) return 2;
+	if (!env->numbers) return 0;
+	int w = log_base_10(env->line_count) + 3;
+	if (w < 2) return 4;
 	return w;
+}
+
+/**
+ * Display width of the revision status gutter.
+ */
+int gutter_width(void) {
+	return env->gutter;
 }
 
 /**
@@ -2087,7 +2094,7 @@ void draw_line_number(int x) {
 		x = x+1 - env->line_no;
 		x = ((x < 0) ? -x : x)-1;
 	}
-	int num_size = num_width();
+	int num_size = num_width() - 2; /* Padding */
 	for (int y = 0; y < num_size - log_base_10(x + 1); ++y) {
 		printf(" ");
 	}
@@ -2182,7 +2189,7 @@ void redraw_line(int x) {
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - env->gutter - 2 - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
+	render_line(env->lines[x], env->width - gutter_width() - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
 
 }
 
@@ -2687,7 +2694,7 @@ void place_cursor_actual(void) {
 	if (env->col_no  < 1) env->col_no  = 1;
 
 	/* Account for the left hand gutter */
-	int num_size = num_width() + 2 + env->gutter;
+	int num_size = num_width() + gutter_width();
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -6091,7 +6098,7 @@ BIM_ACTION(handle_mouse, 0,
 		}
 
 		/* Account for the left hand gutter */
-		int num_size = num_width() + 2 + env->gutter;
+		int num_size = num_width() + gutter_width();
 		int _x = num_size - (line_no == env->line_no ? env->coffset : 0);
 
 		/* Determine where the cursor is physically */
@@ -7468,7 +7475,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 	int max_y = global_config.term_height - 2 - cursor_y;
 
 	/* Find a good place to put the box horizontally */
-	int num_size = num_width() + 2 + env->gutter;
+	int num_size = num_width() + gutter_width();
 	int x = num_size + 1 - env->coffset;
 
 	/* Determine where the cursor is physically */
@@ -7480,9 +7487,9 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 	int box_width = max_width;
 	int box_x = x;
 	int box_y = cursor_y+1;
-	if (max_width > env->width - num_width()) {
-		box_width = env->width - num_width();
-		box_x = 1;
+	if (max_width > env->width - num_width() - gutter_width()) {
+		box_width = env->width - num_width() - gutter_width();
+		box_x = num_width() + gutter_width() + 1;
 	} else if (env->width - x < max_width) {
 		box_width = max_width;
 		box_x = env->width - max_width;
