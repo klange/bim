@@ -1,0 +1,16 @@
+# Last theme config is the preferred theme
+colorscheme ansi
+colorscheme sunsmoke256
+colorscheme sunsmoke
+
+# Enable git integration
+global.git 1
+
+# Enable statusbar (default)
+global.statusbar 1
+
+# Autohide tabs
+global.autohidetabs 1
+
+# Enable autocompletion
+smartcomplete 1
