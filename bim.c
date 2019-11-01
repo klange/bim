@@ -7538,7 +7538,7 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 
 	for (int x = index; x < max_count+index; ++x) {
 		int i = x % matches_count;
-		place_cursor(box_x, box_y+x-index);
+		place_cursor(box_x + env->left, box_y+x-index);
 		set_colors(COLOR_KEYWORD, COLOR_STATUS_BG);
 		/* TODO wide characters */
 		int match_width = strlen(matches[i].string);
@@ -7552,11 +7552,11 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 		}
 	}
 	if (max_count == 0) {
-		place_cursor(box_x, box_y);
+		place_cursor(box_x + env->left, box_y);
 		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 		printf(" (no matches) ");
 	} else if (max_count != matches_count) {
-		place_cursor(box_x, box_y+max_count);
+		place_cursor(box_x + env->left, box_y+max_count);
 		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 		printf(" (%d more) ", matches_count-max_count);
 	}
