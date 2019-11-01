@@ -106,6 +106,6 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_bimcmd_ext[] = {".bimscript",NULL}; /* no files */
+char * syn_bimcmd_ext[] = {".bimscript",".bimrc",NULL}; /* no files */
 
 BIM_SYNTAX(bimcmd, 1)

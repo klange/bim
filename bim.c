@@ -2222,6 +2222,8 @@ void draw_excess_line(int j) {
  * Redraw the entire text area
  */
 void redraw_text(void) {
+	if (!env) return;
+
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -2294,6 +2296,7 @@ void redraw_alt_buffer(buffer_t * buf) {
  */
 void redraw_statusbar(void) {
 	if (global_config.hide_statusbar) return;
+	if (!env) return;
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -2388,6 +2391,8 @@ void redraw_nav_buffer() {
  * or shows the INSERT (or VISUAL in the future) mode name.
  */
 void redraw_commandline(void) {
+	if (!env) return;
+
 	/* Hide cursor while rendering */
 	hide_cursor();
 
@@ -2486,6 +2491,7 @@ void render_commandline_message(char * message, ...) {
 BIM_ACTION(redraw_all, 0,
 	"Repaint the screen."
 )(void) {
+	if (!env) return;
 	redraw_tabbar();
 	redraw_text();
 	if (left_buffer) {
@@ -2568,6 +2574,7 @@ void set_modified(void) {
  * Draw a message on the status line
  */
 void render_status_message(char * message, ...) {
+	if (!env) return; /* Don't print when there's no active environment; this usually means a bimrc command tried to print something */
 	/* varargs setup */
 	va_list args;
 	va_start(args, message);
@@ -2606,17 +2613,22 @@ void render_error(char * message, ...) {
 	vsnprintf(buf, 1024, message, args);
 	va_end(args);
 
-	/* Hide cursor while rendering */
-	hide_cursor();
+	if (env) {
+		/* Hide cursor while rendering */
+		hide_cursor();
 
-	/* Move cursor to the command line */
-	place_cursor(1, global_config.term_height);
+		/* Move cursor to the command line */
+		place_cursor(1, global_config.term_height);
 
-	/* Set appropriate error message colors */
-	set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+		/* Set appropriate error message colors */
+		set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 
-	/* Draw the message */
-	printf("%s", buf);
+		/* Draw the message */
+		printf("%s", buf);
+	} else {
+		printf("bim: error during startup: %s\n", buf);
+	}
+
 }
 
 char * paren_pairs = "()[]{}<>";
@@ -4585,7 +4597,20 @@ BIM_COMMAND(tabn,"tabn","Next tab") {
 	return 0;
 }
 
+BIM_COMMAND(global_git,"global.git","Show or change the default status of git integration") {
+	if (argc < 2) {
+		render_status_message("global.git=%d", global_config.check_git);
+	} else {
+		global_config.check_git = !!atoi(argv[1]);
+	}
+	return 0;
+}
+
 BIM_COMMAND(git,"git","Show or change status of git integration") {
+	if (!env) {
+		render_error("requires environment (did you mean global.git?)");
+		return 1;
+	}
 	if (argc < 2) {
 		render_status_message("git=%d", env->checkgitstatusonwrite);
 	} else {
@@ -8787,6 +8812,40 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
+BIM_COMMAND(runscript,"runscript","Run a script file") {
+	if (argc < 2) {
+		render_error("Expected a script to run");
+		return 1;
+	}
+
+	/* Run commands */
+	FILE * f = fopen(argv[1],"r");
+	if (!f) {
+		render_error("Failed to open script");
+		return 1;
+	}
+
+	int retval = 0;
+
+	char linebuf[4096];
+
+	while (!feof(f)) {
+		memset(linebuf, 0, 4096);
+		fgets(linebuf, 4095, f);
+		/* Remove linefeed */
+		char * s = strstr(linebuf, "\n");
+		if (s) *s = '\0';
+		int result = process_command(linebuf);
+		if (result != 0) {
+			retval = result;
+			break;
+		}
+	}
+
+	fclose(f);
+	return retval;
+}
+
 /**
  * Load bimrc configuration file.
  *
@@ -8819,111 +8878,12 @@ void load_bimrc(void) {
 		tmp = strdup(path);
 	}
 
-	/* Try to open the file */
-	FILE * bimrc = fopen(tmp, "r");
-	free(tmp);
-
-	if (!bimrc) {
-		/* No bimrc, or bad permissions */
-		return;
+	char * args[] = {"runscript", tmp, NULL};
+	if (bim_command_runscript("runscript", 2, args)) {
+		/* Wait */
+		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
+		pause_for_key();
 	}
-
-	/* Parse through lines */
-	char line[1024];
-	while (!feof(bimrc)) {
-		char * l = fgets(line, 1023, bimrc);
-
-		/* Ignore bad lines */
-		if (!l) break;
-		if (!*l) continue;
-		if (*l == '\n') continue;
-
-		/* Ignore comment lines */
-		if (*l == '#') continue;
-
-		/* Remove linefeed at the end */
-		char *nl = strstr(l,"\n");
-		if (nl) *nl = '\0';
-
-		/* Extract value from keypair, if available
-		 * (I foresee options without values in the future) */
-		char *value= strstr(l,"=");
-		if (value) {
-			*value = '\0';
-			value++;
-		}
-
-		/* theme=... */
-		if (!strcmp(l,"theme") && value) {
-			/* Examine available themes for a match. */
-			for (struct theme_def * d = themes; themes && d->name; ++d) {
-				if (!strcmp(value, d->name)) {
-					d->load();
-					break;
-				}
-			}
-		}
-
-		/* enable history (experimental) */
-		if (!strcmp(l,"history")) {
-			global_config.history_enabled = (value ? atoi(value) : 1);
-		}
-
-		/* padding= */
-		if (!strcmp(l,"padding") && value) {
-			global_config.cursor_padding = atoi(value);
-		}
-
-		if (!strcmp(l,"hlparen") && value) {
-			global_config.highlight_parens = atoi(value);
-		}
-
-		/* Disable highlighting of current line */
-		if (!strcmp(l,"hlcurrent") && value) {
-			global_config.highlight_current_line = atoi(value);
-		}
-
-		/* Relative line numbers */
-		if (!strcmp(l,"relativenumber") && value) {
-			global_config.relative_lines = atoi(value);
-		}
-
-		if (!strcmp(l,"splitpercent") && value) {
-			global_config.split_percent = atoi(value);
-		}
-
-		if (!strcmp(l,"shiftscrolling")) {
-			global_config.shift_scrolling = (value ? atoi(value) : 1);
-		}
-
-		if (!strcmp(l,"scrollamount") && value) {
-			global_config.scroll_amount = atoi(value);
-		}
-
-		if (!strcmp(l,"git") && value) {
-			global_config.check_git = !!atoi(value);
-		}
-
-		if (!strcmp(l,"colorgutter") && value) {
-			global_config.color_gutter = !!atoi(value);
-		}
-
-		if (!strcmp(l,"numbers") && value) {
-			global_config.numbers = !!atoi(value);
-		}
-
-		if (!strcmp(l,"autohidetabs") && value) {
-			global_config.autohide_tabs = !!atoi(value);
-			global_config.tabs_visible = 0;
-		}
-
-		if (!strcmp(l,"statusbar") && value) {
-			global_config.hide_statusbar = !atoi(value);
-			global_config.bottom_size = global_config.hide_statusbar ? 1 : 2;
-		}
-	}
-
-	fclose(bimrc);
 }
 
 /**
@@ -9128,40 +9088,6 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		return 1;
 	}
 	return 0;
-}
-
-BIM_COMMAND(runscript,"runscript","Run a script file") {
-	if (argc < 2) {
-		render_error("Expected a script to run");
-		return 1;
-	}
-
-	/* Run commands */
-	FILE * f = fopen(argv[1],"r");
-	if (!f) {
-		render_error("Failed to open script");
-		return 1;
-	}
-
-	int retval = 0;
-
-	char linebuf[4096];
-
-	while (!feof(f)) {
-		memset(linebuf, 0, 4096);
-		fgets(linebuf, 4095, f);
-		/* Remove linefeed */
-		char * s = strstr(linebuf, "\n");
-		if (s) *s = '\0';
-		int result = process_command(linebuf);
-		if (result != 0) {
-			retval = result;
-			break;
-		}
-	}
-
-	fclose(f);
-	return retval;
 }
 
 BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse of the property") {
