@@ -152,12 +152,14 @@ A 24-bit color theme based on the one for Atom and Sublime, featuring low contra
 
 ## Config File
 
-You can set the default theme in `~/.bimrc`:
+Bim will automatically run commands from `~/.bimrc` on startup.
+
+For example, you can set the default theme as follows:
 
     # set a color theme, sunsmoke is a 24-bit theme
-    theme=sunsmoke
-    # set a scroll offset so the cursor isn't at the bottom or top of the screen
-    padding=4
+    colorscheme sunsmoke
+
+A more detailed bimrc example is available at [docs/example.bimrc](docs/example.bimrc).
 
 ## Syntax Support
 
