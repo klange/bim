@@ -447,4 +447,11 @@ struct ColorName {
 
 extern struct ColorName color_names[];
 
+struct bim_function {
+	char * command;
+	struct bim_function * next;
+};
+
+extern struct bim_function ** user_functions;
+
 #endif /* _BIM_CORE_H */

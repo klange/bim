@@ -58,6 +58,25 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				}
 			}
 			return -1;
+		} else if (match_and_paint(state, "function", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_TYPE);
+			while (charat() != -1) paint(1, FLAG_ERROR);
+			return -1;
+		} else if (match_and_paint(state, "end", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() != -1) paint(1, FLAG_ERROR);
+			return -1;
+		} else if (match_and_paint(state, "return", FLAG_PRAGMA, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_NUMERAL);
+			return -1;
+		} else if (match_and_paint(state, "call", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "trycall", FLAG_KEYWORD, cmd_qualifier) ||
+			match_and_paint(state, "showfunction", FLAG_KEYWORD, cmd_qualifier)) {
+			while (charat() == ' ') skip();
+			for (struct bim_function ** f = user_functions; user_functions && *f; ++f) {
+				if (match_and_paint(state, (*f)->command, FLAG_TYPE, cmd_qualifier)) break;
+			}
 		} else if (match_and_paint(state, "theme", FLAG_KEYWORD, cmd_qualifier) ||
 			match_and_paint(state, "colorscheme", FLAG_KEYWORD, cmd_qualifier)) {
 			while (charat() == ' ') skip();

@@ -163,6 +163,7 @@ FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_
 FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
+FLEXIBLE_ARRAY(user_functions, add_user_function, struct bim_function *, NULL)
 
 /**
  * Special implementation of getch with a timeout
@@ -5172,6 +5173,13 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
+	if (arg == 1 && (!strcmp(args[0], "call") || !strcmp(args[0], "trycall") || !strcmp(args[0], "showfunction"))) {
+		for (int i = 0; i < flex_user_functions_count; ++i) {
+			add_candidate(user_functions[i]->command);
+		}
+		goto _accept_candidate;
+	}
+
 	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") || args[0][0] == '!')) {
 		/* Complete file paths */
 
@@ -8812,6 +8820,85 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
+void free_function(struct bim_function * func) {
+	do {
+		struct bim_function * next = func->next;
+		free(func->command);
+		free(func);
+		func = next;
+	} while (func);
+}
+
+int run_function(char * name) {
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
+			/* Execute function */
+			struct bim_function * this = user_functions[i]->next;
+			while (this) {
+				char * tmp = strdup(this->command);
+				int result = process_command(tmp);
+				free(tmp);
+				if (result != 0) {
+					return result;
+				}
+				this = this->next;
+			}
+			return 0;
+		}
+	}
+	return -1;
+}
+
+BIM_COMMAND(call,"call","Call a function") {
+	if (argc < 2) {
+		render_error("Expected function name");
+		return 1;
+	}
+	int result = run_function(argv[1]);
+	if (result == -1) {
+		render_error("Undefined function: %s", argv[1]);
+		return 1;
+	}
+	return result;
+}
+
+BIM_COMMAND(try_call,"trycall","Call a function but return quietly if it fails") {
+	if (argc < 2) return 0;
+	run_function(argv[1]);
+	return 0;
+}
+
+BIM_COMMAND(list_functions,"listfunctions","List functions") {
+	render_commandline_message("");
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		render_commandline_message("%s\n", user_functions[i]->command);
+	}
+	pause_for_key();
+	return 0;
+}
+
+BIM_COMMAND(show_function,"showfunction","Show the commands in a function") {
+	if (argc < 2) return 1;
+	struct bim_function * this = NULL;
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, argv[1])) {
+			this = user_functions[i];
+			break;
+		}
+	}
+	if (!this) {
+		render_error("Not a function: %s", argv[1]);
+		return 1;
+	}
+	render_commandline_message("");
+	while (this) {
+		render_commandline_message("%s\n", this->command);
+		this = this->next;
+	}
+	pause_for_key();
+	return 0;
+}
+
 BIM_COMMAND(runscript,"runscript","Run a script file") {
 	if (argc < 2) {
 		render_error("Expected a script to run");
@@ -8826,8 +8913,12 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 	}
 
 	int retval = 0;
-
 	char linebuf[4096];
+	int line = 1;
+	int was_collecting_function = 0;
+	char * function_name = NULL;
+	struct bim_function * new_function = NULL;
+	struct bim_function * last_function = NULL;
 
 	while (!feof(f)) {
 		memset(linebuf, 0, 4096);
@@ -8835,13 +8926,79 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 		/* Remove linefeed */
 		char * s = strstr(linebuf, "\n");
 		if (s) *s = '\0';
-		int result = process_command(linebuf);
-		if (result != 0) {
-			retval = result;
-			break;
+
+		/* See if this is a special syntax element */
+		if (!strncmp(linebuf, "function ", 9)) {
+			/* Confirm we have a function name */
+			if (was_collecting_function) {
+				free_function(new_function);
+				render_error("Syntax error on line %d: attempt nest function while already defining function '%s'", line, function_name);
+				retval = 1;
+				break;
+			}
+			if (!strlen(linebuf+9)) {
+				render_error("Syntax error on line %d: function needs a name", line);
+				retval = 1;
+				break;
+			}
+			function_name = strdup(linebuf+9);
+			was_collecting_function = 1;
+			new_function = malloc(sizeof(struct bim_function));
+			new_function->command = strdup(function_name);
+			new_function->next = NULL;
+			last_function = new_function;
+			/* Set up function */
+		} else if (!strcmp(linebuf,"end")) {
+			if (!was_collecting_function) {
+				render_error("Syntax error on line %d: unexpected 'end'", line);
+				retval = 1;
+				break;
+			}
+			was_collecting_function = 0;
+			/* See if a function with this name is already defined */
+			int this = -1;
+			for (int i = 0; i < flex_user_functions_count; ++i) {
+				if (user_functions[i] && !strcmp(user_functions[i]->command, function_name)) {
+					this = i;
+					break;
+				}
+			}
+			if (this > -1) {
+				free_function(user_functions[this]);
+				user_functions[this] = new_function;
+			} else {
+				add_user_function(new_function);
+			}
+			free(function_name);
+			new_function = NULL;
+			last_function = NULL;
+			function_name = NULL;
+		} else if (was_collecting_function) {
+			/* Collect function */
+			last_function->next = malloc(sizeof(struct bim_function));
+			last_function = last_function->next;
+			char * s = linebuf;
+			while (*s == ' ') s++;
+			last_function->command = strdup(s);
+			last_function->next = NULL;
+		} else {
+			int result = process_command(linebuf);
+			if (result != 0) {
+				retval = result;
+				break;
+			}
 		}
+
+		line++;
 	}
 
+	if (was_collecting_function) {
+		free_function(new_function);
+		render_error("Syntax error on line %d: unexpected end of file while defining function '%s'", line, function_name);
+		retval = 1;
+	}
+
+	if (function_name) free(function_name);
 	fclose(f);
 	return retval;
 }

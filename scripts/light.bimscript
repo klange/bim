@@ -1,30 +1,34 @@
 # A light color scheme
-checkprop can_24bit
-setcolor text-fg 2;0;0;0
-setcolor text-bg 2;240;240;240
-setcolor alternate-fg 2;70;70;70
-setcolor alternate-bg 2;240;240;240
-setcolor number-fg 2;80;80;80
-setcolor number-bg 2;220;220;220
-setcolor status-fg 2;20;20;20
-setcolor status-bg 2;200;200;200
-setcolor tabbar-bg 2;120;120;120
-setcolor tab-bg 2;200;200;200
-setcolor error-fg 5;15
-setcolor error-bg 5;196
-setcolor search-fg 5;234
-setcolor search-bg 5;226
-setcolor keyword 2;40;50;230
-setcolor string 2;72;176;72
-setcolor comment 2;80;130;80;3
-setcolor type 2;200;170;30;1
-setcolor pragma 2;194;70;54
-setcolor numeral 2;230;43;127
-setcolor select-fg 2;250;250;250
-setcolor select-bg 2;20;20;240
-setcolor red 2;222;53;53
-setcolor green 2;55;167;0
-setcolor bold 2;230;230;230;1
-setcolor link 2;51;162;230;4
-setcolor escape 2;113;203;173
-action redraw_all
+function theme_light
+    checkprop can_24bit
+
+    setcolor text-fg 2;0;0;0
+    setcolor text-bg 2;240;240;240
+    setcolor alternate-fg 2;70;70;70
+    setcolor alternate-bg 2;240;240;240
+    setcolor number-fg 2;80;80;80
+    setcolor number-bg 2;220;220;220
+    setcolor status-fg 2;20;20;20
+    setcolor status-bg 2;200;200;200
+    setcolor tabbar-bg 2;120;120;120
+    setcolor tab-bg 2;200;200;200
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor keyword 2;40;50;230
+    setcolor string 2;72;176;72
+    setcolor comment 2;80;130;80;3
+    setcolor type 2;200;170;30;1
+    setcolor pragma 2;194;70;54
+    setcolor numeral 2;230;43;127
+    setcolor select-fg 2;250;250;250
+    setcolor select-bg 2;20;20;240
+    setcolor red 2;222;53;53
+    setcolor green 2;55;167;0
+    setcolor bold 2;230;230;230;1
+    setcolor link 2;51;162;230;4
+    setcolor escape 2;113;203;173
+
+    action redraw_all
+end
