@@ -9168,7 +9168,8 @@ void load_bimrc(void) {
 	if (bim_command_runscript("runscript", 2, args)) {
 		/* Wait */
 		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
-		pause_for_key();
+		int c;
+		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 	}
 }
 
