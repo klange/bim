@@ -8900,6 +8900,7 @@ static void show_usage(char * argv[]) {
 			" --help          " _s "show this help text" _e
 			" --version       " _s "show version information and available plugins" _e
 			" --dump-mappings " _s "dump markdown description of key mappings" _e
+			" --dump-commands " _s "dump markdown description of all commands" _e
 			"\n", argv[0], argv[0]);
 #undef _e
 #undef _s
@@ -9265,6 +9266,25 @@ void dump_mapping(const char * description, struct action_map * map) {
 	printf("\n");
 }
 
+void dump_commands(void) {
+	printf("## Regular Commands\n");
+	printf("\n");
+	printf("| **Command** | **Description** |\n");
+	printf("|-------------|-----------------|\n");
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		printf("| `:%s` | %s |\n", c->name, c->description);
+	}
+	printf("\n");
+	printf("## Prefix Commands\n");
+	printf("\n");
+	printf("| **Command** | **Description** |\n");
+	printf("|-------------|-----------------|\n");
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		printf("| `:%s...` | %s |\n", !strcmp(c->name, "`") ? "`(backtick)`" : c->name, c->description);
+	}
+	printf("\n");
+}
+
 BIM_COMMAND(whatis,"whatis","Describe actions bound to a key in different modes.") {
 	int key = 0;
 
@@ -9523,6 +9543,9 @@ int main(int argc, char * argv[]) {
 					dump_mapping("Command", COMMAND_MAP);
 					dump_mapping("Search", SEARCH_MAP);
 					dump_mapping("Input (Command, Search)", INPUT_BUFFER_MAP);
+					return 0;
+				} else if (!strcmp(optarg,"dump-commands")) {
+					dump_commands();
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);

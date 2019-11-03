@@ -57,50 +57,7 @@ Default keybindings can be found in [docs/mappings.md](docs/mappings.md).
 
 ## Commands
 
-| **Command**        | **Description**                                                                                |
-|--------------------|------------------------------------------------------------------------------------------------|
-| `:e FILE`          | Open `FILE` in a new tab (for some compatibility with vim)                                     |
-| `:tabnew FILE`     | Open `FILE` in a new tab                                                                       |
-| `:tabnew`          | Create a new empty tab                                                                         |
-| `:w`               | Write the current file                                                                         |
-| `:w FILE`          | Write the current buffer to `FILE`                                                             |
-| `:wq`              | Write the current file and close this buffer                                                   |
-| `:q`               | Close this buffer if it has not been modified                                                  |
-| `:q!`              | Close this buffer even if it has been modified                                                 |
-| `:qa`              | Try to close all buffers                                                                       |
-| `:qa!`             | Quit immediately, ignoring unsaved changes                                                     |
-| `:tabp`            | Switch to previous tab                                                                         |
-| `:tabn`            | Switch to next tab                                                                             |
-| `:indent`          | Enable automatic indentation                                                                   |
-| `:noindent`        | Disable automatic indentation                                                                  |
-| `:noh`             | Clear search string                                                                            |
-| `:theme`           | Print the current selected color scheme                                                        |
-| `:theme THEME`     | Set the color scheme to `THEME` (use tab completion to see available themes)                   |
-| `:syntax`          | Print the current syntax highlighting mode (also displayed in the status bar)                  |
-| `:syntax LANGUAGE` | Set the syntax highlighting mode to `LANGUAGE` (use tab completion to see available languages) |
-| `:recalc`          | Recalculate syntax highlighting for the whole buffer                                           |
-| `:tabs`            | Set the tab key and automatic indentation to insert tab characters                             |
-| `:spaces`          | Set the tab key and automatic indentation to insert spaces                                     |
-| `:tabstop`         | Print the current tab stop (how wide one indentation unit is)                                  |
-| `:tabstop TABSTOP` | Set the tab stop width                                                                         |
-| `:clearyank`       | Clear the yank buffer                                                                          |
-| `:padding`         | Print the current cursor vertical padding (space between cursor and screen edge)               |
-| `:padding PADDING` | Set the cursor vertical padding                                                                |
-| `:hlparen`         | Print the status of the matching paren/brace highlighting setting                              |
-| `:hlparen VALUE`   | Enable (1) or disable (0) highlighting of matching parenthesis and braces                      |
-| `:hlcurrent`       | Print the status of the highlight-current-line setting                                         |
-| `:hlcurrent VALUE` | Enable (1) or disable (0) highlight of the current line                                        |
-| `:smartcase`       | Print the status of the smartcase setting                                                      |
-| `:smartcase VALUE` | Enable (1) or disable (0) smart case sensitivty when searching                                 |
-| `:split`           | Split the current buffer so it can be viewed twice.                                            |
-| `:split BUFID`     | Display another buffer next to the current buffer                                              |
-| `:split FILE`      | Open a new file next to the current buffer                                                     |
-| `:s/A/B/O`         | Replace `A` with `B`; `O` is options (`g` for global, `i` for case-insensitive; no regex yet)  |
-| `:git`             | Print the status of the `git diff` integration setting.                                        |
-| `:git VALUE`       | Enable (1) or disable (0) `git diff` integration.                                              |
-| `:tohtml`          | Create an HTML document with syntax highlighted text from the currently open document          |
-| `:!COMMAND`        | Call a shell command and wait for it to finish. With a selection, pipes and replaces text      |
-| `:` BACKTICK `COMMAND` | Runs Python code snippet, same as above.                                                   |
+A complete listing of available commands can be found in [docs/commands.md](docs/commands.md).
 
 ## Additional Bim Functionality
 
