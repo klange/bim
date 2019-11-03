@@ -5319,8 +5319,15 @@ void command_tab_complete(char * buffer) {
 				struct stat statbuf;
 				/* Figure out if this file is a directory */
 				if (last_slash) {
-					char * x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-					snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+					char * x;
+					char * home;
+					if (tmp[0] == '~' && (home = getenv("HOME"))) {
+						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1);
+						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1, "%s%s/%s",home,tmp+1,ent->d_name);
+					} else {
+						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
+						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
+					}
 					stat(x, &statbuf);
 					free(x);
 				} else {
@@ -9055,7 +9062,16 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 	}
 
 	/* Run commands */
-	FILE * f = fopen(argv[1],"r");
+	FILE * f;
+	char * home;
+	if (argv[1][0] == '~' && (home = getenv("HOME"))) {
+		char * tmp = malloc(strlen(argv[1]) + strlen(home) + 4);
+		sprintf(tmp,"%s%s", home, argv[1]+1);
+		f = fopen(tmp,"r");
+		free(tmp);
+	} else {
+		f = fopen(argv[1],"r");
+	}
 	if (!f) {
 		render_error("Failed to open script");
 		return 1;
