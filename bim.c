@@ -8949,11 +8949,45 @@ BIM_COMMAND(show_function,"showfunction","Show the commands in a function") {
 		render_error("Not a function: %s", argv[1]);
 		return 1;
 	}
-	render_commandline_message("");
+
+	/* We really should rewrite this so syntax highlighting takes a highlighter */
+	struct syntax_definition * old_syntax = env->syntax;
+	env->syntax = find_syntax_calculator("bimcmd");
+
+	int i = 0;
+
 	while (this) {
-		render_commandline_message("%s\n", this->command);
+		/* Turn command into line */
+		line_t * tmp = calloc(sizeof(line_t) + sizeof(char_t) * strlen(this->command),1);
+		tmp->available = strlen(this->command);
+
+		unsigned char * t = (unsigned char *)this->command;
+		uint32_t state = 0;
+		uint32_t c = 0;
+		int col = 1;
+		while (*t) {
+			if (!decode(&state, &c, *t)) {
+				char_t _c = {codepoint_width(c), 0, c};
+				tmp = line_insert(tmp, _c, col - 1, -1);
+				col++;
+			}
+			t++;
+		}
+
+		render_commandline_message("");
+		render_line(tmp, global_config.term_width - 1, 0, -1);
+		printf("\n");
 		this = this->next;
+		i++;
+		if (this && i == global_config.term_height - 3) {
+			printf("(function continues)");
+			while (bim_getkey(200) == KEY_TIMEOUT);
+		}
 	}
+
+	/* Restore previous syntax */
+	env->syntax = old_syntax;
+
 	pause_for_key();
 	return 0;
 }
