@@ -3163,6 +3163,19 @@ int line_matches(line_t * line, char * string) {
 	return 1;
 }
 
+void run_onload(buffer_t * env) {
+	if (has_function("onload:*")) {
+		run_function("onload:*");
+	}
+	if (env->syntax) {
+		char tmp[512];
+		sprintf(tmp, "onload:%s", env->syntax->name);
+		if (has_function(tmp)) {
+			run_function(tmp);
+		}
+	}
+}
+
 /**
  * Create a new buffer from a file.
  */
@@ -3219,6 +3232,7 @@ void open_file(char * file) {
 		if (env->syntax && env->syntax->prefers_spaces) {
 			env->tabs = 0;
 		}
+		run_onload(env);
 		return;
 	}
 
@@ -3301,6 +3315,8 @@ void open_file(char * file) {
 	}
 
 	fclose(f);
+
+	run_onload(env);
 }
 
 /**
@@ -8881,6 +8897,15 @@ int run_function(char * name) {
 		}
 	}
 	return -1;
+}
+
+int has_function(char * name) {
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
+			return 1;
+		}
+	}
+	return 0;
 }
 
 BIM_COMMAND(call,"call","Call a function") {

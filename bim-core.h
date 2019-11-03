@@ -454,5 +454,7 @@ struct bim_function {
 };
 
 extern struct bim_function ** user_functions;
+extern int run_function(char * name);
+extern int has_function(char * name);
 
 #endif /* _BIM_CORE_H */

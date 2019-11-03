@@ -14,3 +14,17 @@ global.autohidetabs 1
 
 # Enable autocompletion
 smartcomplete 1
+
+function onload:bimcmd
+    spaces
+    tabstop 4
+end
+
+function onload:c
+    tabs
+    tabstop 4
+end
+
+function onload:*
+    maxcolumn 80
+end
