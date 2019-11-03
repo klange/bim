@@ -3246,12 +3246,24 @@ void open_file(char * file) {
 			init_line = atoi(l);
 		}
 
+		char * _file = file;
+
+		if (file[0] == '~') {
+			char * home = getenv("HOME");
+			if (home) {
+				_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+				sprintf(_file, "%s%s", home, file+1);
+			}
+		}
+
 		struct stat statbuf;
-		if (!stat(file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
-			read_directory_into_buffer(file);
+		if (!stat(_file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
+			read_directory_into_buffer(_file);
+			if (file != _file) free(_file);
 			return;
 		}
-		f = fopen(file, "r");
+		f = fopen(_file, "r");
+		if (file != _file) free(_file);
 		env->file_name = strdup(file);
 	}
 
@@ -5277,7 +5289,15 @@ void command_tab_complete(char * buffer) {
 				/* Started with slash, and it was the only slash */
 				dirp = opendir("/");
 			} else {
-				dirp = opendir(tmp);
+				char * home;
+				if (*tmp == '~' && (home = getenv("HOME"))) {
+					char * t = malloc(strlen(tmp) + strlen(home) + 4);
+					sprintf(t, "%s%s",home,tmp+1);
+					dirp = opendir(t);
+					free(t);
+				} else {
+					dirp = opendir(tmp);
+				}
 			}
 		} else {
 			/* No directory match, completing from current directory */
