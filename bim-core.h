@@ -456,5 +456,8 @@ struct bim_function {
 extern struct bim_function ** user_functions;
 extern int run_function(char * name);
 extern int has_function(char * name);
+extern void find_matching_paren(int * out_line, int * out_col, int in_col);
+extern void render_error(char * message, ...);
+extern void pause_for_key(void);
 
 #endif /* _BIM_CORE_H */

@@ -1283,7 +1283,7 @@ int line_ends_with_brace(line_t * line) {
 		}
 	}
 	if (i < 0) return 0;
-	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':');
+	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':') ? i+1 : 0;
 }
 
 int line_is_comment(line_t * line) {
@@ -1298,6 +1298,33 @@ int line_is_comment(line_t * line) {
 	}
 
 	return 0;
+}
+
+int find_brace_line_start(int line, int col) {
+	int ncol = col - 1;
+	while (ncol > 0) {
+		if (env->lines[line-1]->text[ncol-1].codepoint == ')') {
+			int t_line_no = env->line_no;
+			int t_col_no = env->col_no;
+			env->line_no = line;
+			env->col_no = ncol;
+			int paren_match_line = -1, paren_match_col = -1;
+			find_matching_paren(&paren_match_line, &paren_match_col, 1);
+
+			if (paren_match_line != -1) {
+				line = paren_match_line;
+			}
+
+			env->line_no = t_line_no;
+			env->col_no = t_col_no;
+			break;
+		} else if (env->lines[line-1]->text[ncol-1].codepoint == ' ') {
+			ncol--;
+		} else {
+			break;
+		}
+	}
+	return line;
 }
 
 /**
@@ -1339,15 +1366,23 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 				}
 			}
 		} else {
-			for (int i = 0; i < env->lines[old_line]->actual; ++i) {
-				if (old_line < new_line && i == env->lines[old_line]->actual - 3 &&
-					env->lines[old_line]->text[i].codepoint == ' ' &&
-					env->lines[old_line]->text[i+1].codepoint == '*' &&
-					env->lines[old_line]->text[i+2].codepoint == '/') {
+			int line_to_copy_from = old_line;
+			int col;
+			if (old_line < new_line &&
+				!ignore_brace &&
+				(col = line_ends_with_brace(env->lines[old_line])) &&
+				env->lines[old_line]->text[col-1].codepoint == '{') {
+				line_to_copy_from = find_brace_line_start(old_line+1, col)-1;
+			}
+			for (int i = 0; i < env->lines[line_to_copy_from]->actual; ++i) {
+				if (line_to_copy_from < new_line && i == env->lines[line_to_copy_from]->actual - 3 &&
+					env->lines[line_to_copy_from]->text[i].codepoint == ' ' &&
+					env->lines[line_to_copy_from]->text[i+1].codepoint == '*' &&
+					env->lines[line_to_copy_from]->text[i+2].codepoint == '/') {
 					break;
-				} else if (env->lines[old_line]->text[i].codepoint == ' ' ||
-					env->lines[old_line]->text[i].codepoint == '\t') {
-					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[old_line]->text[i],i,new_line);
+				} else if (env->lines[line_to_copy_from]->text[i].codepoint == ' ' ||
+					env->lines[line_to_copy_from]->text[i].codepoint == '\t') {
+					env->lines[new_line] = line_insert(env->lines[new_line],env->lines[line_to_copy_from]->text[i],i,new_line);
 					env->col_no++;
 					changed = 1;
 				} else {
@@ -2656,7 +2691,6 @@ void render_error(char * message, ...) {
 }
 
 char * paren_pairs = "()[]{}<>";
-void find_matching_paren(int * out_line, int * out_col, int in_col);
 
 int is_paren(int c) {
 	char * p = paren_pairs;
@@ -8240,6 +8274,7 @@ BIM_ACTION(smart_brace_end, ARG_IS_INPUT | ACTION_IS_RW,
 			env->col_no--;
 			find_matching_paren(&line,&col, 1);
 			if (line != -1) {
+				line = find_brace_line_start(line, col);
 				while (env->lines[env->line_no-1]->actual) {
 					line_delete(env->lines[env->line_no-1], env->lines[env->line_no-1]->actual, env->line_no-1);
 				}
