@@ -118,6 +118,15 @@ For example, you can set the default theme as follows:
 
 A more detailed bimrc example is available at [docs/example.bimrc](docs/example.bimrc).
 
+Bim scripts can define functions which can be called with `call function_name`.
+Functions with names like `onload:...` will be automatically run when a file
+with the matching syntax is opened:
+
+    function onload:c
+        tabs
+        tabstop 4
+    end
+
 ## Syntax Support
 
 Not all syntax highlighters are complete or support all features of their respective languages.
