@@ -2059,6 +2059,29 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
+	if (env->maxcolumn && line_no > -1 /* ensures we don't do this for command line */) {
+
+		/* Fill out the normal background */
+		if (j < offset) j = offset;
+		for (; j < width + offset && j < env->maxcolumn; ++j) {
+			printf(" ");
+		}
+
+		/* Draw the line */
+		if (j < width + offset && j == env->maxcolumn) {
+			j++;
+			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+			if (global_config.can_unicode) {
+				printf("▏");
+			} else {
+				printf("|");
+			}
+		}
+
+		/* Fill the rest with the alternate background color */
+		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+	}
+
 	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
 		clear_to_end();
 	} else {
@@ -4643,6 +4666,17 @@ BIM_COMMAND(indent,"indent","Enable smart indentation") {
 BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
 	env->indent = 0;
 	redraw_statusbar();
+	return 0;
+}
+
+/* TODO: global.maxcolumn */
+BIM_COMMAND(maxcolumn,"maxcolumn","Highlight past the given column to indicate maximum desired line length") {
+	if (argc < 2) {
+		render_error("Expected argument");
+		return 1;
+	}
+	env->maxcolumn = atoi(argv[1]);
+	redraw_text();
 	return 0;
 }
 

@@ -258,6 +258,7 @@ typedef struct _env {
 	unsigned int gutter:1;
 
 	int highlighting_paren;
+	int maxcolumn;
 
 	short  mode;
 	short  tabstop;
