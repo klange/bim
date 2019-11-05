@@ -156,11 +156,11 @@ BIM_SYNTAX_COMPLETER(java) {
 	if (env->col_no > 1 && env->lines[env->line_no-1]->text[env->col_no-2].flags == FLAG_COMMENT) {
 		if (comp[0] == '@') {
 			for (char ** keyword = syn_java_at_comments; *keyword; ++keyword) {
-				add_if_match((*keyword),"(javadoc annoation)");
+				add_if_match((*keyword),"(javadoc annotation)");
 			}
 		} else if (comp[0] == '{') {
 			for (char ** keyword = syn_java_brace_comments; *keyword; ++keyword) {
-				add_if_match((*keyword),"(javadoc annoation)");
+				add_if_match((*keyword),"(javadoc annotation)");
 			}
 		}
 	}
