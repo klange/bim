@@ -186,4 +186,12 @@ char * syn_bash_ext[] = {
 	NULL
 };
 
-BIM_SYNTAX(bash, 0)
+BIM_SYNTAX_COMPLETER(bash) {
+	for (char ** keyword = syn_bash_keywords; *keyword; ++keyword) {
+		add_if_match((*keyword),"(sh keyword)");
+	}
+
+	return 0;
+}
+
+BIM_SYNTAX_EXT(bash, 0, c_keyword_qualifier)

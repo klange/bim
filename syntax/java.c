@@ -40,7 +40,7 @@ static char * syn_java_brace_comments[] = {
 };
 
 static int brace_keyword_qualifier(int c) {
-	return isalnum(c) || (c == '{') || (c == '@');
+	return isalnum(c) || (c == '{') || (c == '@') || (c == '_');
 }
 
 static int paint_java_comment(struct syntax_state * state) {
@@ -144,4 +144,28 @@ int syn_java_calculate(struct syntax_state * state) {
 
 char * syn_java_ext[] = {".java",NULL};
 
-BIM_SYNTAX(java, 1)
+BIM_SYNTAX_COMPLETER(java) {
+	for (char ** keyword = syn_java_keywords; *keyword; ++keyword) {
+		add_if_match((*keyword),"(java keyword)");
+	}
+	for (char ** keyword = syn_java_types; *keyword; ++keyword) {
+		add_if_match((*keyword),"(java type)");
+	}
+
+	/* XXX Massive hack */
+	if (env->col_no > 1 && env->lines[env->line_no-1]->text[env->col_no-2].flags == FLAG_COMMENT) {
+		if (comp[0] == '@') {
+			for (char ** keyword = syn_java_at_comments; *keyword; ++keyword) {
+				add_if_match((*keyword),"(javadoc annoation)");
+			}
+		} else if (comp[0] == '{') {
+			for (char ** keyword = syn_java_brace_comments; *keyword; ++keyword) {
+				add_if_match((*keyword),"(javadoc annoation)");
+			}
+		}
+	}
+
+	return 0;
+}
+
+BIM_SYNTAX_EXT(java, 1, brace_keyword_qualifier)

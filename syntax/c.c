@@ -263,4 +263,14 @@ int syn_c_calculate(struct syntax_state * state) {
 
 char * syn_c_ext[] = {".c",".h",".cpp",".hpp",".c++",".h++",".cc",".hh",NULL};
 
-BIM_SYNTAX(c, 0)
+BIM_SYNTAX_COMPLETER(c) {
+	for (char ** keyword = syn_c_keywords; *keyword; ++keyword) {
+		add_if_match((*keyword),"(c keyword)");
+	}
+	for (char ** keyword = syn_c_types; *keyword; ++keyword) {
+		add_if_match((*keyword),"(c type)");
+	}
+	return 0;
+}
+
+BIM_SYNTAX_EXT(c, 0, c_keyword_qualifier)
