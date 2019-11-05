@@ -302,11 +302,19 @@ struct syntax_state {
 	int i;
 };
 
+struct completion_match {
+	char * string;
+	char * file;
+	char * search;
+};
+
 struct syntax_definition {
 	char * name;
 	char ** ext;
 	int (*calculate)(struct syntax_state *);
 	int prefers_spaces;
+	int (*completion_qualifier)(int c);
+	int (*completion_matcher)(uint32_t * comp, struct completion_match ** matches, int * matches_count, int complete_match, int * matches_len);
 };
 
 extern struct syntax_definition * syntaxes;
@@ -459,5 +467,24 @@ extern int has_function(char * name);
 extern void find_matching_paren(int * out_line, int * out_col, int in_col);
 extern void render_error(char * message, ...);
 extern void pause_for_key(void);
+
+#define add_match(match_string, match_file, match_search) do { \
+	if (*matches_count == *matches_len) { \
+		(*matches_len) *= 2; \
+		*matches = realloc(*matches, sizeof(struct completion_match) * (*matches_len)); \
+	} \
+	(*matches)[*matches_count].string = strdup(match_string); \
+	(*matches)[*matches_count].file = strdup(match_file); \
+	(*matches)[*matches_count].search = strdup(match_search); \
+	(*matches_count)++; \
+} while (0)
+
+#define add_if_match(name,desc) do { \
+	int i = 0; \
+	while (comp[i] && comp[i] == (unsigned char)name[i]) i++; \
+	if (comp[i] == '\0') { \
+		add_match(name,desc,""); \
+	} \
+} while (0)
 
 #endif /* _BIM_CORE_H */

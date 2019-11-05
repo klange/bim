@@ -127,4 +127,13 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 
 char * syn_bimcmd_ext[] = {".bimscript",".bimrc",NULL}; /* no files */
 
-BIM_SYNTAX(bimcmd, 1)
+BIM_SYNTAX_COMPLETER(bimcmd) {
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		add_if_match(c->name,c->description);
+	}
+	add_if_match("function","Define a function");
+	add_if_match("end","End a function definition");
+	return 0;
+}
+
+BIM_SYNTAX_EXT(bimcmd, 1, cmd_qualifier)

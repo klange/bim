@@ -3,8 +3,21 @@
 
 #define BIM_SYNTAX(name, spaces) \
 	__attribute__((constructor)) static void _load_ ## name (void) { \
-		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces}); \
+		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, NULL, NULL}); \
 	} \
+
+#define BIM_SYNTAX_EXT(name, spaces, matcher) \
+	__attribute__((constructor)) static void _load_ ## name (void) { \
+		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, matcher, _match_completions_ ## name}); \
+	} \
+
+#define BIM_SYNTAX_COMPLETER(name) \
+	static int _match_completions_ ## name ( \
+		uint32_t * comp __attribute__((unused)), \
+		struct completion_match **matches __attribute__((unused)), \
+		int * matches_count __attribute__((unused)), \
+		int complete_match __attribute__((unused)), \
+		int *matches_len __attribute__((unused)))
 
 #define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
 #define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)

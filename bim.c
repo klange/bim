@@ -7573,12 +7573,6 @@ BIM_ACTION(insert_at_end_of_selection, ACTION_IS_RW,
 	env->mode = MODE_INSERT;
 }
 
-struct completion_match {
-	char * string;
-	char * file;
-	char * search;
-};
-
 void free_completion_match(struct completion_match * match) {
 	if (match->string) free(match->string);
 	if (match->file) free(match->file);
@@ -7589,54 +7583,43 @@ void free_completion_match(struct completion_match * match) {
  * Read ctags file to find matches for a symbol
  */
 int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_count, int complete_match) {
-	int matches_len = 4;
+	int _matches_len = 4;
+	int *matches_len = &_matches_len;
 	*matches_count = 0;
-	*matches = malloc(sizeof(struct completion_match) * (matches_len));
+	*matches = malloc(sizeof(struct completion_match) * (*matches_len));
 
 	FILE * tags = fopen("tags","r");
-	if (!tags) return 1;
-	char tmp[4096]; /* max line */
-	while (!feof(tags) && fgets(tmp, 4096, tags)) {
-		if (tmp[0] == '!') continue;
-		int i = 0;
-		while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
-		if (comp[i] == '\0') {
-			if (complete_match && tmp[i] != '\t') continue;
-			int j = i;
-			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
-			tmp[j] = '\0'; j++;
-			char * file = &tmp[j];
-			while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
-			tmp[j] = '\0'; j++;
-			char * search = &tmp[j];
-			while (!(tmp[j] == '/' && tmp[j+1] == ';' && tmp[j+2] == '"' && tmp[j+3] == '\t') /* /normal searches/ */
-			       && !(tmp[j] == ';' && tmp[j+1] == '"' && tmp[j+2] == '\t') /* Old ctags line number searches */
-			       && (tmp[j] != '\n' && tmp[j] != '\0')) j++;
-			tmp[j] = '\0'; j++;
+	if (tags) {
+		char tmp[4096]; /* max line */
+		while (!feof(tags) && fgets(tmp, 4096, tags)) {
+			if (tmp[0] == '!') continue;
+			int i = 0;
+			while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
+			if (comp[i] == '\0') {
+				if (complete_match && tmp[i] != '\t') continue;
+				int j = i;
+				while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+				tmp[j] = '\0'; j++;
+				char * file = &tmp[j];
+				while (tmp[j] != '\t' && tmp[j] != '\n' && tmp[j] != '\0') j++;
+				tmp[j] = '\0'; j++;
+				char * search = &tmp[j];
+				while (!(tmp[j] == '/' && tmp[j+1] == ';' && tmp[j+2] == '"' && tmp[j+3] == '\t') /* /normal searches/ */
+				       && !(tmp[j] == ';' && tmp[j+1] == '"' && tmp[j+2] == '\t') /* Old ctags line number searches */
+				       && (tmp[j] != '\n' && tmp[j] != '\0')) j++;
+				tmp[j] = '\0'; j++;
 
-			/* Dedup */
-			#if 0
-			int match_found = 0;
-			for (int i = 0; i < *matches_count; ++i) {
-				if (!strcmp((*matches)[i].string, tmp)) {
-					match_found = 1;
-					break;
-				}
+				add_match(tmp,file,search);
 			}
-			if (match_found) continue;
-			#endif
-
-			if (*matches_count == matches_len) {
-				matches_len *= 2;
-				*matches = realloc(*matches, sizeof(struct completion_match) * (matches_len));
-			}
-			(*matches)[*matches_count].string = strdup(tmp);
-			(*matches)[*matches_count].file = strdup(file);
-			(*matches)[*matches_count].search = strdup(search);
-			(*matches_count)++;
 		}
+		fclose(tags);
 	}
-	fclose(tags);
+
+	/* TODO: Get these from syntax files with a dynamic callback */
+	if (env->syntax && env->syntax->completion_matcher) {
+		env->syntax->completion_matcher(comp,matches,matches_count,complete_match,matches_len);
+	}
+
 	return 0;
 }
 
@@ -7714,11 +7697,17 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
 int omni_complete(int quit_quietly_on_none) {
 	int c;
 
+	int (*qualifier)(int c) = simple_keyword_qualifier;
+	if (env->syntax && env->syntax->completion_qualifier) {
+		qualifier = env->syntax->completion_qualifier;
+	}
+
 	/* Pull the word from before the cursor */
 	int c_before = 0;
 	int i = env->col_no-1;
 	while (i > 0) {
-		if (!simple_keyword_qualifier(env->lines[env->line_no-1]->text[i-1].codepoint)) break;
+		int c = env->lines[env->line_no-1]->text[i-1].codepoint;
+		if (!qualifier(c)) break;
 		c_before++;
 		i--;
 	}
