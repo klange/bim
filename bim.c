@@ -3332,6 +3332,8 @@ void open_file(char * file) {
 	}
 	if (spaces > tabs) {
 		env->tabs = 0;
+	} else if (spaces == tabs && env->syntax) {
+		env->tabs = env->syntax->prefers_spaces;
 	}
 
 	/* TODO figure out tabstop for spaces? */
