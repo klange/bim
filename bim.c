@@ -8001,7 +8001,7 @@ BIM_ACTION(delete_forward, ACTION_IS_RW,
 	if (env->col_no <= env->lines[env->line_no-1]->actual) {
 		line_delete(env->lines[env->line_no-1], env->col_no, env->line_no-1);
 		redraw_text();
-	} else if (env->col_no == env->lines[env->line_no-1]->actual + 1) {
+	} else if (env->col_no == env->lines[env->line_no-1]->actual + 1 && env->line_count > env->line_no) {
 		merge_lines(env->lines, env->line_no);
 		redraw_text();
 	}
