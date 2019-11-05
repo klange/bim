@@ -9800,6 +9800,40 @@ BIM_COMMAND(action,"action","Execute a bim action") {
 	return 1;
 }
 
+char * describe_options(int options) {
+	static char out[16];
+
+	memset(out,0,sizeof(out));
+	if (options & opt_rep)  strcat(out,"r"); /* Repeats */
+	if (options & opt_arg)  strcat(out,"a"); /* takes Argument */
+	if (options & opt_char) strcat(out,"c"); /* takes Character */
+	if (options & opt_nav)  strcat(out,"n"); /* consumes Nav buffer */
+	if (options & opt_rw)   strcat(out,"w"); /* read-Write */
+	if (options & opt_norm) strcat(out,"m"); /* changes Mode */
+	if (options & opt_byte) strcat(out,"b"); /* takes Byte */
+
+	return out;
+}
+
+void dump_map_commands(char * name, struct action_map * map) {
+	struct action_map * m = map;
+	while (m->key != -1) {
+		struct action_def * action = find_action(m->method);
+		fprintf(stdout,"mapkey %s %s %s",
+			name,
+			name_from_key(m->key),
+			action ? action->name : "none");
+		if (m->options) {
+			printf(" %s", describe_options(m->options));
+			if (m->options & opt_arg) {
+				printf(" %d", m->arg);
+			}
+		}
+		printf("\n");
+		m++;
+	}
+}
+
 int main(int argc, char * argv[]) {
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
@@ -9891,6 +9925,21 @@ int main(int argc, char * argv[]) {
 					convert_to_html();
 					/* write to stdout */
 					output_file(env, stdout);
+					return 0;
+				} else if (!strcmp(optarg,"tmp-dump-config")) {
+					/* Dump a config file representing the current key mappings */
+					dump_map_commands("norm",NORMAL_MAP);
+					dump_map_commands("insert",INSERT_MAP);
+					dump_map_commands("replace",REPLACE_MAP);
+					dump_map_commands("line",LINE_SELECTION_MAP);
+					dump_map_commands("char",CHAR_SELECTION_MAP);
+					dump_map_commands("col",COL_SELECTION_MAP);
+					dump_map_commands("colinsert",COL_INSERT_MAP);
+					dump_map_commands("nav",NAVIGATION_MAP);
+					dump_map_commands("esc",ESCAPE_MAP);
+					dump_map_commands("command",COMMAND_MAP);
+					dump_map_commands("search",SEARCH_MAP);
+					dump_map_commands("input",INPUT_BUFFER_MAP);
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
