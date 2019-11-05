@@ -1,20 +1,46 @@
-# Last theme config is the preferred theme
-colorscheme ansi
-colorscheme sunsmoke256
-colorscheme sunsmoke
+# Bim Configuration File
+# To see available config options, use ^O or begin typing if smartcomplete
+# is enabled. This example config shows all available options.
 
-# Enable git integration
+# Last theme config is the preferred theme
+theme ansi
+theme sunsmoke256
+theme sunsmoke
+
+# Enable git integration (disabled by default)
 global.git 1
 
 # Enable statusbar (default)
 global.statusbar 1
 
-# Autohide tabs
+# Autohide tabs (disabled by default)
 global.autohidetabs 1
 
-# Enable autocompletion
+# Enable autocompletion while typing (disabled by default)
 smartcomplete 1
 
+# Enable highlighting of the current line (default)
+hlcurrent 1
+
+# Enable highlighting of matching braces (default)
+hlparen 1
+
+# Vertical cursor padding while scrolling (default=4)
+padding 4
+
+# Scroll only one line horizontally (default)
+horizontalscrolling 0
+
+# Search case-insensitive unless there capital letters in the search term (default)
+smartcase 1
+
+# Show unsaved changes (default)
+colorgutter 1
+
+# Show actual line numbers (default)
+relativenumbers 0
+
+# Configure per-buffer settings when opening different kinds of files
 function onload:bimcmd
     spaces
     tabstop 4
