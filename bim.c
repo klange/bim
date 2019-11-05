@@ -2134,7 +2134,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 int num_width(void) {
 	if (!env->numbers) return 0;
 	int w = log_base_10(env->line_count) + 3;
-	if (w < 2) return 4;
+	if (w < 4) return 4;
 	return w;
 }
 
