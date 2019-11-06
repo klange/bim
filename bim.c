@@ -1784,10 +1784,58 @@ char * file_basename(char * file) {
  *      byte lengths and doesn't limit the width of the file
  *      properly if it has wide characters. FIXME
  */
-int draw_tab_name(buffer_t * _env, char * out) {
-	return sprintf(out, "%s %.40s ",
-		_env->modified ? " +" : "",
-		_env->file_name ? file_basename(_env->file_name) : "[No Name]");
+int draw_tab_name(buffer_t * _env, char * out, int max_width) {
+	uint32_t c, state = 0;
+	char * t = _env->file_name ? file_basename(_env->file_name) : "[No Name]";
+
+#define ADD(c) do { \
+	*o = c; \
+	o++; \
+	*o = '\0'; \
+	bytes++; \
+} while (0)
+
+	char * o = out;
+	*o = '\0';
+
+	int width = 0;
+	int bytes = 0;
+
+	ADD(' ');
+	width++;
+
+	if (_env->modified) {
+		ADD('+');
+		ADD(' ');
+		width++;
+		width++;
+	}
+
+	while (*t) {
+		if (!decode(&state, &c, (unsigned char)*t)) {
+
+			char tmp[7];
+			int size = to_eight(c, tmp);
+			if (bytes + size > 62) break;
+			if (max_width != -1 && width + size >= max_width) return -1;
+
+			for (int i = 0; i < size; ++i) {
+				ADD(tmp[i]);
+			}
+
+			width += codepoint_width(c);
+
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
+		t++;
+	}
+
+	ADD(' ');
+	width++;
+
+#undef ADD
+	return width;
 }
 
 /**
@@ -1823,12 +1871,9 @@ void redraw_tabbar(void) {
 		}
 
 		char title[64];
-		int size = draw_tab_name(_env, title);
+		int size = draw_tab_name(_env, title, global_config.term_width - offset);
 
-		if (offset + size >= global_config.term_width) {
-			if (global_config.term_width - offset - 1 > 0) {
-				title[global_config.term_width - offset - 1] = '\0';
-			}
+		if (size == -1) {
 			printf("%s", title);
 			break;
 		}
@@ -6258,7 +6303,7 @@ BIM_ACTION(handle_mouse, 0,
 			for (int i = 0; i < buffers_len; i++) {
 				buffer_t * _env = buffers[i];
 				char tmp[64];
-				_x += draw_tab_name(_env, tmp);
+				_x += draw_tab_name(_env, tmp, -1);
 				if (_x >= x) {
 					if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
 					env = buffers[i];
