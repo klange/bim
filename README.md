@@ -99,7 +99,7 @@ A 256-color theme based on the theme of the same name for Vim.
 
 A 24-bit color theme based on the popular color palette.
 
-![solarized-dark](docs/theme_solarized-dark.png)
+![solarized-dark](docs/theme_solarized_dark.png)
 
 ### City Lights
 
