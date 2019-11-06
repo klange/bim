@@ -191,6 +191,7 @@ typedef struct {
 	int cursor_padding;
 	int split_percent;
 	int scroll_amount;
+	int tab_offset;
 
 } global_config_t;
 

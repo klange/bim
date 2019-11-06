@@ -72,6 +72,7 @@ global_config_t global_config = {
 	.cursor_padding = 4,
 	.split_percent = 50,
 	.scroll_amount = 5,
+	.tab_offset = 0,
 };
 
 struct key_name_map KeyNames[] = {
@@ -579,6 +580,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* There is one less buffer */
 	buffers_len--;
+	if (buffers_len && global_config.tab_offset >= buffers_len) global_config.tab_offset--;
 	global_config.tabs_visible = (!global_config.autohide_tabs) || (buffers_len > 1);
 	if (!buffers_len) { 
 		/* There are no more buffers. */
@@ -1784,7 +1786,7 @@ char * file_basename(char * file) {
  *      byte lengths and doesn't limit the width of the file
  *      properly if it has wide characters. FIXME
  */
-int draw_tab_name(buffer_t * _env, char * out, int max_width) {
+int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 	uint32_t c, state = 0;
 	char * t = _env->file_name ? file_basename(_env->file_name) : "[No Name]";
 
@@ -1798,17 +1800,19 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width) {
 	char * o = out;
 	*o = '\0';
 
-	int width = 0;
 	int bytes = 0;
 
+	if (max_width < 2) return 1;
+
 	ADD(' ');
-	width++;
+	(*width)++;
 
 	if (_env->modified) {
+		if (max_width < 4) return 1;
 		ADD('+');
+		(*width)++;
 		ADD(' ');
-		width++;
-		width++;
+		(*width)++;
 	}
 
 	while (*t) {
@@ -1817,13 +1821,13 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width) {
 			char tmp[7];
 			int size = to_eight(c, tmp);
 			if (bytes + size > 62) break;
-			if (max_width != -1 && width + size >= max_width) return -1;
+			if (*width + size >= max_width) return 1;
 
 			for (int i = 0; i < size; ++i) {
 				ADD(tmp[i]);
 			}
 
-			width += codepoint_width(c);
+			(*width) += codepoint_width(c);
 
 		} else if (state == UTF8_REJECT) {
 			state = 0;
@@ -1831,11 +1835,13 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width) {
 		t++;
 	}
 
+	if (max_width == *width + 1) return 1;
+
 	ADD(' ');
-	width++;
+	(*width)++;
 
 #undef ADD
-	return width;
+	return 0;
 }
 
 /**
@@ -1855,7 +1861,14 @@ void redraw_tabbar(void) {
 
 	/* For each buffer... */
 	int offset = 0;
-	for (int i = 0; i < buffers_len; i++) {
+
+	if (global_config.tab_offset) {
+		set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+		printf("<");
+		offset++;
+	}
+
+	for (int i = global_config.tab_offset; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
 
 		if (_env == env) {
@@ -1871,10 +1884,18 @@ void redraw_tabbar(void) {
 		}
 
 		char title[64];
-		int size = draw_tab_name(_env, title, global_config.term_width - offset);
+		int size = 0;
+		int filled = draw_tab_name(_env, title, global_config.term_width - offset, &size);
 
-		if (size == -1) {
+		if (filled) {
+			offset += size;
 			printf("%s", title);
+			set_colors(COLOR_NUMBER_FG, COLOR_NUMBER_BG);
+			while (offset != global_config.term_width - 1) {
+				printf(" ");
+				offset++;
+			}
+			printf(">");
 			break;
 		}
 
@@ -6298,12 +6319,20 @@ BIM_ACTION(handle_mouse, 0,
 
 		if (y == 1 && global_config.tabs_visible) {
 			/* Pick from tabs */
-			int _x = 0;
 			if (env->mode != MODE_NORMAL && env->mode != MODE_INSERT) return; /* Don't let the tab be switched in other modes for now */
-			for (int i = 0; i < buffers_len; i++) {
+			int _x = 0;
+			if (global_config.tab_offset) _x = 1;
+			if (global_config.tab_offset && _x >= x) {
+				global_config.tab_offset--;
+				redraw_tabbar();
+				return;
+			}
+			for (int i = global_config.tab_offset; i < buffers_len; i++) {
 				buffer_t * _env = buffers[i];
 				char tmp[64];
-				_x += draw_tab_name(_env, tmp, -1);
+				int size = 0;
+				int filled = draw_tab_name(_env, tmp, global_config.term_width - _x, &size);
+				_x += size;
 				if (_x >= x) {
 					if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
 					env = buffers[i];
@@ -6311,6 +6340,11 @@ BIM_ACTION(handle_mouse, 0,
 					update_title();
 					return;
 				}
+				if (filled) break;
+			}
+			if (x > _x && global_config.tab_offset < buffers_len - 1) {
+				global_config.tab_offset++;
+				redraw_tabbar();
 			}
 			return;
 		}
