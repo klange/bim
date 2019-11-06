@@ -343,6 +343,7 @@ extern const char * COLOR_NUMBER_FG;
 extern const char * COLOR_NUMBER_BG;
 extern const char * COLOR_STATUS_FG;
 extern const char * COLOR_STATUS_BG;
+extern const char * COLOR_STATUS_ALT;
 extern const char * COLOR_TABBAR_BG;
 extern const char * COLOR_TAB_BG;
 extern const char * COLOR_ERROR_FG;

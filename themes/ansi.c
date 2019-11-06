@@ -11,6 +11,7 @@ BIM_THEME(ansi) {
 	COLOR_NUMBER_BG = "@9";
 	COLOR_STATUS_FG = global_config.can_bright ? "@17" : "@7";
 	COLOR_STATUS_BG = "@4";
+	COLOR_STATUS_ALT= global_config.can_bright ? "@14" : "@4";
 	COLOR_TABBAR_BG = "@4";
 	COLOR_TAB_BG    = "@4";
 	COLOR_KEYWORD   = global_config.can_bright ? "@14" : "@4";

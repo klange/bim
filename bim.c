@@ -121,6 +121,7 @@ struct ColorName color_names[] = {
 	{"number-bg", &COLOR_NUMBER_BG},
 	{"status-fg", &COLOR_STATUS_FG},
 	{"status-bg", &COLOR_STATUS_BG},
+	{"status-alt", &COLOR_STATUS_ALT},
 	{"tabbar-bg", &COLOR_TABBAR_BG},
 	{"tab-bg", &COLOR_TAB_BG},
 	{"error-fg", &COLOR_ERROR_FG},
@@ -612,6 +613,7 @@ const char * COLOR_NUMBER_FG = "@9";
 const char * COLOR_NUMBER_BG = "@9";
 const char * COLOR_STATUS_FG = "@9";
 const char * COLOR_STATUS_BG = "@9";
+const char * COLOR_STATUS_ALT= "@9";
 const char * COLOR_TABBAR_BG = "@9";
 const char * COLOR_TAB_BG    = "@9";
 const char * COLOR_ERROR_FG  = "@9";
@@ -2436,8 +2438,6 @@ int display_width_of_string(char * str) {
 
 	return out;
 }
-
-#define COLOR_STATUS_ALT COLOR_KEYWORD
 
 int statusbar_append_status(int *remaining_width, char * output, char * base, ...) {
 	va_list args;

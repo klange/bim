@@ -10,6 +10,7 @@ function theme_sunsmoke
     setcolor number-bg 2;0;0;0
     setcolor status-fg 2;230;230;230
     setcolor status-bg 2;71;64;58
+    setcolor status-alt 2;122;122;122
     setcolor tabbar-bg 2;71;64;58
     setcolor tab-bg 2;71;64;58
     setcolor keyword 2;51;162;230

@@ -10,6 +10,7 @@ function theme_light
     setcolor number-bg 2;220;220;220
     setcolor status-fg 2;20;20;20
     setcolor status-bg 2;200;200;200
+    setcolor status-alt 2;70;70;70
     setcolor tabbar-bg 2;120;120;120
     setcolor tab-bg 2;200;200;200
     setcolor error-fg 5;15
