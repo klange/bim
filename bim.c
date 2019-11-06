@@ -67,6 +67,7 @@ global_config_t global_config = {
 	.tabs_visible = 1,
 	.autohide_tabs = 0,
 	.smart_complete = 0,
+	.has_terminal = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -2282,6 +2283,7 @@ void draw_excess_line(int j) {
  */
 void redraw_text(void) {
 	if (!env) return;
+	if (!global_config.has_terminal) return;
 
 	/* Hide cursor while rendering */
 	hide_cursor();
@@ -3560,24 +3562,10 @@ int git_examine(char * filename) {
 	return 0;
 }
 
-
 /**
- * Write active buffer to file
+ * Write file contents to FILE
  */
-void write_file(char * file) {
-	if (!file) {
-		render_error("Need a file to write to.");
-		return;
-	}
-
-	FILE * f = fopen(file, "w+");
-
-	if (!f) {
-		render_error("Failed to open file for writing.");
-		return;
-	}
-
-	/* Go through each line and convert it back to UTF-8 */
+void output_file(buffer_t * env, FILE * f) {
 	int i, j;
 	for (i = 0; i < env->line_count; ++i) {
 		line_t * line = env->lines[i];
@@ -3596,6 +3584,27 @@ void write_file(char * file) {
 		if (env->crnl) fputc('\r', f);
 		fputc('\n', f);
 	}
+}
+
+/**
+ * Write active buffer to file
+ */
+void write_file(char * file) {
+	if (!file) {
+		render_error("Need a file to write to.");
+		return;
+	}
+
+	FILE * f = fopen(file, "w+");
+
+	if (!f) {
+		render_error("Failed to open file for writing.");
+		return;
+	}
+
+	/* Go through each line and convert it back to UTF-8 */
+	output_file(env, f);
+
 	fclose(f);
 
 	/* Mark it no longer modified */
@@ -4131,11 +4140,7 @@ static void html_convert_color(const char * color_string) {
 	}
 }
 
-/**
- * Based on vim's :TOhtml
- * Convert syntax-highlighted buffer contents to HTML.
- */
-BIM_COMMAND(tohtml,"tohtml","Convert the document to an HTML representation with syntax highlighting.") {
+int convert_to_html(void) {
 	buffer_t * old = env;
 	env = buffer_new();
 	setup_buffer(env);
@@ -4320,8 +4325,18 @@ BIM_COMMAND(tohtml,"tohtml","Convert the document to an HTML representation with
 	for (int i = 0; i < env->line_count; ++i) {
 		recalculate_syntax(env->lines[i],i);
 	}
-	redraw_all();
 
+	return 0;
+}
+
+/**
+ * Based on vim's :TOhtml
+ * Convert syntax-highlighted buffer contents to HTML.
+ */
+BIM_COMMAND(tohtml,"tohtml","Convert the document to an HTML representation with syntax highlighting.") {
+	convert_to_html();
+
+	redraw_all();
 	return 0;
 }
 
@@ -8919,6 +8934,7 @@ static void show_usage(char * argv[]) {
 			" --version       " _s "show version information and available plugins" _e
 			" --dump-mappings " _s "dump markdown description of key mappings" _e
 			" --dump-commands " _s "dump markdown description of all commands" _e
+			" --html FILE     " _s "convert FILE to syntax-highlighted HTML" _e
 			"\n", argv[0], argv[0]);
 #undef _e
 #undef _s
@@ -9263,6 +9279,7 @@ void init_terminal(void) {
 	get_initial_termios();
 	set_unbuffered();
 	mouse_enable();
+	global_config.has_terminal = 1;
 
 	signal(SIGWINCH, SIGWINCH_handler);
 	signal(SIGCONT,  SIGCONT_handler);
@@ -9513,7 +9530,7 @@ int main(int argc, char * argv[]) {
 					if (opt == 'C') {
 						draw_line_number(i);
 					}
-					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0, i + 1);
+					render_line(env->lines[i], 6 * (env->lines[i]->actual + 1), 0, -1);
 					reset();
 					fprintf(stdout, "\n");
 				}
@@ -9574,6 +9591,18 @@ int main(int argc, char * argv[]) {
 					return 0;
 				} else if (!strcmp(optarg,"dump-commands")) {
 					dump_commands();
+					return 0;
+				} else if (!strcmp(optarg,"html")) {
+					if (optind >= argc) {
+						show_usage(argv);
+						return 1;
+					}
+					initialize();
+					global_config.go_to_line = 0;
+					open_file(argv[optind]);
+					convert_to_html();
+					/* write to stdout */
+					output_file(env, stdout);
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);

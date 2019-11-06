@@ -186,6 +186,7 @@ typedef struct {
 	unsigned int tabs_visible:1;
 	unsigned int autohide_tabs:1;
 	unsigned int smart_complete:1;
+	unsigned int has_terminal:1;
 
 	int cursor_padding;
 	int split_percent;
