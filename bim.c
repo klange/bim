@@ -4898,8 +4898,8 @@ BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
 /* TODO: global.maxcolumn */
 BIM_COMMAND(maxcolumn,"maxcolumn","Highlight past the given column to indicate maximum desired line length") {
 	if (argc < 2) {
-		render_error("Expected argument");
-		return 1;
+		render_status_message("maxcolumn=%d",env->maxcolumn);
+		return 0;
 	}
 	env->maxcolumn = atoi(argv[1]);
 	redraw_text();
