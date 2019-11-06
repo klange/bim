@@ -1567,6 +1567,33 @@ void place_cursor(int x, int y) {
 	printf("\033[%d;%dH", y, x);
 }
 
+char * color_string(const char * fg, const char * bg) {
+	static char output[100];
+	char * t = output;
+	t += sprintf(t,"\033[22;23;24;");
+	if (*bg == '@') {
+		int _bg = atoi(bg+1);
+		if (_bg < 10) {
+			t += sprintf(t, "4%d;", _bg);
+		} else {
+			t += sprintf(t, "10%d;", _bg-10);
+		}
+	} else {
+		t += sprintf(t, "48;%s;", bg);
+	}
+	if (*fg == '@') {
+		int _fg = atoi(fg+1);
+		if (_fg < 10) {
+			t += sprintf(t, "3%dm", _fg);
+		} else {
+			t += sprintf(t, "9%dm", _fg-10);
+		}
+	} else {
+		t += sprintf(t, "38;%sm", fg);
+	}
+	return output;
+}
+
 /**
  * Set text colors
  *
@@ -1577,27 +1604,7 @@ void place_cursor(int x, int y) {
  * color modes.
  */
 void set_colors(const char * fg, const char * bg) {
-	printf("\033[22;23;24;");
-	if (*bg == '@') {
-		int _bg = atoi(bg+1);
-		if (_bg < 10) {
-			printf("4%d;", _bg);
-		} else {
-			printf("10%d;", _bg-10);
-		}
-	} else {
-		printf("48;%s;", bg);
-	}
-	if (*fg == '@') {
-		int _fg = atoi(fg+1);
-		if (_fg < 10) {
-			printf("3%dm", _fg);
-		} else {
-			printf("9%dm", _fg-10);
-		}
-	} else {
-		printf("38;%sm", fg);
-	}
+	printf("%s", color_string(fg, bg));
 }
 
 /**
@@ -1781,10 +1788,6 @@ char * file_basename(char * file) {
 /**
  * Print a tab name with fixed width and modifiers
  * into an output buffer and return the written width.
- *
- * TODO this isn't unicode/display-width aware, so it returns
- *      byte lengths and doesn't limit the width of the file
- *      properly if it has wide characters. FIXME
  */
 int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 	uint32_t c, state = 0;
@@ -2414,6 +2417,70 @@ void redraw_alt_buffer(buffer_t * buf) {
 }
 
 /**
+ * Basically wcswidth() but implemented internally using our
+ * own utf-8 decoder to ensure it works properly.
+ */
+int display_width_of_string(char * str) {
+	uint8_t * s = (uint8_t *)str;
+
+	int out = 0;
+	uint32_t c, state = 0;
+	while (*s) {
+		if (!decode(&state, &c, *s)) {
+			out += codepoint_width(c);
+		} else if (state == UTF8_REJECT) {
+			state = 0;
+		}
+		s++;
+	}
+
+	return out;
+}
+
+#define COLOR_STATUS_ALT COLOR_KEYWORD
+
+int statusbar_append_status(int *remaining_width, char * output, char * base, ...) {
+	va_list args;
+	va_start(args, base);
+	char tmp[100]; /* should be big enough */
+	vsnprintf(tmp, 100, base, args);
+	va_end(args);
+
+	int width = display_width_of_string(tmp) + 2;
+
+	if (width < *remaining_width) {
+		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+		strcat(output,"[");
+		strcat(output,color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+		strcat(output, tmp);
+		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+		strcat(output,"]");
+		(*remaining_width) -= width;
+		return width;
+	} else {
+		return 0;
+	}
+}
+
+int statusbar_build_right(char * right_hand) {
+	char tmp[1024];
+	sprintf(tmp, " Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
+	int out = display_width_of_string(tmp);
+	char * s = right_hand;
+
+	s += sprintf(s, "%s", color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	s += sprintf(s, " Line ");
+	s += sprintf(s, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+	s += sprintf(s, "%d/%d ", env->line_no, env->line_count);
+	s += sprintf(s, "%s", color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	s += sprintf(s, " Col: ");
+	s += sprintf(s, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+	s += sprintf(s, "%d ", env->col_no);
+
+	return out;
+}
+
+/**
  * Draw the status bar
  *
  * The status bar shows the name of the file, whether it has modifications,
@@ -2434,58 +2501,72 @@ void redraw_statusbar(void) {
 	paint_line(COLOR_STATUS_BG);
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
-	/* Print the file name */
-	char status_bits[1024] = {0}; /* Sane maximum */
-	char * s = status_bits;
 
+	/* Pre-render the right hand side of the status bar */
+	char right_hand[1024];
+	int right_width = statusbar_build_right(right_hand);
+
+	char status_bits[1024] = {0}; /* Sane maximum */
+	int status_bits_width = 0;
+
+	int remaining_width = global_config.term_width - right_width;
+
+#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, status_bits, __VA_ARGS__); } while (0)
 	if (env->syntax) {
-		s += snprintf(s, 100, "[%s]", env->syntax->name);
+		ADD("%s",env->syntax->name);
 	}
 
 	/* Print file status indicators */
 	if (env->modified) {
-		s += snprintf(s, 5, "[+]");
+		ADD("+");
 	}
 
 	if (env->readonly) {
-		s += snprintf(s, 6, "[ro]");
+		ADD("ro");
 	}
 
 	if (env->crnl) {
-		s += snprintf(s, 7, "[crnl]");
+		ADD("crnl");
 	}
 
 	if (env->tabs) {
-		s += snprintf(s, 20, "[tabs]");
+		ADD("tabs");
 	} else {
-		s += snprintf(s, 20, "[spaces=%d]", env->tabstop);
+		ADD("spaces=%d", env->tabstop);
 	}
 
 	if (global_config.yanks) {
-		s += snprintf(s, 20, "[y:%ld]", global_config.yank_count);
+		ADD("y:%ld", global_config.yank_count);
 	}
 
 	if (env->indent) {
-		s += snprintf(s, 20, "[indent]");
+		ADD("indent");
 	}
 
-	/* Pre-render the right hand side of the status bar */
-	char right_hand[1024];
-	snprintf(right_hand, 1024, "Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
+#undef ADD
 
-	if (env->file_name) {
-		int len = strlen(env->file_name);
-		int i = 0;
-		while (len > 5 && len > (int)global_config.term_width - (int)strlen(right_hand) - (int)strlen(status_bits) - 5) {
-			len--;
-			i += 1;
+	uint8_t * file_name = (uint8_t *)(env->file_name ? env->file_name : "[No Name]");
+	int file_name_width = display_width_of_string((char*)file_name);
+
+	if (remaining_width > 3) {
+		int is_chopped = 0;
+		while (remaining_width < file_name_width + 3) {
+			is_chopped = 1;
+			if ((*file_name & 0xc0) == 0xc0) { /* First byte of a multibyte character */
+				file_name++;
+				while ((*file_name & 0xc0) == 0x80) file_name++;
+			} else {
+				file_name++;
+			}
+			file_name_width = display_width_of_string((char*)file_name);
 		}
-		printf("%s%s", i > 0 ? "<" : "", env->file_name + i);
-	} else {
-		printf("[No Name]");
+		if (is_chopped) {
+			set_colors(COLOR_ALT_FG, COLOR_STATUS_BG);
+			printf("<");
+		}
+		set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
+		printf("%s ", file_name);
 	}
-
-	printf(" ");
 
 	printf("%s", status_bits);
 
@@ -2493,8 +2574,8 @@ void redraw_statusbar(void) {
 	clear_to_end();
 
 	/* Move the cursor appropriately to draw it */
-	place_cursor(global_config.term_width - strlen(right_hand), global_config.term_height - 1);
-	/* TODO: What if we're localized and this has wide chars? */
+	place_cursor(global_config.term_width - right_width, global_config.term_height - 1);
+	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 	printf("%s",right_hand);
 }
 
