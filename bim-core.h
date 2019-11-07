@@ -496,4 +496,27 @@ extern void pause_for_key(void);
 	} \
 } while (0)
 
+struct action_map {
+	int key;
+	void (*method)();
+	int options;
+	int arg;
+};
+
+#define opt_rep  0x1 /* This action will be repeated */
+#define opt_arg  0x2 /* This action will take a specified argument */
+#define opt_char 0x4 /* This action will read a character to pass as an argument */
+#define opt_nav  0x8 /* This action will consume the nav buffer as its argument */
+#define opt_rw   0x10 /* Must not be read-only */
+#define opt_norm 0x20 /* Returns to normal mode */
+#define opt_byte 0x40 /* Same as opt_char but forces a byte */
+
+struct mode_names {
+	const char * description;
+	const char * name;
+	struct action_map ** mode;
+};
+
+extern struct mode_names mode_names[];
+
 #endif /* _BIM_CORE_H */

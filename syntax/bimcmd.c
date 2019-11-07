@@ -98,6 +98,27 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				}
 			}
 			return -1;
+		} else if (match_and_paint(state, "mapkey", FLAG_KEYWORD, cmd_qualifier)) {
+			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
+			for (struct mode_names * m = mode_names; m->name; ++m) {
+				if (match_and_paint(state, m->name, FLAG_TYPE, cmd_qualifier)) break;
+			}
+			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
+			while (charat() != ' ') skip(); /* key name */
+			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
+			for (struct action_def * a = mappable_actions; a->name; ++a) {
+				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) break;
+			}
+			if (charat() == -1) return -1;
+			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
+			while (charat() != -1 && charat() != ' ') {
+				if (!strchr("racnwmb",charat())) {
+					paint(1, FLAG_ERROR);
+				} else {
+					skip();
+				}
+			}
+			return -1;
 		} else if (match_and_paint(state, "action", FLAG_KEYWORD, cmd_qualifier)) {
 			while (charat() == ' ') skip();
 			for (struct action_def * a = mappable_actions; a->name; ++a) {
