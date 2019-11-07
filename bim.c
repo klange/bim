@@ -5150,7 +5150,9 @@ BIM_COMMAND(padding,"padding","Show or set cursor padding when scrolling vertica
 		render_status_message("padding=%d", global_config.cursor_padding);
 	} else {
 		global_config.cursor_padding = atoi(argv[1]);
-		place_cursor_actual();
+		if (env) {
+			place_cursor_actual();
+		}
 	}
 	return 0;
 }
@@ -5160,7 +5162,7 @@ BIM_COMMAND(smartcase,"smartcase","Show or set the status of the smartcase searc
 		render_status_message("smartcase=%d", global_config.smart_case);
 	} else {
 		global_config.smart_case = atoi(argv[1]);
-		place_cursor_actual();
+		if (env) place_cursor_actual();
 	}
 	return 0;
 }
@@ -5170,11 +5172,13 @@ BIM_COMMAND(hlparen,"hlparen","Show or set the configuration option to highlight
 		render_status_message("hlparen=%d", global_config.highlight_parens);
 	} else {
 		global_config.highlight_parens = atoi(argv[1]);
-		for (int i = 0; i < env->line_count; ++i) {
-			recalculate_syntax(env->lines[i],i);
+		if (env) {
+			for (int i = 0; i < env->line_count; ++i) {
+				recalculate_syntax(env->lines[i],i);
+			}
+			redraw_text();
+			place_cursor_actual();
 		}
-		redraw_text();
-		place_cursor_actual();
 	}
 	return 0;
 }
@@ -5184,13 +5188,15 @@ BIM_COMMAND(hlcurrent,"hlcurrent","Show or set the configuration option to highl
 		render_status_message("hlcurrent=%d", global_config.highlight_current_line);
 	} else {
 		global_config.highlight_current_line = atoi(argv[1]);
-		if (!global_config.highlight_current_line) {
-			for (int i = 0; i < env->line_count; ++i) {
-				env->lines[i]->is_current = 0;
+		if (env) {
+			if (!global_config.highlight_current_line) {
+				for (int i = 0; i < env->line_count; ++i) {
+					env->lines[i]->is_current = 0;
+				}
 			}
+			redraw_text();
+			place_cursor_actual();
 		}
-		redraw_text();
-		place_cursor_actual();
 	}
 	return 0;
 }
@@ -5261,13 +5267,15 @@ BIM_COMMAND(relativenumbers,"relativenumbers","Show or set the display of relati
 		render_status_message("relativenumber=%d", global_config.relative_lines);
 	} else {
 		global_config.relative_lines = atoi(argv[1]);
-		if (!global_config.relative_lines) {
-			for (int i = 0; i < env->line_count; ++i) {
-				env->lines[i]->is_current = 0;
+		if (env) {
+			if (!global_config.relative_lines) {
+				for (int i = 0; i < env->line_count; ++i) {
+					env->lines[i]->is_current = 0;
+				}
 			}
+			redraw_text();
+			place_cursor_actual();
 		}
-		redraw_text();
-		place_cursor_actual();
 	}
 	return 0;
 }
