@@ -9392,6 +9392,9 @@ void load_bimrc(void) {
 		tmp = strdup(path);
 	}
 
+	struct stat statbuf;
+	if (stat(tmp, &statbuf)) return;
+
 	char * args[] = {"runscript", tmp, NULL};
 	if (bim_command_runscript("runscript", 2, args)) {
 		/* Wait */
