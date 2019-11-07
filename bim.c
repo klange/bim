@@ -9590,15 +9590,18 @@ _invalid_key_name:
 }
 
 BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
+#define PRINT_COLOR do { \
+	render_commandline_message("%20s = ", c->name); \
+	set_colors(*c->value, *c->value); \
+	printf("   "); \
+	set_colors(COLOR_FG, COLOR_BG); \
+	printf(" %s\n", *c->value); \
+	} while (0)
 	if (argc < 2) {
 		/* Print colors */
 		struct ColorName * c = color_names;
 		while (c->name) {
-			render_commandline_message("%20s = ", c->name);
-			set_colors(*c->value, *c->value);
-			printf("   ");
-			set_colors(COLOR_FG, COLOR_BG);
-			printf(" %s\n", *c->value);
+			PRINT_COLOR;
 			c++;
 		}
 		pause_for_key();
@@ -9606,6 +9609,14 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		char * colorname = argv[1];
 		char * space = strstr(colorname, " ");
 		if (!space) {
+			struct ColorName * c = color_names;
+			while (c->name) {
+				if (!strcmp(c->name, colorname)) {
+					PRINT_COLOR;
+					return 0;
+				}
+				c++;
+			}
 			render_error(":setcolor <colorname> <colorvalue>");
 			return 1;
 		}
@@ -9623,6 +9634,7 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		return 1;
 	}
 	return 0;
+#undef PRINT_COLOR
 }
 
 BIM_COMMAND(checkprop,"checkprop","Check a property value; returns the inverse of the property") {
