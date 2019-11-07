@@ -359,6 +359,29 @@ int bim_getkey(int read_timeout) {
 	return KEY_TIMEOUT;
 }
 
+enum Key key_from_name(char * name) {
+	for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+		if (!strcmp(KeyNames[i].name, name)) return KeyNames[i].keycode;
+	}
+	if (name[0] == '^' && name[1] && !name[2]) {
+		return name[1] - '@';
+	}
+	if (!name[1]) return name[0];
+	/* Try decoding */
+	uint32_t c, state = 0;
+	int candidate = -1;
+	while (*name) {
+		if (!decode(&state, &c, (unsigned char)*name)) {
+			if (candidate == -1) candidate = c;
+			else return -1; /* Multiple characters */
+		} else if (state == UTF8_REJECT) {
+			return -1;
+		}
+	}
+	return candidate;
+}
+
+
 /**
  * Pointer to current active buffer
  */
@@ -8504,22 +8527,7 @@ BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
 	redraw_text();
 }
 
-struct action_map {
-	int key;
-	void (*method)();
-	int options;
-	int arg;
-};
-
-#define opt_rep  0x1 /* This action will be repeated */
-#define opt_arg  0x2 /* This action will take a specified argument */
-#define opt_char 0x4 /* This action will read a character to pass as an argument */
-#define opt_nav  0x8 /* This action will consume the nav buffer as its argument */
-#define opt_rw   0x10 /* Must not be read-only */
-#define opt_norm 0x20 /* Returns to normal mode */
-#define opt_byte 0x40 /* Same as opt_char but forces a byte */
-
-struct action_map NORMAL_MAP[] = {
+struct action_map _NORMAL_MAP[] = {
 	{KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0},
 	{'V',           enter_line_selection, 0, 0},
 	{'v',           enter_char_selection, 0, 0},
@@ -8546,7 +8554,7 @@ struct action_map NORMAL_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map INSERT_MAP[] = {
+struct action_map _INSERT_MAP[] = {
 	{KEY_ESCAPE,    leave_insert, 0, 0},
 	{KEY_DELETE,    delete_forward, 0, 0},
 	{KEY_CTRL_C,    leave_insert, 0, 0},
@@ -8561,7 +8569,7 @@ struct action_map INSERT_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map REPLACE_MAP[] = {
+struct action_map _REPLACE_MAP[] = {
 	{KEY_ESCAPE,    leave_insert, 0, 0},
 	{KEY_DELETE,    delete_forward, 0, 0},
 	{KEY_BACKSPACE, cursor_left_with_wrap, 0, 0},
@@ -8569,7 +8577,7 @@ struct action_map REPLACE_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map LINE_SELECTION_MAP[] = {
+struct action_map _LINE_SELECTION_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{'V',           leave_selection, 0, 0},
@@ -8589,7 +8597,7 @@ struct action_map LINE_SELECTION_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map CHAR_SELECTION_MAP[] = {
+struct action_map _CHAR_SELECTION_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{'v',           leave_selection, 0, 0},
@@ -8605,7 +8613,7 @@ struct action_map CHAR_SELECTION_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map COL_SELECTION_MAP[] = {
+struct action_map _COL_SELECTION_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{KEY_CTRL_V,    leave_selection, 0, 0},
@@ -8615,7 +8623,7 @@ struct action_map COL_SELECTION_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map COL_INSERT_MAP[] = {
+struct action_map _COL_INSERT_MAP[] = {
 	{KEY_ESCAPE,    leave_selection, 0, 0},
 	{KEY_CTRL_C,    leave_selection, 0, 0},
 	{KEY_BACKSPACE, delete_at_column, opt_arg, -1},
@@ -8626,7 +8634,7 @@ struct action_map COL_INSERT_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map NAVIGATION_MAP[] = {
+struct action_map _NAVIGATION_MAP[] = {
 	/* Common navigation */
 	{KEY_CTRL_B,    go_page_up, opt_rep, 0},
 	{KEY_CTRL_F,    go_page_down, opt_rep, 0},
@@ -8667,7 +8675,7 @@ struct action_map NAVIGATION_MAP[] = {
 	{-1, NULL, 0, 0},
 };
 
-struct action_map ESCAPE_MAP[] = {
+struct action_map _ESCAPE_MAP[] = {
 	{KEY_F1,        toggle_numbers, 0, 0},
 	{KEY_F2,        toggle_indent, 0, 0},
 	{KEY_F3,        toggle_gutter, 0, 0},
@@ -8698,7 +8706,7 @@ struct action_map ESCAPE_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
-struct action_map COMMAND_MAP[] = {
+struct action_map _COMMAND_MAP[] = {
 	{KEY_ENTER,     command_accept, 0, 0},
 	{'\t',          command_tab_complete_buffer, 0, 0},
 	{KEY_UP,        command_scroll_history, opt_arg, -1}, /* back */
@@ -8707,7 +8715,7 @@ struct action_map COMMAND_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
-struct action_map SEARCH_MAP[] = {
+struct action_map _SEARCH_MAP[] = {
 	{KEY_ENTER,    search_accept, 0, 0},
 
 	{KEY_UP,       NULL, 0, 0},
@@ -8716,7 +8724,7 @@ struct action_map SEARCH_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
-struct action_map INPUT_BUFFER_MAP[] = {
+struct action_map _INPUT_BUFFER_MAP[] = {
 	/* These are generic and shared with search */
 	{KEY_ESCAPE,    command_discard, 0, 0},
 	{KEY_CTRL_C,    command_discard, 0, 0},
@@ -8733,9 +8741,40 @@ struct action_map INPUT_BUFFER_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
+/* DIRECTORY_BROWSE_MAP is only to override KEY_ENTER and should not be remapped,
+ * so unlike the others it is not going to be redefined as a pointer. */
 struct action_map DIRECTORY_BROWSE_MAP[] = {
 	{KEY_ENTER,     open_file_from_line, 0, 0},
 	{-1, NULL, 0, 0}
+};
+
+struct action_map * NORMAL_MAP = NULL;
+struct action_map * INSERT_MAP = NULL;
+struct action_map * REPLACE_MAP = NULL;
+struct action_map * LINE_SELECTION_MAP = NULL;
+struct action_map * CHAR_SELECTION_MAP = NULL;
+struct action_map * COL_SELECTION_MAP = NULL;
+struct action_map * COL_INSERT_MAP = NULL;
+struct action_map * NAVIGATION_MAP = NULL;
+struct action_map * ESCAPE_MAP = NULL;
+struct action_map * COMMAND_MAP = NULL;
+struct action_map * SEARCH_MAP = NULL;
+struct action_map * INPUT_BUFFER_MAP = NULL;
+
+struct mode_names mode_names[] = {
+	{"Normal","norm",&NORMAL_MAP},
+	{"Insert","insert",&INSERT_MAP},
+	{"Replace","replace",&REPLACE_MAP},
+	{"Line Selection","line",&LINE_SELECTION_MAP},
+	{"Char Selection","char",&CHAR_SELECTION_MAP},
+	{"Col Selection","col",&COL_SELECTION_MAP},
+	{"Col Insert","colinsert",&COL_INSERT_MAP},
+	{"Navigation (Select)","nav",&NAVIGATION_MAP},
+	{"Escape (Select, Insert)","esc",&ESCAPE_MAP},
+	{"Command","command",&COMMAND_MAP},
+	{"Search","search",&SEARCH_MAP},
+	{"Input (Command, Search)","input",&INPUT_BUFFER_MAP},
+	{NULL,NULL,NULL},
 };
 
 int handle_action(struct action_map * basemap, int key) {
@@ -9094,6 +9133,7 @@ static void show_usage(char * argv[]) {
 			" --version       " _s "show version information and available plugins" _e
 			" --dump-mappings " _s "dump markdown description of key mappings" _e
 			" --dump-commands " _s "dump markdown description of all commands" _e
+			" --dump-config   " _s "dump key mappings as a bimscript" _e
 			" --html FILE     " _s "convert FILE to syntax-highlighted HTML" _e
 			"\n", argv[0], argv[0]);
 #undef _e
@@ -9418,11 +9458,42 @@ void detect_weird_terminals(void) {
  * Run global initialization tasks
  */
 void initialize(void) {
+	/* Force empty locale */
 	setlocale(LC_ALL, "");
 
+	/* Set up default key mappings */
+#define CLONE_MAP(map) do { \
+	int len = 0, i = 0; \
+	for (struct action_map * m = _ ## map; m->key != -1; m++, len++); \
+	map = malloc(sizeof(struct action_map) * (len + 1)); \
+	for (struct action_map * m = _ ## map; m->key != -1; m++, i++) { \
+		memcpy(&map[i], m, sizeof(struct action_map)); \
+	} \
+	map[i].key = -1; \
+} while (0)
+
+	CLONE_MAP(NORMAL_MAP);
+	CLONE_MAP(INSERT_MAP);
+	CLONE_MAP(REPLACE_MAP);
+	CLONE_MAP(LINE_SELECTION_MAP);
+	CLONE_MAP(CHAR_SELECTION_MAP);
+	CLONE_MAP(COL_SELECTION_MAP);
+	CLONE_MAP(COL_INSERT_MAP);
+	CLONE_MAP(NAVIGATION_MAP);
+	CLONE_MAP(ESCAPE_MAP);
+	CLONE_MAP(COMMAND_MAP);
+	CLONE_MAP(SEARCH_MAP);
+	CLONE_MAP(INPUT_BUFFER_MAP);
+
+#undef CLONE_MAP
+
+	/* Detect terminal quirks */
 	detect_weird_terminals();
+
+	/* Load bimrc */
 	load_bimrc();
 
+	/* Initialize space for buffers */
 	buffers_avail = 4;
 	buffers = malloc(sizeof(buffer_t *) * buffers_avail);
 }
@@ -9688,7 +9759,7 @@ char * describe_options(int options) {
 	return out;
 }
 
-void dump_map_commands(char * name, struct action_map * map) {
+void dump_map_commands(const char * name, struct action_map * map) {
 	struct action_map * m = map;
 	while (m->key != -1) {
 		struct action_def * action = find_action(m->method);
@@ -9705,6 +9776,139 @@ void dump_map_commands(char * name, struct action_map * map) {
 		printf("\n");
 		m++;
 	}
+}
+
+BIM_COMMAND(mapkey,"mapkey","Map a key to an action.") {
+	if (argc < 2) goto _argument_error;
+
+	char * mode = argv[1];
+
+	char * key = strstr(mode," ");
+	if (!key) goto _argument_error;
+	*key = '\0';
+	key++;
+
+	char * action = strstr(key," ");
+	if (!action) goto _argument_error;
+	*action = '\0';
+	action++;
+
+	/* Options are optional */
+	char * options = strstr(action, " ");
+	char * arg = NULL;
+	if (options) {
+		*options = '\0';
+		options++;
+
+		arg = strstr(options, " ");
+		if (arg) {
+			*arg = '\0';
+			arg++;
+		}
+	}
+
+	render_status_message("Going to map key %s in mode %s to action %s with options %s, %s",
+		key, mode, action, options, arg);
+
+	/* Convert mode to mode name */
+	struct action_map ** mode_map = NULL;
+	for (struct mode_names * m = mode_names; m->name; ++m) {
+		if (!strcmp(m->name, mode)) {
+			mode_map = m->mode;
+			break;
+		}
+	}
+
+	if (!mode_map) {
+		render_error("invalid mode: %s", mode);
+		return 1;
+	}
+
+	enum Key keycode = key_from_name(key);
+	if (keycode == -1) {
+		render_error("invalid key: %s", key);
+		return 1;
+	}
+
+	struct action_def * action_def = NULL;
+	for (int i = 0; i < flex_mappable_actions_count; ++i) {
+		if (!strcmp(mappable_actions[i].name, action)) {
+			action_def = &mappable_actions[i];
+			break;
+		}
+	}
+
+	if (!action_def) {
+		render_error("invalid action: %s", action);
+		return 1;
+	}
+
+	/* Sanity check required options */
+	if ((action_def->options & ARG_IS_CUSTOM) &&
+		(!options || (!strchr(options,'a') && !strchr(options,'n')))) goto _action_sanity;
+	if ((action_def->options & ARG_IS_PROMPT) &&
+		(!options || (!strchr(options,'c') && !strchr(options,'b')))) goto _action_sanity;
+	if ((action_def->options & ACTION_IS_RW)  &&
+		(!options || !strchr(options,'w'))) goto _action_sanity;
+
+	int option_map = 0;
+
+	if (options) {
+		for (char * o = options; *o; ++o) {
+			switch (*o) {
+				case 'r': option_map |= opt_rep; break;
+				case 'a': option_map |= opt_arg; break;
+				case 'c': option_map |= opt_char; break;
+				case 'n': option_map |= opt_nav; break;
+				case 'w': option_map |= opt_rw; break;
+				case 'm': option_map |= opt_norm; break;
+				case 'b': option_map |= opt_byte; break;
+				default:
+					render_error("Invalid option flag: %c", *o);
+					return 1;
+			}
+		}
+	}
+
+	if ((option_map & opt_arg) && !arg) {
+		render_error("flag 'a' requires an additional argument");
+		return 1;
+	}
+
+	int arg_value = (option_map & opt_arg) ? atoi(arg) : 0;
+
+	/* Make space */
+	struct action_map * candidate = NULL;
+	for (struct action_map * m = *mode_map; m->key != -1; ++m) {
+		if (m->key == keycode) {
+			candidate = m;
+			break;
+		}
+	}
+
+	if (!candidate) {
+		/* get size */
+		int len = 0;
+		for (struct action_map * m = *mode_map; m->key != -1; m++, len++);
+		*mode_map = realloc(*mode_map, sizeof(struct action_map) * (len + 2));
+		candidate = &(*mode_map)[len];
+		(*mode_map)[len+1].key = -1;
+	}
+
+	candidate->key = keycode;
+	candidate->method = action_def->action;
+	candidate->options = option_map;
+	candidate->arg = arg_value;
+
+	return 0;
+
+_action_sanity:
+	render_error("action %s requires missing flag", action);
+	return 1;
+
+_argument_error:
+	render_error("usage: mapkey MODE KEY ACTION [OPTIONS [ARG]]");
+	return 1;
 }
 
 int main(int argc, char * argv[]) {
@@ -9770,20 +9974,13 @@ int main(int argc, char * argv[]) {
 					show_usage(argv);
 					return 0;
 				} else if (!strcmp(optarg,"dump-mappings")) {
-					dump_mapping("Normal", NORMAL_MAP);
-					dump_mapping("Insert", INSERT_MAP);
-					dump_mapping("Replace", REPLACE_MAP);
-					dump_mapping("Line Selection", LINE_SELECTION_MAP);
-					dump_mapping("Char Selection", CHAR_SELECTION_MAP);
-					dump_mapping("Col Selection", COL_SELECTION_MAP);
-					dump_mapping("Col Insert", COL_INSERT_MAP);
-					dump_mapping("Navigation (Select)", NAVIGATION_MAP);
-					dump_mapping("Escape (Select, Insert)", ESCAPE_MAP);
-					dump_mapping("Command", COMMAND_MAP);
-					dump_mapping("Search", SEARCH_MAP);
-					dump_mapping("Input (Command, Search)", INPUT_BUFFER_MAP);
+					initialize();
+					for (struct mode_names * m = mode_names; m->name; ++m) {
+						dump_mapping(m->description, *m->mode);
+					}
 					return 0;
 				} else if (!strcmp(optarg,"dump-commands")) {
+					initialize();
 					dump_commands();
 					return 0;
 				} else if (!strcmp(optarg,"html")) {
@@ -9798,20 +9995,12 @@ int main(int argc, char * argv[]) {
 					/* write to stdout */
 					output_file(env, stdout);
 					return 0;
-				} else if (!strcmp(optarg,"tmp-dump-config")) {
+				} else if (!strcmp(optarg,"dump-config")) {
+					initialize();
 					/* Dump a config file representing the current key mappings */
-					dump_map_commands("norm",NORMAL_MAP);
-					dump_map_commands("insert",INSERT_MAP);
-					dump_map_commands("replace",REPLACE_MAP);
-					dump_map_commands("line",LINE_SELECTION_MAP);
-					dump_map_commands("char",CHAR_SELECTION_MAP);
-					dump_map_commands("col",COL_SELECTION_MAP);
-					dump_map_commands("colinsert",COL_INSERT_MAP);
-					dump_map_commands("nav",NAVIGATION_MAP);
-					dump_map_commands("esc",ESCAPE_MAP);
-					dump_map_commands("command",COMMAND_MAP);
-					dump_map_commands("search",SEARCH_MAP);
-					dump_map_commands("input",INPUT_BUFFER_MAP);
+					for (struct mode_names * m = mode_names; m->name; ++m) {
+						dump_map_commands(m->name, *m->mode);
+					}
 					return 0;
 				} else if (strlen(optarg)) {
 					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
