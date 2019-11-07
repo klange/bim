@@ -42,7 +42,7 @@ BIM_THEME(sunsmoke256) {
 /* Custom theme */
 BIM_THEME(sunsmoke) {
 	if (!global_config.can_24bit) {
-		load_colorscheme_sunsmoke256();
+		load_colorscheme_sunsmoke256("sunsmoke256");
 		return;
 	}
 	COLOR_FG        = "2;230;230;230";

@@ -1,5 +1,5 @@
 # A light color scheme
-function theme_light
+function theme:light
     checkprop can_24bit
 
     setcolor text-fg 2;0;0;0
@@ -33,3 +33,5 @@ function theme_light
 
     action redraw_all
 end
+
+registertheme light

@@ -290,7 +290,7 @@ typedef struct _env {
 
 struct theme_def {
 	const char * name;
-	void (*load)(void);
+	void (*load)(const char * name);
 };
 
 extern struct theme_def * themes;

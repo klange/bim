@@ -4980,13 +4980,38 @@ BIM_COMMAND(version,"version","Show version information.") {
 	return 0;
 }
 
+void load_colorscheme_script(const char * name) {
+	static char name_copy[512];
+	char tmp[1024];
+	snprintf(tmp, 1023, "theme:%s", name);
+	if (!run_function(tmp)) {
+		sprintf(name_copy, "%s", name);
+		current_theme = name_copy;
+	}
+}
+
+BIM_COMMAND(registertheme,"registertheme","Register a theme: function as an available color theme.") {
+	if (argc < 2) {
+		render_error("Need a theme name to register.");
+		return 1;
+	}
+	char tmp[1024];
+	snprintf(tmp, 1023, "theme:%s", argv[1]);
+	if (!has_function(tmp)) {
+		render_error("No function called theme:%s", argv[1]);
+		return 1;
+	}
+	add_colorscheme((struct theme_def){strdup(argv[1]), load_colorscheme_script});
+	return 0;
+}
+
 BIM_COMMAND(theme,"theme","Set color theme") {
 	if (argc < 2) {
 		render_status_message("theme=%s", current_theme);
 	} else {
 		for (struct theme_def * d = themes; themes && d->name; ++d) {
 			if (!strcmp(argv[1], d->name)) {
-				d->load();
+				d->load(d->name);
 				redraw_all();
 				return 0;
 			}
