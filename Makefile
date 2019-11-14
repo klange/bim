@@ -8,7 +8,6 @@ bindir=$(exec_prefix)/bin
 INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 
-THEMES = $(patsubst %.c, %.o, $(wildcard themes/*.c))
 SYNTAXES = $(patsubst %.c, %.o, $(wildcard syntax/*.c))
 HEADERS = $(wildcard bim-*.h)
 
@@ -17,13 +16,12 @@ HEADERS = $(wildcard bim-*.h)
 all: $(TARGET)
 
 syntax/*.o: $(HEADERS)
-themes/*.o: $(HEADERS)
 *.o: $(HEADERS)
 
-bim: bim.o $(THEMES) $(SYNTAXES)
+bim: bim.o $(SYNTAXES)
 
 clean:
-	-rm -f $(TARGET) bim.o $(THEMES) $(SYNTAXES)
+	-rm -f $(TARGET) bim.o $(SYNTAXES)
 
 distclean: clean
 
@@ -39,7 +37,7 @@ uninstall:
 
 .PHONY: tags
 tags:
-	ctags --c-kinds=+lx bim.c bim-*.h themes/* syntax/*
+	ctags --c-kinds=+lx bim.c bim-*.h syntax/*
 	# Action definitions create functions with the same name
 	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_ACTION.([a-zA-Z_]*),/\1/f/' --append bim.c
 	# Command definitions are prefixed with bim_command_

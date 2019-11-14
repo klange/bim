@@ -31,8 +31,4 @@ function theme:light
     setcolor bold 2;57;76;82;1
     setcolor link 2;0;114;212;4
     setcolor escape 2;0;156;143
-
-    action redraw_all
 end
-
-registertheme light

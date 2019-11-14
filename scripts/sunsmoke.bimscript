@@ -1,5 +1,5 @@
 # Sunsmoke Color Scheme
-function theme_sunsmoke
+function theme:sunsmoke
     checkprop can_24bit
 
     setcolor text-fg 2;230;230;230
@@ -30,6 +30,39 @@ function theme_sunsmoke
     setcolor bold 2;230;230;230;1
     setcolor link 2;51;162;230;4
     setcolor escape 2;113;203;173
+end
 
-    action redraw_all
+function theme:sunsmoke256
+    checkprop can_256color
+    setcolor text-fg 5;188
+    setcolor text-bg 5;234
+    setcolor alternate-fg 5;244
+    setcolor alternate-bg 5;236
+    setcolor number-fg 5;101
+    setcolor number-bg 5;232
+    setcolor status-fg 5;188
+    setcolor status-bg 5;59
+    setcolor status-alt 5;244
+    setcolor tabbar-bg 5;59
+    setcolor tab-bg 5;59
+    setcolor keyword 5;74
+    setcolor string 5;71
+    setcolor comment 5;102
+    setcolor type 5;221
+    setcolor pragma 5;160
+    setcolor numeral 5;161
+    setcolor error-fg 5;15
+    setcolor error-bg 5;196
+    setcolor search-fg 5;234
+    setcolor search-bg 5;226
+    setcolor select-fg 5;17
+    setcolor select-bg 5;109
+    setcolor red @1
+    setcolor green @2
+    setcolor bold 5;188;1
+    setcolor link 5;74;4
+    setcolor escape 5;79
+
+    checkprop can_italic
+    setcolor comment 5;102;3
 end
