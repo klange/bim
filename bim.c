@@ -5458,7 +5458,9 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
-	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") || !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") || args[0][0] == '!')) {
+	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") ||
+	    !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") ||
+	    !strcmp(args[0],"rundir") || args[0][0] == '!')) {
 		/* Complete file paths */
 
 		/* First, find the deepest directory match */
@@ -9354,6 +9356,39 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 	if (function_name) free(function_name);
 	fclose(f);
 	return retval;
+}
+
+BIM_COMMAND(rundir,"rundir","Run scripts from a directory, in unspecified order") {
+	if (argc < 2) return 1;
+	char * file = argv[1];
+	DIR * dirp;
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			char * _file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+			dirp = opendir(_file);
+			free(_file);
+		}
+	} else {
+		dirp = opendir(file);
+	}
+	if (!dirp) {
+		render_error("Directory is not accessible: %s", argv[1]);
+		return 1;
+	}
+	struct dirent * ent = readdir(dirp);
+	while (ent) {
+		if (str_ends_with(ent->d_name,".bimscript")) {
+			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
+			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
+			char * args[] = {"runscript",tmp,NULL};
+			bim_command_runscript("runscript", 2, args);
+			free(tmp);
+		}
+		ent = readdir(dirp);
+	}
+	return 0;
 }
 
 /**
