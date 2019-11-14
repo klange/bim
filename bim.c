@@ -4990,21 +4990,6 @@ void load_colorscheme_script(const char * name) {
 	}
 }
 
-BIM_COMMAND(registertheme,"registertheme","Register a theme: function as an available color theme.") {
-	if (argc < 2) {
-		render_error("Need a theme name to register.");
-		return 1;
-	}
-	char tmp[1024];
-	snprintf(tmp, 1023, "theme:%s", argv[1]);
-	if (!has_function(tmp)) {
-		render_error("No function called theme:%s", argv[1]);
-		return 1;
-	}
-	add_colorscheme((struct theme_def){strdup(argv[1]), load_colorscheme_script});
-	return 0;
-}
-
 BIM_COMMAND(theme,"theme","Set color theme") {
 	if (argc < 2) {
 		render_status_message("theme=%s", current_theme);
@@ -9333,6 +9318,9 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 				user_functions[this] = new_function;
 			} else {
 				add_user_function(new_function);
+				if (strstr(function_name,"theme:") == function_name) {
+					add_colorscheme((struct theme_def){strdup(function_name+6), load_colorscheme_script});
+				}
 			}
 			free(function_name);
 			new_function = NULL;
