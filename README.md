@@ -71,6 +71,15 @@ You can pipe text to bim for editing with `bim -`. Note that Bim will wait for e
 
 Bim includes a handful of color schemes for the interface and syntax highlighting.
 
+To enable themes, place theme scripts in an acessible directory and call them with `rundir` or `runscript` from your `~/.bimrc` file.
+
+For example, you can install bim themes to `/usr/share/bim/themes` and add the following lines at the start of your bimrc:
+
+    rundir /usr/share/bim/themes
+    theme sunsmoke
+
+By default, themes are not installed along with bim. You can also embed themes in your bimrc directly.
+
 ### ANSI
 
 The default 16-color theme. Can be configured for use on terminals with or without bright color support. Looks a bit like Irssi.
