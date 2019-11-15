@@ -9791,6 +9791,7 @@ int main(int argc, char * argv[]) {
 				break;
 			case '-':
 				if (!strcmp(optarg,"version")) {
+					initialize(); /* Need to load bimrc to get themes */
 					fprintf(stderr, "bim %s%s - %s\n", BIM_VERSION, BIM_BUILD_DATE, BIM_COPYRIGHT);
 					fprintf(stderr, " Available syntax highlighters:");
 					for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
