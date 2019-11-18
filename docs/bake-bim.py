@@ -25,11 +25,9 @@ def prune(lines):
 
 headers = {
     'bim-core.h':   prune(read_file('bim-core.h')),
-    'bim-theme.h':  prune(read_file('bim-theme.h')),
     'bim-syntax.h': prune(read_file('bim-syntax.h')),
 }
 
-themes = [prune(read_file(x)) for x in sorted(glob.glob('themes/*.c'))]
 syntax = [prune(read_file(x)) for x in sorted(glob.glob('syntax/*.c'))]
 
 gitsha = subprocess.check_output(['git','rev-parse','HEAD']).decode('utf-8').strip()
@@ -56,10 +54,6 @@ for line in bim:
                 for l in headers[header]:
                     bim_out.append(l)
                 bim_out.append('/* End of {} */'.format(header))
-
-# Add each pruned theme.
-for theme in themes:
-    bim_out.extend(theme)
 
 for syn in syntax:
     bim_out.extend(syn)
