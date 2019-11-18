@@ -116,6 +116,12 @@ A 24-bit color theme based on the one for Atom and Sublime, featuring low contra
 
 ![citylights](docs/theme_citylights.png)
 
+### Light
+
+Based on selenized by Jan Warchoł
+
+![light](docs/theme_light.png)
+
 ## Config File
 
 Bim will automatically run commands from `~/.bimrc` on startup.
