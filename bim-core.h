@@ -193,6 +193,9 @@ typedef struct {
 	int scroll_amount;
 	int tab_offset;
 
+	char * tab_indicator;
+	char * space_indicator;
+
 } global_config_t;
 
 #define OVERLAY_MODE_NONE     0

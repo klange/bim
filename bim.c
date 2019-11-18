@@ -2050,16 +2050,9 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			/* Render special characters */
 			if (c.codepoint == '\t') {
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				if (global_config.can_unicode) {
-					printf("»");
-					for (int i = 1; i < c.display_width; ++i) {
-						printf("·");
-					}
-				} else {
-					printf(">");
-					for (int i = 1; i < c.display_width; ++i) {
-						printf("-");
-					}
+				printf("%s", global_config.tab_indicator);
+				for (int i = 1; i < c.display_width; ++i) {
+					printf("%s" ,global_config.space_indicator);
 				}
 				_set_colors(last_color ? last_color : COLOR_FG, COLOR_BG);
 			} else if (c.codepoint < 32) {
@@ -2098,11 +2091,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			} else if (c.codepoint == ' ' && i == line->actual - 1) {
 				/* Special case: space at end of line */
 				_set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
-				if (global_config.can_unicode) {
-					printf("·");
-				} else {
-					printf("-");
-				}
+				printf("%s",global_config.space_indicator);
 				_set_colors(COLOR_FG, COLOR_BG);
 			} else {
 				/* Normal characters get output */
@@ -4844,6 +4833,34 @@ BIM_COMMAND(tabp,"tabp","Previous tab") {
 BIM_COMMAND(tabn,"tabn","Next tab") {
 	next_tab();
 	update_title();
+	return 0;
+}
+
+BIM_COMMAND(tabindicator,"tabindicator","Set the tab indicator") {
+	if (argc < 2) {
+		render_status_message("tabindicator=%s", global_config.tab_indicator);
+		return 0;
+	}
+	if (display_width_of_string(argv[1]) != 1) {
+		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
+		return 1;
+	}
+	if (global_config.tab_indicator) free(global_config.tab_indicator);
+	global_config.tab_indicator = strdup(argv[1]);
+	return 0;
+}
+
+BIM_COMMAND(spaceindicator,"spaceindicator","Set the space indicator") {
+	if (argc < 2) {
+		render_status_message("spaceindicator=%s", global_config.space_indicator);
+		return 0;
+	}
+	if (display_width_of_string(argv[1]) != 1) {
+		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
+		return 1;
+	}
+	if (global_config.space_indicator) free(global_config.space_indicator);
+	global_config.space_indicator = strdup(argv[1]);
 	return 0;
 }
 
@@ -9469,6 +9486,14 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"toaru-vga") == term) {
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
+	}
+
+	if (!global_config.can_unicode) {
+		global_config.tab_indicator = strdup(">");
+		global_config.space_indicator = strdup("-");
+	} else {
+		global_config.tab_indicator = strdup("»");
+		global_config.space_indicator = strdup("·");
 	}
 
 }
