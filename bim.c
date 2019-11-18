@@ -9377,7 +9377,7 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 BIM_COMMAND(rundir,"rundir","Run scripts from a directory, in unspecified order") {
 	if (argc < 2) return 1;
 	char * file = argv[1];
-	DIR * dirp;
+	DIR * dirp = NULL;
 	if (file[0] == '~') {
 		char * home = getenv("HOME");
 		if (home) {
