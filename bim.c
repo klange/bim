@@ -2531,6 +2531,10 @@ void redraw_statusbar(void) {
 		ADD("indent");
 	}
 
+	if (global_config.smart_complete) {
+		ADD("complete");
+	}
+
 #undef ADD
 
 	uint8_t * file_name = (uint8_t *)(env->file_name ? env->file_name : "[No Name]");
@@ -8334,6 +8338,14 @@ BIM_ACTION(toggle_indent, 0,
 	place_cursor_actual();
 }
 
+BIM_ACTION(toggle_smartcomplete, 0,
+	"Toggle smart completion."
+)(void) {
+	global_config.smart_complete = !global_config.smart_complete;
+	redraw_statusbar();
+	place_cursor_actual();
+}
+
 BIM_ACTION(expand_split_right, 0,
 	"Move the view split divider to the right."
 )(void) {
@@ -8708,6 +8720,7 @@ struct action_map ESCAPE_MAP[] = {
 	{KEY_F1,        toggle_numbers, 0, 0},
 	{KEY_F2,        toggle_indent, 0, 0},
 	{KEY_F3,        toggle_gutter, 0, 0},
+	{KEY_F4,        toggle_smartcomplete, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
 
 	{KEY_UP,        cursor_up, opt_rep, 0},
