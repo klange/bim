@@ -339,8 +339,8 @@ int bim_getkey(int read_timeout) {
 						case 'G': timeout = 0; return KEY_PAGE_DOWN;
 						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
 						case '~':
-							if (this_buf[3] == '\0') {
-								switch (this_buf[timeout-1]) {
+							if (timeout == 3) {
+								switch (this_buf[2]) {
 									case '1': timeout = 0; return KEY_HOME;
 									case '3': timeout = 0; return KEY_DELETE;
 									case '4': timeout = 0; return KEY_END;
