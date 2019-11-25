@@ -2839,6 +2839,7 @@ int is_paren(int c) {
 }
 
 #define _rehighlight_parens() do { \
+	if (i < 0 || i >= env->line_count) break; \
 	for (int j = 0; j < env->lines[i]->actual; ++j) { \
 		if (i == line-1 && j == col-1) { \
 			env->lines[line-1]->text[col-1].flags |= FLAG_SELECT; \
