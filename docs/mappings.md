@@ -155,6 +155,7 @@
 | `<f1>` | `toggle_numbers` | Toggle the display of line numbers. |
 | `<f2>` | `toggle_indent` | Toggle smart indentation. |
 | `<f3>` | `toggle_gutter` | Toggle the display of the revision status gutter. |
+| `<f4>` | `toggle_smartcomplete` | Toggle smart completion. |
 | `<mouse>` | `handle_mouse` | Process mouse actions. |
 | `<up>` | `cursor_up` | Move the cursor up one line. |
 | `<down>` | `cursor_down` | Move the cursor one line down. |
