@@ -2,7 +2,7 @@
 #include "bim-syntax.h"
 
 int lisp_paren_flags[] = {
-	FLAG_STRING, FLAG_TYPE, FLAG_PRAGMA, FLAG_KEYWORD,
+	FLAG_DIFFPLUS, FLAG_TYPE, FLAG_PRAGMA, FLAG_KEYWORD,
 };
 
 int lisp_paren_flag_from_state(int i) {
