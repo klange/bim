@@ -62,7 +62,10 @@ enum Key {
 	KEY_DELETE = 0x7F,
 	/* Unicode codepoints go here */
 	KEY_ESCAPE = 0x400000, /* Escape would normally be 27, but is special because reasons */
-	KEY_F1, KEY_F2, KEY_F3, KEY_F4, /* TODO other F keys */
+	KEY_F1, KEY_F2, KEY_F3, KEY_F4,
+	KEY_F5, KEY_F6, KEY_F7, KEY_F8,
+	KEY_F9, KEY_F10, KEY_F11, KEY_F12,
+	/* TODO ALT, SHIFT, etc., for F keys */
 	KEY_MOUSE, /* Must be followed with a 3-byte mouse read */
 	KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
 	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT,

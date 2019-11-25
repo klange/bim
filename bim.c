@@ -87,6 +87,8 @@ struct key_name_map KeyNames[] = {
 	{KEY_DELETE, "<del>"},
 	{KEY_MOUSE, "<mouse>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
+	{KEY_F5, "<f5>"},{KEY_F6, "<f6>"},{KEY_F7, "<f7>"},{KEY_F8, "<f8>"},
+	{KEY_F9, "<f9>"},{KEY_F10, "<f10>"},{KEY_F11, "<f11>"},{KEY_F12, "<f12>"},
 	{KEY_HOME,"<home>"},{KEY_END,"<end>"},{KEY_PAGE_UP,"<page-up>"},{KEY_PAGE_DOWN,"<page-down>"},
 	{KEY_UP, "<up>"},{KEY_DOWN, "<down>"},{KEY_RIGHT, "<right>"},{KEY_LEFT, "<left>"},
 	{KEY_SHIFT_UP, "<shift-up>"},{KEY_SHIFT_DOWN, "<shift-down>"},{KEY_SHIFT_RIGHT, "<shift-right>"},{KEY_SHIFT_LEFT, "<shift-left>"},
@@ -337,12 +339,28 @@ int bim_getkey(int read_timeout) {
 						case 'G': timeout = 0; return KEY_PAGE_DOWN;
 						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
 						case '~':
-							switch (this_buf[timeout-1]) {
-								case '1': timeout = 0; return KEY_HOME;
-								case '3': timeout = 0; return KEY_DELETE;
-								case '4': timeout = 0; return KEY_END;
-								case '5': timeout = 0; return KEY_PAGE_UP;
-								case '6': timeout = 0; return KEY_PAGE_DOWN;
+							if (this_buf[3] == '\0') {
+								switch (this_buf[timeout-1]) {
+									case '1': timeout = 0; return KEY_HOME;
+									case '3': timeout = 0; return KEY_DELETE;
+									case '4': timeout = 0; return KEY_END;
+									case '5': timeout = 0; return KEY_PAGE_UP;
+									case '6': timeout = 0; return KEY_PAGE_DOWN;
+								}
+							} else if (this_buf[2] == '1') {
+								switch (this_buf[3]) {
+									case '5': return KEY_F5;
+									case '7': return KEY_F6;
+									case '8': return KEY_F7;
+									case '9': return KEY_F8;
+								}
+							} else if (this_buf[2] == '2') {
+								switch (this_buf[3]) {
+									case '0': return KEY_F9;
+									case '1': return KEY_F10;
+									case '3': return KEY_F11;
+									case '4': return KEY_F12;
+								}
 							}
 							break;
 					}
