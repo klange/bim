@@ -104,13 +104,14 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				if (match_and_paint(state, m->name, FLAG_TYPE, cmd_qualifier)) break;
 			}
 			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
-			while (charat() != ' ') skip(); /* key name */
+			while (charat() != ' ' && charat() != -1) skip(); /* key name */
 			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
 			for (struct action_def * a = mappable_actions; a->name; ++a) {
 				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) break;
 			}
+			match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier);
 			if (charat() == -1) return -1;
-			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
+			if (charat() == ' ' && charat() != -1) skip(); else { paint(1, FLAG_ERROR); return -1; }
 			while (charat() != -1 && charat() != ' ') {
 				if (!strchr("racnwmb",charat())) {
 					paint(1, FLAG_ERROR);

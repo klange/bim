@@ -5520,6 +5520,35 @@ void command_tab_complete(char * buffer) {
 		goto _accept_candidate;
 	}
 
+	if (arg == 1 && (!strcmp(args[0], "mapkey"))) {
+		for (int i = 0; args[arg][i]; ++i) {
+			if (args[arg][i] == ' ') {
+				while (args[arg][i] == ' ') {
+					args[arg][i] = '\0';
+					i++;
+				}
+				start = &args[arg][i];
+				arg++;
+				args[arg] = start;
+				if (arg == 32) {
+					arg = 31;
+					break;
+				}
+			}
+		}
+
+		if (arg == 1) {
+			for (struct mode_names * m = mode_names; m->name; ++m) {
+				add_candidate(m->name);
+			}
+		} else if (arg == 2) {
+			for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
+				add_candidate(KeyNames[i].name);
+			}
+		}
+		goto _accept_candidate;
+	}
+
 	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") ||
 	    !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") ||
 	    !strcmp(args[0],"rundir") || args[0][0] == '!')) {
