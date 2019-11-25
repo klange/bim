@@ -34,7 +34,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.4.0" TAG
+#define BIM_VERSION   "2.5.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2019 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
