@@ -5530,6 +5530,7 @@ void command_tab_complete(char * buffer) {
 				start = &args[arg][i];
 				arg++;
 				args[arg] = start;
+				i = 0;
 				if (arg == 32) {
 					arg = 31;
 					break;
@@ -5544,6 +5545,16 @@ void command_tab_complete(char * buffer) {
 		} else if (arg == 2) {
 			for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
 				add_candidate(KeyNames[i].name);
+			}
+		} else if (arg == 3) {
+			for (struct action_def * a = mappable_actions; a->name; ++a) {
+				add_candidate(a->name);
+			}
+			add_candidate("none");
+		} else if (arg == 4) {
+			for (char * c = "racnwmb"; *c; ++c) {
+				char tmp[] = {*c,'\0'};
+				add_candidate(tmp);
 			}
 		}
 		goto _accept_candidate;
