@@ -215,6 +215,11 @@ int syn_c_calculate(struct syntax_state * state) {
 					/* (for "includes", normal pragma highlighting covers that. */
 				} else if (match_and_paint(state, "if", FLAG_PRAGMA, c_keyword_qualifier)) {
 					/* These are to prevent #if and #else from being highlighted as keywords */
+					if (charat() == ' ' && nextchar() == '0' && charrel(2) == -1) {
+						state->i -= 4;
+						while (charat() != -1) paint(1, FLAG_COMMENT);
+						return 4;
+					}
 				} else if (match_and_paint(state, "else", FLAG_PRAGMA, c_keyword_qualifier)) {
 					/* ... */
 				}
@@ -257,6 +262,29 @@ int syn_c_calculate(struct syntax_state * state) {
 			/* In a block comment within an unclosed preprocessor statement */
 			if (paint_c_comment(state) == 1) return 3;
 			return paint_c_pragma(state);
+		default:
+			while (charat() == ' ' || charat() == '\t') paint(1, FLAG_COMMENT);
+			if (charat() == '#') {
+				paint(1, FLAG_COMMENT);
+				while (charat() == ' ' || charat() == '\t') paint(1, FLAG_COMMENT);
+				if (match_and_paint(state,"if",FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return state->state + 1;
+				} else if (match_and_paint(state, "else", FLAG_COMMENT, c_keyword_qualifier) || match_and_paint(state, "elif", FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state == 4) ? 0 : (state->state);
+				} else if (match_and_paint(state, "endif", FLAG_COMMENT, c_keyword_qualifier)) {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state == 4) ? 0 : (state->state - 1);
+				} else {
+					while (charat() != -1) paint(1, FLAG_COMMENT);
+					return (state->state);
+				}
+			} else {
+				while (charat() != -1) paint(1, FLAG_COMMENT);
+				return state->state;
+			}
+			break;
 	}
 	return -1;
 }
