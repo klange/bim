@@ -41,7 +41,7 @@ Bim has no external dependencies beyond a functioning C library, C99 compiler, a
 
 ### Terminal Support
 
-Unicode support is recommended, but not completely required. Most terminals support the handful of characters used in the default setup regardless, but use `-O nounicode` if you experience issues with the rendering of tabs.
+Unicode support is recommended, but not completely required. Most terminals support the handful of characters used in the default setup regardless, but use `-O nounicode` if you experience issues with the rendering of indentation hints.
 
 256-color and 24-bit color are optional. The default theme uses only the standard 16 colors. If your terminal only supports 8 colors, you can also supply `-O nobright` to disable bright colors.
 
@@ -82,7 +82,7 @@ By default, themes are not installed along with bim. You can also embed themes i
 
 ### ANSI
 
-The default 16-color theme. Can be configured for use on terminals with or without bright color support. Looks a bit like Irssi.
+A plain 16-color theme. Can be configured for use on terminals with or without bright color support. Looks a bit like Irssi.
 
 ![ansi](docs/theme_ansi.png)
 
@@ -126,12 +126,7 @@ Based on selenized by Jan Warchoł
 
 Bim will automatically run commands from `~/.bimrc` on startup.
 
-For example, you can set the default theme as follows:
-
-    # set a color theme, sunsmoke is a 24-bit theme
-    colorscheme sunsmoke
-
-A more detailed bimrc example is available at [docs/example.bimrc](docs/example.bimrc).
+A detailed bimrc example is available at [docs/example.bimrc](docs/example.bimrc).
 
 Bim scripts can define functions which can be called with `call function_name`.
 Functions with names like `onload:...` will be automatically run when a file
