@@ -67,6 +67,7 @@ global_config_t global_config = {
 	.autohide_tabs = 0,
 	.smart_complete = 0,
 	.has_terminal = 0,
+	.use_sgr_mouse = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -338,6 +339,7 @@ int bim_getkey(int read_timeout) {
 						case 'I': timeout = 0; return KEY_PAGE_UP;
 						case 'G': timeout = 0; return KEY_PAGE_DOWN;
 						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
+						case '<': timeout = 0; return KEY_MOUSE;
 						case '~':
 							if (timeout == 3) {
 								switch (this_buf[2]) {
@@ -1773,6 +1775,9 @@ void restore_cursor(void) {
 void mouse_enable(void) {
 	if (global_config.can_mouse) {
 		printf("\033[?1000h");
+		if (global_config.use_sgr_mouse) {
+			printf("\033[?1006h");
+		}
 	}
 }
 
@@ -1781,6 +1786,9 @@ void mouse_enable(void) {
  */
 void mouse_disable(void) {
 	if (global_config.can_mouse) {
+		if (global_config.use_sgr_mouse) {
+			printf("\033[?1006l");
+		}
 		printf("\033[?1000l");
 	}
 }
@@ -4909,6 +4917,17 @@ BIM_COMMAND(spaceindicator,"spaceindicator","Set the space indicator") {
 	return 0;
 }
 
+BIM_COMMAND(global_sgr,"global.sgr_mouse","Enable SGR mouse escapes") {
+	if (argc < 2) {
+		render_status_message("global.sgr_mouse=%d", global_config.use_sgr_mouse);
+	} else {
+		mouse_disable();
+		global_config.use_sgr_mouse = !!atoi(argv[1]);
+		mouse_enable();
+	}
+	return 0;
+}
+
 BIM_COMMAND(global_git,"global.git","Show or change the default status of git integration") {
 	if (argc < 2) {
 		render_status_message("global.git=%d", global_config.check_git);
@@ -6430,15 +6449,62 @@ BIM_ACTION(use_right_buffer, 0,
 	update_title();
 }
 
+void read_mouse_coordinates(int * buttons, int * x, int * y) {
+	if (global_config.use_sgr_mouse) {
+		int values[3] = {0};
+		char tmp[512] = {0};
+		char * c = tmp;
+		*buttons = 0;
+		do {
+			int _c = bim_getch();
+			if (_c == -1) {
+				break;
+			}
+			if (_c == 'm') {
+				*buttons = 3;
+				break;
+			} else if (_c == 'M') {
+				*buttons = 0;
+				break;
+			}
+			*c = _c;
+			++c;
+		} while (1);
+		char * j = tmp;
+		char * last = tmp;
+		int i = 0;
+		while (*j) {
+			if (*j == ';') {
+				*j = '\0';
+				values[i] = atoi(last);
+				last = j+1;
+				i++;
+				if (i == 3) break;
+			}
+			j++;
+		}
+		if (last && i < 3) values[i] = atoi(last);
+		if (*buttons != 3) {
+			*buttons = values[0];
+		}
+		*x = values[1];
+		*y = values[2];
+	} else {
+		/* Single-byte mouse */
+		*buttons = bim_getch() - 32;
+		*x = bim_getch() - 32;
+		*y = bim_getch() - 32;
+	}
+}
+
 /**
  * Handle mouse event
  */
 BIM_ACTION(handle_mouse, 0,
 	"Process mouse actions."
 )(void) {
-	int buttons = bim_getch() - 32;
-	int x = bim_getch() - 32;
-	int y = bim_getch() - 32;
+	int buttons, x, y;
+	read_mouse_coordinates(&buttons, &x, &y);
 
 	if (buttons == 64) {
 		/* Scroll up */
