@@ -87,6 +87,7 @@ struct key_name_map KeyNames[] = {
 	{'|', "<pipe>"},
 	{KEY_DELETE, "<del>"},
 	{KEY_MOUSE, "<mouse>"},
+	{KEY_MOUSE_SGR, "<mouse-sgr>"},
 	{KEY_F1, "<f1>"},{KEY_F2, "<f2>"},{KEY_F3, "<f3>"},{KEY_F4, "<f4>"},
 	{KEY_F5, "<f5>"},{KEY_F6, "<f6>"},{KEY_F7, "<f7>"},{KEY_F8, "<f8>"},
 	{KEY_F9, "<f9>"},{KEY_F10, "<f10>"},{KEY_F11, "<f11>"},{KEY_F12, "<f12>"},
@@ -330,6 +331,7 @@ int bim_getkey(int read_timeout) {
 				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 					switch (c) {
 						case 'M': timeout = 0; return KEY_MOUSE;
+						case '<': timeout = 0; return KEY_MOUSE_SGR;
 						case 'A': return shift_key(KEY_UP);
 						case 'B': return shift_key(KEY_DOWN);
 						case 'C': return shift_key(KEY_RIGHT);
@@ -339,7 +341,6 @@ int bim_getkey(int read_timeout) {
 						case 'I': timeout = 0; return KEY_PAGE_UP;
 						case 'G': timeout = 0; return KEY_PAGE_DOWN;
 						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
-						case '<': timeout = 0; return KEY_MOUSE;
 						case '~':
 							if (timeout == 3) {
 								switch (this_buf[2]) {
@@ -6449,63 +6450,7 @@ BIM_ACTION(use_right_buffer, 0,
 	update_title();
 }
 
-void read_mouse_coordinates(int * buttons, int * x, int * y) {
-	if (global_config.use_sgr_mouse) {
-		int values[3] = {0};
-		char tmp[512] = {0};
-		char * c = tmp;
-		*buttons = 0;
-		do {
-			int _c = bim_getch();
-			if (_c == -1) {
-				break;
-			}
-			if (_c == 'm') {
-				*buttons = 3;
-				break;
-			} else if (_c == 'M') {
-				*buttons = 0;
-				break;
-			}
-			*c = _c;
-			++c;
-		} while (1);
-		char * j = tmp;
-		char * last = tmp;
-		int i = 0;
-		while (*j) {
-			if (*j == ';') {
-				*j = '\0';
-				values[i] = atoi(last);
-				last = j+1;
-				i++;
-				if (i == 3) break;
-			}
-			j++;
-		}
-		if (last && i < 3) values[i] = atoi(last);
-		if (*buttons != 3) {
-			*buttons = values[0];
-		}
-		*x = values[1];
-		*y = values[2];
-	} else {
-		/* Single-byte mouse */
-		*buttons = bim_getch() - 32;
-		*x = bim_getch() - 32;
-		*y = bim_getch() - 32;
-	}
-}
-
-/**
- * Handle mouse event
- */
-BIM_ACTION(handle_mouse, 0,
-	"Process mouse actions."
-)(void) {
-	int buttons, x, y;
-	read_mouse_coordinates(&buttons, &x, &y);
-
+void handle_common_mouse(int buttons, int x, int y) {
 	if (buttons == 64) {
 		/* Scroll up */
 		if (global_config.shift_scrolling) {
@@ -6672,6 +6617,65 @@ BIM_ACTION(handle_mouse, 0,
 	}
 	return;
 }
+
+/**
+ * Handle mouse event
+ */
+BIM_ACTION(handle_mouse, 0,
+	"Process mouse actions."
+)(void) {
+	int buttons = bim_getch() - 32;
+	int x = bim_getch() - 32;
+	int y = bim_getch() - 32;
+
+	handle_common_mouse(buttons, x, y);
+}
+
+BIM_ACTION(handle_mouse_sgr, 0,
+	"Process SGR-style mouse actions."
+)(void) {
+	int values[3] = {0};
+	char tmp[512] = {0};
+	char * c = tmp;
+	int buttons = 0;
+	do {
+		int _c = bim_getch();
+		if (_c == -1) {
+			break;
+		}
+		if (_c == 'm') {
+			buttons = 3;
+			break;
+		} else if (_c == 'M') {
+			buttons = 0;
+			break;
+		}
+		*c = _c;
+		++c;
+	} while (1);
+	char * j = tmp;
+	char * last = tmp;
+	int i = 0;
+	while (*j) {
+		if (*j == ';') {
+			*j = '\0';
+			values[i] = atoi(last);
+			last = j+1;
+			i++;
+			if (i == 3) break;
+		}
+		j++;
+	}
+	if (last && i < 3) values[i] = atoi(last);
+	if (buttons != 3) {
+		buttons = values[0];
+	}
+	int x = values[1];
+	int y = values[2];
+
+	handle_common_mouse(buttons, x, y);
+}
+
 
 BIM_ACTION(insert_char, ARG_IS_INPUT | ACTION_IS_RW,
 	"Insert one character."
@@ -8854,6 +8858,7 @@ struct action_map _ESCAPE_MAP[] = {
 	{KEY_F3,        toggle_gutter, 0, 0},
 	{KEY_F4,        toggle_smartcomplete, 0, 0},
 	{KEY_MOUSE,     handle_mouse, 0, 0},
+	{KEY_MOUSE_SGR, handle_mouse_sgr, 0, 0},
 
 	{KEY_UP,        cursor_up, opt_rep, 0},
 	{KEY_DOWN,      cursor_down, opt_rep, 0},

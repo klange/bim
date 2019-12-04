@@ -67,6 +67,7 @@ enum Key {
 	KEY_F9, KEY_F10, KEY_F11, KEY_F12,
 	/* TODO ALT, SHIFT, etc., for F keys */
 	KEY_MOUSE, /* Must be followed with a 3-byte mouse read */
+	KEY_MOUSE_SGR, /* Followed by an SGR-style sequence of mouse data */
 	KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN,
 	KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT,
 	KEY_SHIFT_UP, KEY_SHIFT_DOWN, KEY_SHIFT_RIGHT, KEY_SHIFT_LEFT,
