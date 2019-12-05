@@ -1,0 +1,98 @@
+.TH bim 1
+.SH NAME
+bim \- Beautiful Input Manipulator, or Bad IMitation of vi; a code editor
+.SH SYNOPSIS
+.B bim
+[options] [file...]
+.br
+.B bim
+[options] \-\- \-
+.SH DESCRIPTION
+.B Bim
+is a text editor meant for writing code, with support for syntax highlighting.
+.SH OPTIONS
+.TP 18
+\-R
+Open initial file as read-only.
+.TP
+\-c
+Print file to standard output with syntax highlighting.
+.TP
+\-C
+Print file to standard output with syntax highlighting and line numbers.
+.TP
+\-u \fIpath\fR
+Use \fIpath\fR as the bimrc, rather than ~/.bimrc.
+.TP
+\-S \fIsyntax\fR
+Highlight code using \fIsyntax\fR if no highlighter can not be detected.
+.TP
+\-O noaltscreen
+Disable the use of the alternate screen buffer terminal functionality.
+.TP
+\-O noscroll
+Disable the use of terminal scrolling.
+.TP
+\-O nomouse
+Disable mouse support.
+.TP
+\-O nounicode
+Do not output UTF-8; restricts the editor to ASCII output.
+.TP
+\-O nobright
+Disable the use of bright colors in themes which support this option.
+.TP
+\-O nohideshow
+Disable the use of the DEC hide/show cursor escape sequences.
+.TP
+\-O nosyntax
+Disable syntax highlighting.
+.TP
+\-O nohistory
+Disable editor undo/redo history.
+.TP
+\-O notitle
+Do not set or update the terminal title.
+.TP
+\-O nobce
+Do not assume the terminal supports "background color erase" functionality (eg., old
+.B tmux
+versions)
+.TP
+\-\-version
+Display version, build, and plugin information.
+.TP
+\-\-help
+Display help text.
+.TP
+\-\-dump\-mappings
+Write a Markdown description of the configured keybindings to standard output.
+.TP
+\-\-dump\-commands
+Write a Markdown description of available editor commands to standard output.
+.TP
+\-\-html \fIfile\fR
+Using the configured syntax highlighting, convert \fIfile\fR to an HTML document and write it to standard output.
+See also the
+.B :tohtml
+editor command.
+.TP
+\-\-dump\-config
+Write a bimrc describing the configured key bindings to standard output.
+.SH FILES
+.TP 18
+~/.bimrc
+Configuration script read on startup.
+.TP
+/usr/share/bim/themes
+Recommendation location to install theme files.
+.SH SEE ALSO
+kak(1), vim(1)
+.SH AUTHOR
+.B Bim
+was written by
+.B K. Lange
+primarily for use with
+.B ToaruOS.
+.SH BUGS
+Plenty.
