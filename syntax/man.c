@@ -16,6 +16,10 @@ int syn_man_calculate(struct syntax_state * state) {
 			} else if (isalpha(nextchar())) {
 				paint(1, FLAG_KEYWORD);
 				while (charat() != -1 && isalpha(charat())) paint(1, FLAG_KEYWORD);
+			} else if (nextchar() == '\\' && charrel(2) == '"') {
+				while (charat() != -1) paint(1, FLAG_COMMENT);
+			} else {
+				skip();
 			}
 		} else if (charat() == '\\') {
 			if (nextchar() == 'f') {
