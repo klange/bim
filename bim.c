@@ -3233,6 +3233,7 @@ void set_syntax_by_name(const char * name) {
 				env->lines[i]->text[j].flags = 0;
 			}
 		}
+		env->syntax = NULL;
 		redraw_all();
 		return;
 	}
