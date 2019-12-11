@@ -4795,6 +4795,7 @@ BIM_COMMAND(e,"e","Open a file") {
 		SWAP(line_t **, env->lines, new_env->lines);
 		SWAP(int, env->line_count, new_env->line_count);
 		SWAP(int, env->line_avail, new_env->line_avail);
+		SWAP(history_t *, env->history, new_env->history);
 
 		buffer_close(new_env); /* Should probably also free, this needs editing. */
 		redraw_all();
