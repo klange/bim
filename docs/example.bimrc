@@ -2,6 +2,9 @@
 # To see available config options, use ^O or begin typing if smartcomplete
 # is enabled. This example config shows all available options.
 
+# This should be adjusted to an absolute path
+#rundir themes/
+
 # Last theme config is the preferred theme
 theme ansi
 theme sunsmoke256
