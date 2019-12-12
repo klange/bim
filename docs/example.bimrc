@@ -3,7 +3,7 @@
 # is enabled. This example config shows all available options.
 
 # This should be adjusted to an absolute path
-#rundir themes/
+rundir themes/
 
 # Last theme config is the preferred theme
 theme ansi
