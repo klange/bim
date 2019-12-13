@@ -1,5 +1,7 @@
 # Bim - A Text Editor
 
+[![Run on Repl.it](https://repl.it/badge/github/klange/bim)](https://repl.it/github/klange/bim)
+
 ![screenshot](docs/screenshot.png)
 
 Bim is a terminal text editor with syntax highlighting.
