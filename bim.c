@@ -51,6 +51,7 @@ global_config_t global_config = {
 	.can_24bit = 1, /* can use 24-bit color */
 	.can_256color = 1, /* can use 265 colors */
 	.can_italic = 1, /* can use italics (without inverting) */
+	.can_insert = 0, /* ^[[L */
 	/* Configuration options */
 	.history_enabled = 1,
 	.highlight_parens = 1, /* highlight parens/braces when cursor moves */
@@ -3928,10 +3929,10 @@ BIM_ACTION(cursor_down, 0,
 				} else {
 					draw_excess_line(l - 1);
 				}
+				redraw_tabbar();
 			} else {
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -4005,7 +4006,14 @@ BIM_ACTION(cursor_up, 0,
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_down(1);
+				if (!global_config.can_insert) {
+					shift_down(1);
+					redraw_tabbar();
+				} else {
+					place_cursor(1, global_config.tabs_visible ? 2 : 1);
+					printf("\033[L");
+					fflush(stdout);
+				}
 
 				/*
 				 * The line at the top of the screen should always be real
@@ -4013,9 +4021,9 @@ BIM_ACTION(cursor_up, 0,
 				 */
 				redraw_line(env->offset);
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -6470,14 +6478,21 @@ void handle_common_mouse(int buttons, int x, int y) {
 			env->loading = 0;
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
-				shift_down(shifted);
+				if (!global_config.can_insert) {
+					shift_down(shifted);
+					redraw_tabbar();
+				} else {
+					place_cursor(1, global_config.tabs_visible ? 2 : 1);
+					printf("\033[%dL", shifted);
+					fflush(stdout);
+				}
 				for (int i = 0; i < shifted; ++i) {
 					redraw_line(env->offset+i);
 				}
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
@@ -9670,6 +9685,9 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"toaru-vga") == term) {
 		global_config.can_24bit = 0; /* Also not strictly true */
 		global_config.can_256color = 0; /* Not strictly true */
+	}
+	if (term && strstr(term,"xterm-256color") == term) {
+		global_config.can_insert = 1;
 	}
 
 	if (!global_config.can_unicode) {
