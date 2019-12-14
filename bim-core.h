@@ -176,6 +176,7 @@ typedef struct {
 	unsigned int can_24bit:1;
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
+	unsigned int can_insert:1;
 	unsigned int history_enabled:1;
 	unsigned int highlight_parens:1;
 	unsigned int smart_case:1;
