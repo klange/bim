@@ -1809,6 +1809,16 @@ void shift_down(int amount) {
 	printf("\033[%dT", amount);
 }
 
+void insert_lines_at(int line, int count) {
+	place_cursor(1, line);
+	printf("\033[%dL", count);
+}
+
+void delete_lines_at(int line, int count) {
+	place_cursor(1, line);
+	printf("\033[%dM", count);
+}
+
 /**
  * Switch to the alternate terminal screen.
  */
@@ -3920,7 +3930,12 @@ BIM_ACTION(cursor_down, 0,
 
 			/* Tell terminal to scroll */
 			if (global_config.can_scroll && !left_buffer) {
-				shift_up(1);
+				if (!global_config.can_insert) {
+					shift_up(1);
+					redraw_tabbar();
+				} else {
+					delete_lines_at(global_config.tabs_visible ? 2 : 1, 1);
+				}
 
 				/* A new line appears on screen at the bottom, draw it */
 				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
@@ -3929,7 +3944,6 @@ BIM_ACTION(cursor_down, 0,
 				} else {
 					draw_excess_line(l - 1);
 				}
-				redraw_tabbar();
 			} else {
 				redraw_text();
 			}
@@ -4010,9 +4024,7 @@ BIM_ACTION(cursor_up, 0,
 					shift_down(1);
 					redraw_tabbar();
 				} else {
-					place_cursor(1, global_config.tabs_visible ? 2 : 1);
-					printf("\033[L");
-					fflush(stdout);
+					insert_lines_at(global_config.tabs_visible ? 2 : 1, 1);
 				}
 
 				/*
@@ -6482,9 +6494,7 @@ void handle_common_mouse(int buttons, int x, int y) {
 					shift_down(shifted);
 					redraw_tabbar();
 				} else {
-					place_cursor(1, global_config.tabs_visible ? 2 : 1);
-					printf("\033[%dL", shifted);
-					fflush(stdout);
+					insert_lines_at(global_config.tabs_visible ? 2 : 1, shifted);
 				}
 				for (int i = 0; i < shifted; ++i) {
 					redraw_line(env->offset+i);
@@ -6520,7 +6530,12 @@ void handle_common_mouse(int buttons, int x, int y) {
 			env->loading = 0;
 			if (!shifted) return;
 			if (global_config.can_scroll && !left_buffer) {
-				shift_up(shifted);
+				if (!global_config.can_insert) {
+					shift_up(shifted);
+					redraw_tabbar();
+				} else {
+					delete_lines_at(global_config.tabs_visible ? 2 : 1, shifted);
+				}
 				int l = global_config.term_height - global_config.bottom_size - global_config.tabs_visible;
 				for (int i = 0; i < shifted; ++i) {
 					if (env->offset + l - i < env->line_count + 1) {
@@ -6530,9 +6545,9 @@ void handle_common_mouse(int buttons, int x, int y) {
 					}
 				}
 			} else {
+				redraw_tabbar();
 				redraw_text();
 			}
-			redraw_tabbar();
 			redraw_statusbar();
 			redraw_commandline();
 			place_cursor_actual();
