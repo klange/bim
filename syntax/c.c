@@ -58,7 +58,7 @@ void paint_c_string(struct syntax_state * state) {
 				}
 			}
 			last = -1;
-		} else if (charat() == '%') {
+		} else if (charat() == '%' && nextchar() != '"') {
 			paint(1, FLAG_ESCAPE);
 			if (charat() == '%') {
 				paint(1, FLAG_ESCAPE);
