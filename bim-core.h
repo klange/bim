@@ -75,6 +75,8 @@ enum Key {
 	KEY_ALT_UP, KEY_ALT_DOWN, KEY_ALT_RIGHT, KEY_ALT_LEFT,
 	KEY_ALT_SHIFT_UP, KEY_ALT_SHIFT_DOWN, KEY_ALT_SHIFT_RIGHT, KEY_ALT_SHIFT_LEFT,
 	KEY_SHIFT_TAB,
+	/* Special signals for paste start, paste end */
+	KEY_PASTE_BEGIN, KEY_PASTE_END,
 };
 
 struct key_name_map {
@@ -177,6 +179,7 @@ typedef struct {
 	unsigned int can_256color:1;
 	unsigned int can_italic:1;
 	unsigned int can_insert:1;
+	unsigned int can_bracketedpaste:1;
 	unsigned int history_enabled:1;
 	unsigned int highlight_parens:1;
 	unsigned int smart_case:1;
