@@ -8,7 +8,7 @@ int esh_variable_qualifier(int c) {
 int paint_esh_variable(struct syntax_state * state) {
 	if (charat() == '{') {
 		paint(1, FLAG_TYPE);
-		while (charat() != '}') paint(1, FLAG_TYPE);
+		while (charat() != '}' && charat() != -1) paint(1, FLAG_TYPE);
 		if (charat() == '}') paint(1, FLAG_TYPE);
 	} else {
 		if (charat() == '?' || charat() == '$' || charat() == '#') {
