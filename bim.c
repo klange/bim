@@ -4974,9 +4974,9 @@ BIM_COMMAND(global_sgr,"global.sgr_mouse","Enable SGR mouse escapes") {
 	if (argc < 2) {
 		render_status_message("global.sgr_mouse=%d", global_config.use_sgr_mouse);
 	} else {
-		mouse_disable();
+		if (global_config.has_terminal) mouse_disable();
 		global_config.use_sgr_mouse = !!atoi(argv[1]);
-		mouse_enable();
+		if (global_config.has_terminal) mouse_enable();
 	}
 	return 0;
 }
