@@ -41,6 +41,8 @@
 | `<tab>` | `smart_tab` | Insert a tab or spaces depending on indent mode. (Use ^V <tab> to guarantee a literal tab) |
 | `/` | `smart_comment_end` | Insert a `/` ending a C-style comment. |
 | `}` | `smart_brace_end` | Insert a closing brace and smartly position it if it is the first character on a line. |
+| `<paste-begin>` | `paste_begin` | Begin bracketed paste; disable indentation, completion, etc. |
+| `<paste-end>` | `paste_end` | End bracketed paste; restore indentation, completion, etc. |
 
 ## Replace
 
@@ -157,6 +159,7 @@
 | `<f3>` | `toggle_gutter` | Toggle the display of the revision status gutter. |
 | `<f4>` | `toggle_smartcomplete` | Toggle smart completion. |
 | `<mouse>` | `handle_mouse` | Process mouse actions. |
+| `<mouse-sgr>` | `handle_mouse_sgr` | Process SGR-style mouse actions. |
 | `<up>` | `cursor_up` | Move the cursor up one line. |
 | `<down>` | `cursor_down` | Move the cursor one line down. |
 | `<right>` | `cursor_right` | Move the cursor one character to the right. |
