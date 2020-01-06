@@ -16,6 +16,7 @@
 | `:global.autohidetabs` | Whether to show the tab bar when there is only one tab |
 | `:global.git` | Show or change the default status of git integration |
 | `:global.numbers` | Set whether numbers are displayed by default |
+| `:global.sgr_mouse` | Enable SGR mouse escapes |
 | `:global.statusbar` | Show or set whether to display the statusbar |
 | `:help` | Show help text. |
 | `:history` | Display command history |
@@ -63,6 +64,7 @@
 | `:version` | Show version information. |
 | `:whatis` | Describe actions bound to a key in different modes. |
 | `:wq` | Write and close buffer |
+| `:wrapsearch` | Enable search wrapping around from top or bottom |
 | `:w` | Write a file |
 
 ## Prefix Commands
