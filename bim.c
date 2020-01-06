@@ -70,6 +70,7 @@ global_config_t global_config = {
 	.smart_complete = 0,
 	.has_terminal = 0,
 	.use_sgr_mouse = 0,
+	.search_wraps = 1,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -5350,6 +5351,15 @@ BIM_COMMAND(global_statusbar,"global.statusbar","Show or set whether to display 
 	return 0;
 }
 
+BIM_COMMAND(global_search_wraps,"wrapsearch","Enable search wrapping around from top or bottom") {
+	if (argc < 2) {
+		render_status_message("wrapsearch=%d",global_config.search_wraps);
+	} else {
+		global_config.search_wraps = !!atoi(argv[1]);
+	}
+	return 0;
+}
+
 BIM_COMMAND(smartcomplete,"smartcomplete","Enable autocompletion while typing") {
 	if (argc < 2) {
 		render_status_message("smartcomplete=%d",global_config.smart_complete);
@@ -6361,6 +6371,7 @@ BIM_ACTION(search_next, 0,
 	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search, NULL);
 
 	if (line == -1) {
+		if (!global_config.search_wraps) return;
 		find_match(1,1, &line, &col, global_config.search, NULL);
 		if (line == -1) return;
 	}
@@ -6383,6 +6394,7 @@ BIM_ACTION(search_prev, 0,
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, global_config.search);
 
 	if (line == -1) {
+		if (!global_config.search_wraps) return;
 		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, global_config.search);
 		if (line == -1) return;
 	}
@@ -9151,12 +9163,12 @@ void normal_mode(void) {
 						int line = -1, col = -1;
 						if (global_config.search_direction == 1) {
 							find_match(global_config.prev_line, global_config.prev_col, &line, &col, buffer, NULL);
-							if (line == -1) {
+							if (line == -1 && global_config.search_wraps) {
 								find_match(1, 1, &line, &col, buffer, NULL);
 							}
 						} else {
 							find_match_backwards(global_config.prev_line, global_config.prev_col, &line, &col, buffer);
-							if (line == -1) {
+							if (line == -1 && global_config.search_wraps) {
 								find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, buffer);
 							}
 						}
