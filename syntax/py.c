@@ -77,30 +77,30 @@ int paint_py_single_string(struct syntax_state * state) {
 int paint_py_numeral(struct syntax_state * state) {
 	if (charat() == '0' && (nextchar() == 'x' || nextchar() == 'X')) {
 		paint(2, FLAG_NUMERAL);
-		while (isxdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isxdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 	} else if (charat() == '0' && nextchar() == '.') {
 		paint(2, FLAG_NUMERAL);
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
 			paint(2, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		} else if (charat() == 'e' || charat() == 'E') {
 			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		}
 		if (charat() == 'j') paint(1, FLAG_NUMERAL);
 		return 0;
 	} else {
-		while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+		while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 		if (charat() == '.') {
 			paint(1, FLAG_NUMERAL);
-			while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+			while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			if ((charat() == '+' || charat() == '-') && (nextchar() == 'e' || nextchar() == 'E')) {
 				paint(2, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+				while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			} else if (charat() == 'e' || charat() == 'E') {
 				paint(1, FLAG_NUMERAL);
-				while (isdigit(charat())) paint(1, FLAG_NUMERAL);
+				while (isdigit(charat()) || charat() == '_') paint(1, FLAG_NUMERAL);
 			}
 			if (charat() == 'j') paint(1, FLAG_NUMERAL);
 			return 0;
