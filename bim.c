@@ -1351,6 +1351,8 @@ int line_is_comment(line_t * line) {
 		if (line->istate == 1) return 1;
 	} else if (!strcmp(env->syntax->name,"java")) {
 		if (line->istate == 1) return 1;
+	} else if (!strcmp(env->syntax->name,"kotlin")) {
+		if (line->istate == 1) return 1;
 	} else if (!strcmp(env->syntax->name,"rust")) {
 		if (line->istate > 0) return 1;
 	}
