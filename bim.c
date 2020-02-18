@@ -9765,6 +9765,10 @@ void detect_weird_terminals(void) {
 	if (term && strstr(term,"xterm-256color") == term) {
 		global_config.can_insert = 1;
 		global_config.can_bracketedpaste = 1;
+		char * term_emu = getenv("TERMINAL_EMULATOR");
+		if (term_emu && strstr(term_emu,"JetBrains")) {
+			global_config.can_bce = 0;
+		}
 	}
 	if (term && strstr(term,"toaru") == term) {
 		global_config.can_insert = 1;
