@@ -9,22 +9,18 @@ static char * syn_kotlin_keywords[] = {
 	"by","catch","constructor","delegate","dynamic","field","file",
 	"finally","get","import","init","param","property","receiver",
 	"set","setparam","where",
+	"actual","abstract","annotation","companion","const",
+	"crossinline","data","enum","expect","external","final",
+	"infix","inner","internal","lateinit","noinline","open",
+	"operator","out","override","private","protected","public",
+	"reified","sealed","suspend","tailrec","vararg",
+	"field","it","inline",
 	NULL
 };
 
 static char * syn_kotlin_types[] = {
 	"Byte","Short","Int","Long",
 	"Float","Double",
-	NULL
-};
-
-static char * syn_kotlin_special[] = {
-	"actual","abstract","annotation","companion","const",
-	"crossinline","data","enum","expect","external","final",
-	"infix","inner","internal","lateinit","noinline","open",
-	"operator","out","override","private","protected","public",
-	"reified","sealed","suspend","tailrec","vararg",
-	"field","it",
 	NULL
 };
 
@@ -128,8 +124,6 @@ int syn_kotlin_calculate(struct syntax_state * state) {
 			} else if (find_keywords(state, syn_kotlin_keywords, FLAG_KEYWORD, kotlin_keyword_qualifier)) {
 				return 0;
 			} else if (find_keywords(state, syn_kotlin_types, FLAG_TYPE, c_keyword_qualifier)) {
-				return 0;
-			} else if (find_keywords(state, syn_kotlin_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
 			} else if (charat() == '\"') {
 				paint_simple_string(state);
