@@ -31,7 +31,7 @@ static char * syn_kotlin_at_comments[] = {
 	NULL
 };
 
-static int at_keyword_qualifier(int c) {
+static int kt_at_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_') || (c == '@');
 }
 
@@ -46,7 +46,7 @@ static int kotlin_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '?') || (c == '!') || (c == '_');
 }
 
-static int brace_keyword_qualifier(int c) {
+static int kt_brace_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '{') || (c == '@') || (c == '_');
 }
 
@@ -55,8 +55,8 @@ static int paint_kotlin_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (common_comment_buzzwords(state)) continue;
 		else if (charat() == '@') {
-			if (!find_keywords(state, syn_kotlin_at_comments, FLAG_ESCAPE, at_keyword_qualifier)) {
-				if (match_and_paint(state, "@param", FLAG_ESCAPE, at_keyword_qualifier)) {
+			if (!find_keywords(state, syn_kotlin_at_comments, FLAG_ESCAPE, kt_at_keyword_qualifier)) {
+				if (match_and_paint(state, "@param", FLAG_ESCAPE, kt_at_keyword_qualifier)) {
 					while (charat() == ' ') skip();
 					while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
 				} else {
@@ -66,7 +66,7 @@ static int paint_kotlin_comment(struct syntax_state * state) {
 			}
 		} else if (charat() == '{') {
 			/* see if this terminates */
-			if (find_keywords(state, syn_kotlin_brace_comments, FLAG_ESCAPE, brace_keyword_qualifier)) {
+			if (find_keywords(state, syn_kotlin_brace_comments, FLAG_ESCAPE, kt_brace_keyword_qualifier)) {
 				while (charat() != '}' && charat() != -1) {
 					paint(1, FLAG_ESCAPE);
 				}
@@ -173,5 +173,5 @@ BIM_SYNTAX_COMPLETER(kotlin) {
 	return 0;
 }
 
-BIM_SYNTAX_EXT(kotlin, 1, brace_keyword_qualifier)
+BIM_SYNTAX_EXT(kotlin, 1, kt_brace_keyword_qualifier)
 
