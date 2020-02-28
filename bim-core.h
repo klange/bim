@@ -22,8 +22,8 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#ifdef __TIMESTAMP__
-# define BIM_BUILD_DATE " built " __TIMESTAMP__
+#ifdef __DATE__
+# define BIM_BUILD_DATE " built " __DATE__ " at " __TIME__
 #else
 # define BIM_BUILD_DATE DATE ""
 #endif
