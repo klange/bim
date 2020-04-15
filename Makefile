@@ -4,9 +4,12 @@ CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git
 prefix=/usr/local
 exec_prefix=$(prefix)
 bindir=$(exec_prefix)/bin
+datarootdir=$(prefix)/share
+datadir=$(datarootdir)
 
 INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
+INSTALL_DATA=$(INSTALL) -m 644
 
 SYNTAXES = $(patsubst %.c, %.o, $(wildcard syntax/*.c))
 HEADERS = $(wildcard bim-*.h)
@@ -28,6 +31,8 @@ distclean: clean
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(bindir)/$(TARGET)
+	mkdir -p $(DESTDIR)$(datadir)/bim/themes
+	$(INSTALL_DATA) themes/*.bimscript $(DESTDIR)$(datadir)/bim/themes/
 
 install-strip: all
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
