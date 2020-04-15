@@ -92,29 +92,29 @@ int bash_paint_string(struct syntax_state * state, char terminator, int out_stat
 
 int syn_bash_calculate(struct syntax_state * state) {
 	if (state->state < 1) {
-		if (charat() == '#') {
+		if (charat() == '#' && lastchar() != '\\') {
 			while (charat() != -1) {
 				if (common_comment_buzzwords(state)) continue;
 				else paint(1, FLAG_COMMENT);
 			}
 			return -1;
-		} else if (charat() == '\'') {
+		} else if (charat() == '\'' && lastchar() != '\\') {
 			paint(1, FLAG_STRING);
 			return bash_paint_tick(state, 10);
-		} else if (charat() == '`') {
+		} else if (charat() == '`' && lastchar() != '\\') {
 			paint(1, FLAG_ESCAPE);
 			return bash_paint_string(state,'`',20,FLAG_ESCAPE);
-		} else if (charat() == '$' && nextchar() == '(') {
+		} else if (charat() == '$' && nextchar() == '(' && lastchar() != '\\') {
 			paint(2, FLAG_TYPE);
 			return bash_paint_string(state,')',30,FLAG_TYPE);
-		} else if (charat() == '"') {
+		} else if (charat() == '"' && lastchar() != '\\') {
 			paint(1, FLAG_STRING);
 			return bash_paint_string(state,'"',40,FLAG_STRING);
-		} else if (charat() == '$' && nextchar() == '{') {
+		} else if (charat() == '$' && nextchar() == '{' && lastchar() != '\\') {
 			paint(2, FLAG_NUMERAL);
 			bash_paint_braced_variable(state);
 			return 0;
-		} else if (charat() == '$') {
+		} else if (charat() == '$' && lastchar() != '\\') {
 			paint(1, FLAG_NUMERAL);
 			if (bash_special_variable(charat())) { paint(1, FLAG_NUMERAL); return 0; }
 			while (c_keyword_qualifier(charat())) paint(1, FLAG_NUMERAL);
