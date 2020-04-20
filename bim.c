@@ -8404,6 +8404,7 @@ BIM_ACTION(append_and_insert, ACTION_IS_RW,
 	"Insert a new line after the current line and enter insert mode."
 )(void) {
 	set_history_break();
+	unhighlight_matching_paren();
 	env->lines = add_line(env->lines, env->line_no);
 	env->col_no = 1;
 	env->line_no += 1;
