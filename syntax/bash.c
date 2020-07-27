@@ -155,7 +155,7 @@ int syn_bash_calculate(struct syntax_state * state) {
 		 * TODO: I have an idea of how to do up to `n` (here... 8?) heredocs
 		 * by storing them in a static table and using the index into that table
 		 * for the state, but it's iffy. It would work well in situations where
-		 * someoen used the same heredoc repeatedly throughout their document.
+		 * someone used the same heredoc repeatedly throughout their document.
 		 */
 	} else if (state->state >= 10) {
 		/* Nested string states */

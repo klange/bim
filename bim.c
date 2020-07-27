@@ -1939,7 +1939,7 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 }
 
 /**
- * Redaw the tabbar, with a tab for each buffer.
+ * Redraw the tabbar, with a tab for each buffer.
  *
  * The active buffer is highlighted.
  */
@@ -2037,7 +2037,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 	/*
 	 * When we are rendering in the middle of a wide character,
 	 * we render -'s to fill the remaining amount of the 
-	 * charater's width
+	 * character's width
 	 */
 	int remainder = 0;
 
@@ -2564,7 +2564,7 @@ int statusbar_build_right(char * right_hand) {
  * The status bar shows the name of the file, whether it has modifications,
  * and (in the future) what syntax highlighting mode is enabled.
  *
- * The right side of the tatus bar shows the line number and column.
+ * The right side of the status bar shows the line number and column.
  */
 void redraw_statusbar(void) {
 	if (global_config.hide_statusbar) return;
@@ -3196,7 +3196,7 @@ BIM_ACTION(goto_line, ARG_IS_CUSTOM,
 
 
 /**
- * Processs (part of) a file and add it to a buffer.
+ * Process (part of) a file and add it to a buffer.
  */
 void add_buffer(uint8_t * buf, int size) {
 	for (int i = 0; i < size; ++i) {
@@ -3646,7 +3646,7 @@ void try_quit(void) {
  * Switch to the previous buffer
  */
 BIM_ACTION(previous_tab, 0,
-	"Switch the previoius tab"
+	"Switch to the previous tab"
 )(void) {
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
@@ -3757,7 +3757,7 @@ int git_examine(char * filename) {
 				} else if (from_count > 0 && to_count == 0) {
 					/*
 					 * No +, all - means we have a deletion. We mark the next line such that it has a red bar at the top
-					 * Note that to_line is one lower than the affacted line, so we don't need to mes with indexes.
+					 * Note that to_line is one lower than the affected line, so we don't need to mess with indexes.
 					 */
 					if (to_line >= env->line_count) continue;
 					env->lines[to_line]->rev_status = 4; /* Red */
@@ -5025,7 +5025,7 @@ BIM_COMMAND(indent,"indent","Enable smart indentation") {
 	return 0;
 }
 
-BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
+BIM_COMMAND(noindent,"noindent","Disable smart indentation") {
 	env->indent = 0;
 	redraw_statusbar();
 	return 0;
@@ -8590,13 +8590,13 @@ BIM_ACTION(expand_split_left, 0,
 }
 
 BIM_ACTION(go_page_up, 0,
-	"Jump up a screenful."
+	"Jump up a screenfull."
 )(void) {
 	goto_line(env->line_no - (global_config.term_height - 6));
 }
 
 BIM_ACTION(go_page_down, 0,
-	"Jump down a screenful."
+	"Jump down a screenfull."
 )(void) {
 	goto_line(env->line_no + (global_config.term_height - 6));
 }
@@ -8688,7 +8688,7 @@ BIM_ACTION(smart_backspace, ACTION_IS_RW,
 }
 
 BIM_ACTION(perform_omni_completion, ACTION_IS_RW,
-	"(temporary) Perform smart symbol competion from ctags."
+	"(temporary) Perform smart symbol completion from ctags."
 )(void) {
 	/* This should probably be a submode */
 	while (omni_complete(0) == 1);
@@ -8773,7 +8773,7 @@ BIM_ACTION(enter_line_selection_and_cursor_down, 0,
 }
 
 BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
-	"Shift the current line or screen view horiztonally, depending on settings."
+	"Shift the current line or screen view horizontally, depending on settings."
 )(int amount) {
 	env->coffset += amount;
 	if (env->coffset < 0) env->coffset = 0;
@@ -9392,7 +9392,7 @@ static void show_usage(char * argv[]) {
 			"        nomouse     " _s "disable mouse support" _e
 			"        nounicode   " _s "disable unicode display" _e
 			"        nobright    " _s "disable bright next" _e
-			"        nohideshow  " _s "disable togglging cursor visibility" _e
+			"        nohideshow  " _s "disable toggling cursor visibility" _e
 			"        nosyntax    " _s "disable syntax highlighting on load" _e
 			"        notitle     " _s "disable title-setting escapes" _e
 			"        history     " _s "enable experimental undo/redo" _e
