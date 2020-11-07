@@ -2568,6 +2568,7 @@ int statusbar_build_right(char * right_hand) {
  */
 void redraw_statusbar(void) {
 	if (global_config.hide_statusbar) return;
+	if (!global_config.has_terminal) return;
 	if (!env) return;
 	/* Hide cursor while rendering */
 	hide_cursor();
@@ -2665,6 +2666,7 @@ void redraw_statusbar(void) {
  * Redraw the navigation numbers on the right side of the command line
  */
 void redraw_nav_buffer() {
+	if (!global_config.has_terminal) return;
 	if (nav_buffer) {
 		store_cursor();
 		place_cursor(global_config.term_width - nav_buffer - 2, global_config.term_height);
@@ -2681,6 +2683,7 @@ void redraw_nav_buffer() {
  * or shows the INSERT (or VISUAL in the future) mode name.
  */
 void redraw_commandline(void) {
+	if (!global_config.has_terminal) return;
 	if (!env) return;
 
 	/* Hide cursor while rendering */
