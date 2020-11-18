@@ -3832,7 +3832,19 @@ void write_file(char * file) {
 		return;
 	}
 
-	FILE * f = fopen(file, "w+");
+	char * _file = file;
+
+	if (file[0] == '~') {
+		char * home = getenv("HOME");
+		if (home) {
+			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
+			sprintf(_file, "%s%s", home, file+1);
+		}
+	}
+
+
+	FILE * f = fopen(_file, "w+");
+	if (file != _file) free(_file);
 
 	if (!f) {
 		render_error("Failed to open file for writing.");
