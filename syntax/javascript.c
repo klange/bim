@@ -2,7 +2,7 @@
 #include "bim-syntax.h"
 
 static char * syn_js_keywords[] = {
-	"abstract","arguments",
+	"abstract","arguments","from",
 	"await","break","case","catch","class","const",
 	"continue","debugger","default","delete","do","else","enum","eval",
 	"export","extends","final","finally","for","function","goto",
@@ -30,6 +30,9 @@ int syn_js_calculate(struct syntax_state * state) {
 			if (!c_keyword_qualifier(lastchar()) && isdigit(charat())) {
 				paint_c_numeral(state);
 				return 0;
+			} else if (!c_keyword_qualifier(lastchar()) && (charat() >= 'A' && charat() <= 'Z')) {
+				while (charat() != -1 && c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
+				return 0;
 			} else if (charat() == '/' && nextchar() == '/') {
 				/* C++-style comments */
 				paint_comment(state);
@@ -41,11 +44,13 @@ int syn_js_calculate(struct syntax_state * state) {
 				return 0;
 			} else if (find_keywords(state, syn_js_special, FLAG_NUMERAL, c_keyword_qualifier)) {
 				return 0;
+			} else if (charat() == '=' && nextchar() == '>') {
+				paint(2, FLAG_PRAGMA);
 			} else if (charat() == '\"') {
 				paint_simple_string(state);
 				return 0;
 			} else if (charat() == '\'') {
-				paint_c_char(state);
+				paint_single_string(state);
 				return 0;
 			} else if (charat() != -1) {
 				skip();
