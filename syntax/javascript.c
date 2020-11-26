@@ -46,6 +46,7 @@ int syn_js_calculate(struct syntax_state * state) {
 				return 0;
 			} else if (charat() == '=' && nextchar() == '>') {
 				paint(2, FLAG_PRAGMA);
+				return 0;
 			} else if (charat() == ':' && c_keyword_qualifier(lastchar())) {
 				/* Assume things before parens are important? */
 				int original_i = state->i;
@@ -56,6 +57,7 @@ int syn_js_calculate(struct syntax_state * state) {
 				}
 				state->i = original_i;
 				paint(1, FLAG_PRAGMA);
+				return 0;
 			} else if (charat() == '\"') {
 				paint_simple_string(state);
 				return 0;
