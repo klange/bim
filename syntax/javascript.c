@@ -23,6 +23,28 @@ static char * syn_js_special[] = {
 	NULL
 };
 
+void paint_js_format_string(struct syntax_state * state) {
+	paint(1, FLAG_STRING);
+	while (charat() != -1) {
+		if (charat() == '\\' && nextchar() == '`') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '`') {
+			paint(1, FLAG_STRING);
+			return;
+		} else if (charat() == '\\') {
+			paint(2, FLAG_ESCAPE);
+		} else if (charat() == '$' && nextchar() == '{') {
+			paint(2, FLAG_NUMERAL);
+			while (charat() != -1 && charat() != '}') {
+				paint(1, FLAG_NUMERAL);
+			}
+			paint(1, FLAG_NUMERAL);
+		} else {
+			paint(1, FLAG_STRING);
+		}
+	}
+}
+
 int syn_js_calculate(struct syntax_state * state) {
 	switch (state->state) {
 		case -1:
@@ -51,18 +73,30 @@ int syn_js_calculate(struct syntax_state * state) {
 				/* Assume things before parens are important? */
 				int original_i = state->i;
 				state->i--;
-				while (c_keyword_qualifier(charat())) {
+				while (charat() != -1 && c_keyword_qualifier(charat())) {
 					paint(1, FLAG_TYPE);
 					state->i -= 2;
 				}
 				state->i = original_i;
 				paint(1, FLAG_PRAGMA);
 				return 0;
+			} else if (charat() == '<') {
+				paint(1, FLAG_TYPE);
+				while (charat() != -1 && (charat() == '/' || c_keyword_qualifier(charat()))) {
+					paint(1, FLAG_TYPE);
+				}
+				return 0;
+			} else if (charat() == '>') {
+				paint(1, FLAG_TYPE);
+				return 0;
 			} else if (charat() == '\"') {
 				paint_simple_string(state);
 				return 0;
 			} else if (charat() == '\'') {
 				paint_single_string(state);
+				return 0;
+			} else if (charat() == '`') {
+				paint_js_format_string(state);
 				return 0;
 			} else if (charat() != -1) {
 				skip();
