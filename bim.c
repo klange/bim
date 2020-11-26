@@ -9466,6 +9466,15 @@ int has_function(char * name) {
 	return 0;
 }
 
+int find_function(char * name) {
+	for (int i = 0; i < flex_user_functions_count; ++i) {
+		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 BIM_COMMAND(call,"call","Call a function") {
 	if (argc < 2) {
 		render_error("Expected function name");
@@ -10138,6 +10147,10 @@ void dump_map_commands(const char * name, struct action_map * map) {
 	}
 }
 
+void call_user(int c) {
+	run_function(user_functions[c]->command);
+}
+
 BIM_COMMAND(mapkey,"mapkey","Map a key to an action.") {
 	if (argc < 2) goto _argument_error;
 
@@ -10196,6 +10209,19 @@ BIM_COMMAND(mapkey,"mapkey","Map a key to an action.") {
 			action_def = &mappable_actions[i];
 			break;
 		}
+	}
+
+	/* See if it's a user function */
+	char _tmp[30] = {0};
+	if (has_function(action) && (!action_def || action_def->action == call_user)) {
+		/* Map a new action for this user function */
+		if (!action_def) {
+			add_action((struct action_def){action, call_user, ARG_IS_CUSTOM, "(script-defined function)"});
+			action_def = &mappable_actions[flex_mappable_actions_count-1];
+		}
+		options = "a";
+		sprintf(_tmp, "%d", find_function(action));
+		arg = _tmp;
 	}
 
 	if (!action_def) {
