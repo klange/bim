@@ -110,7 +110,7 @@ int syn_js_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_js_ext[] = {".js",NULL};
+char * syn_js_ext[] = {".js",".jsx",".ts",".tsx",NULL};
 
 BIM_SYNTAX_COMPLETER(js) {
 	for (char ** keyword = syn_js_keywords; *keyword; ++keyword) {
