@@ -5438,7 +5438,7 @@ BIM_COMMAND(buffers,"buffers","Show the open buffers") {
 BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 	int c;
 	render_commandline_message("(press a key)");
-	while ((c = bim_getkey(200)) == KEY_TIMEOUT);
+	while ((c = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 	render_commandline_message("%d = %s", c, name_from_key(c));
 	return 0;
 }
@@ -8355,7 +8355,7 @@ int read_one_character(char * message) {
 		place_cursor_actual();
 	}
 	int c;
-	while ((c = bim_getkey(200))) {
+	while ((c = bim_getkey(DEFAULT_KEY_WAIT))) {
 		if (c == KEY_TIMEOUT) continue;
 		if (c == KEY_CTRL_V) {
 			if (!global_config.overlay_mode) {
@@ -9149,7 +9149,7 @@ void normal_mode(void) {
 					render_command_input_buffer();
 					refresh = 0;
 				}
-				int key = bim_getkey(200);
+				int key = bim_getkey(DEFAULT_KEY_WAIT);
 				if (key != KEY_TIMEOUT) {
 					refresh = 1;
 					if (!handle_action(COMMAND_MAP, key))
@@ -9162,7 +9162,7 @@ void normal_mode(void) {
 					render_command_input_buffer();
 					refresh = 0;
 				}
-				int key = bim_getkey(200);
+				int key = bim_getkey(DEFAULT_KEY_WAIT);
 				if (key != KEY_TIMEOUT) {
 					refresh = 1;
 					if (!handle_action(SEARCH_MAP, key)) {
@@ -9219,7 +9219,7 @@ void normal_mode(void) {
 
 		if (env->mode == MODE_NORMAL) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(NORMAL_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
@@ -9227,9 +9227,10 @@ void normal_mode(void) {
 			}
 			reset_nav_buffer(key);
 		} else if (env->mode == MODE_INSERT) {
-			place_cursor_actual();
-			int key = bim_getkey(refresh ? 10 : 200);
+			if (!refresh) place_cursor_actual();
+			int key = bim_getkey(refresh ? 10 : DEFAULT_KEY_WAIT);
 			if (key == KEY_TIMEOUT) {
+				place_cursor_actual();
 				if (refresh > 1) {
 					redraw_text();
 				} else if (refresh) {
@@ -9250,7 +9251,7 @@ void normal_mode(void) {
 			}
 		} else if (env->mode == MODE_REPLACE) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (key != KEY_TIMEOUT) {
 				if (handle_action(REPLACE_MAP, key)) {
 					redraw_text();
@@ -9270,7 +9271,7 @@ void normal_mode(void) {
 			}
 		} else if (env->mode == MODE_LINE_SELECTION) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (key == KEY_TIMEOUT) continue;
 
 			if (handle_nav_buffer(key)) {
@@ -9302,7 +9303,7 @@ void normal_mode(void) {
 			}
 		} else if (env->mode == MODE_CHAR_SELECTION) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (key == KEY_TIMEOUT) continue;
 
 			if (handle_nav_buffer(key)) {
@@ -9332,7 +9333,7 @@ void normal_mode(void) {
 			}
 		} else if (env->mode == MODE_COL_SELECTION) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (key == KEY_TIMEOUT) continue;
 
 			if (handle_nav_buffer(key)) {
@@ -9361,7 +9362,7 @@ void normal_mode(void) {
 				redraw_commandline();
 			}
 		} else if (env->mode == MODE_COL_INSERT) {
-			int key = bim_getkey(refresh ? 10 : 200);
+			int key = bim_getkey(refresh ? 10 : DEFAULT_KEY_WAIT);
 			if (key == KEY_TIMEOUT) {
 				if (refresh) {
 					redraw_commandline();
@@ -9376,7 +9377,7 @@ void normal_mode(void) {
 			}
 		} if (env->mode == MODE_DIRECTORY_BROWSE) {
 			place_cursor_actual();
-			int key = bim_getkey(200);
+			int key = bim_getkey(DEFAULT_KEY_WAIT);
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(DIRECTORY_BROWSE_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
@@ -9548,7 +9549,7 @@ BIM_COMMAND(show_function,"showfunction","Show the commands in a function") {
 		i++;
 		if (this && i == global_config.term_height - 3) {
 			printf("(function continues)");
-			while (bim_getkey(200) == KEY_TIMEOUT);
+			while (bim_getkey(DEFAULT_KEY_WAIT) == KEY_TIMEOUT);
 		}
 	}
 
@@ -9923,7 +9924,7 @@ BIM_COMMAND(whatis,"whatis","Describe actions bound to a key in different modes.
 
 	if (argc < 2) {
 		render_commandline_message("(press a key)");
-		while ((key = bim_getkey(200)) == KEY_TIMEOUT);
+		while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 	} else if (strlen(argv[1]) > 1 && argv[1][0] == '^') {
 		/* See if it's a valid ctrl key */
 		if (argv[1][2] != '\0') {

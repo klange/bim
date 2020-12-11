@@ -42,6 +42,7 @@
 #define LINE_FEED     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
+#define DEFAULT_KEY_WAIT -1
 
 enum Key {
 	KEY_TIMEOUT = -1,
