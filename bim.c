@@ -274,7 +274,7 @@ int bim_getkey(int read_timeout) {
 	uint32_t c;
 	uint32_t istate = 0;
 
-	while ((cin = bim_getch_timeout((timeout > 0) ? 50 : read_timeout))) {
+	while ((cin = bim_getch_timeout((timeout == 1) ? 50 : read_timeout))) {
 		if (cin == -1) {
 			if (timeout && this_buf[timeout-1] == '\033')
 				return KEY_ESCAPE;
