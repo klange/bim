@@ -307,10 +307,10 @@ int bim_getkey(int read_timeout) {
 				}
 				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
 					switch (c) {
-						case 'P': timeout = 0; return KEY_F1;
-						case 'Q': timeout = 0; return KEY_F2;
-						case 'R': timeout = 0; return KEY_F3;
-						case 'S': timeout = 0; return KEY_F4;
+						case 'P': return KEY_F1;
+						case 'Q': return KEY_F2;
+						case 'R': return KEY_F3;
+						case 'S': return KEY_F4;
 					}
 					timeout = 0;
 					continue;
@@ -334,25 +334,25 @@ int bim_getkey(int read_timeout) {
 				}
 				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
 					switch (c) {
-						case 'M': timeout = 0; return KEY_MOUSE;
-						case '<': timeout = 0; return KEY_MOUSE_SGR;
+						case 'M': return KEY_MOUSE;
+						case '<': return KEY_MOUSE_SGR;
 						case 'A': return shift_key(KEY_UP);
 						case 'B': return shift_key(KEY_DOWN);
 						case 'C': return shift_key(KEY_RIGHT);
 						case 'D': return shift_key(KEY_LEFT);
-						case 'H': timeout = 0; return KEY_HOME;
-						case 'F': timeout = 0; return KEY_END;
-						case 'I': timeout = 0; return KEY_PAGE_UP;
-						case 'G': timeout = 0; return KEY_PAGE_DOWN;
-						case 'Z': timeout = 0; return KEY_SHIFT_TAB;
+						case 'H': return KEY_HOME;
+						case 'F': return KEY_END;
+						case 'I': return KEY_PAGE_UP;
+						case 'G': return KEY_PAGE_DOWN;
+						case 'Z': return KEY_SHIFT_TAB;
 						case '~':
 							if (timeout == 3) {
 								switch (this_buf[2]) {
-									case '1': timeout = 0; return KEY_HOME;
-									case '3': timeout = 0; return KEY_DELETE;
-									case '4': timeout = 0; return KEY_END;
-									case '5': timeout = 0; return KEY_PAGE_UP;
-									case '6': timeout = 0; return KEY_PAGE_DOWN;
+									case '1': return KEY_HOME;
+									case '3': return KEY_DELETE;
+									case '4': return KEY_END;
+									case '5': return KEY_PAGE_UP;
+									case '6': return KEY_PAGE_DOWN;
 								}
 							} else if (timeout == 5) {
 								if (this_buf[2] == '2' && this_buf[3] == '0' && this_buf[4] == '0') {
