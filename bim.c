@@ -1304,14 +1304,15 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 	}
 
 	/* If there isn't enough space in linea hold both... */
-	while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
-		/* ... allocate more space until it fits */
-		if (lines[linea]->available == 0) {
-			lines[linea]->available = 8;
-		} else {
-			lines[linea]->available *= 2;
+	if (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
+		while (lines[linea]->available < lines[linea]->actual + lines[lineb]->actual) {
+			/* ... allocate more space until it fits */
+			if (lines[linea]->available == 0) {
+				lines[linea]->available = 8;
+			} else {
+				lines[linea]->available *= 2;
+			}
 		}
-		/* XXX why not just do this once after calculating appropriate size */
 		lines[linea] = realloc(lines[linea], sizeof(line_t) + sizeof(char_t) * lines[linea]->available);
 	}
 
@@ -8010,18 +8011,6 @@ BIM_ACTION(enter_col_insert_after, ACTION_IS_RW,
 	enter_col_insert();
 }
 
-BIM_ACTION(delete_column, ACTION_IS_RW,
-	"(temporary) Delete the selected column."
-)(void) {
-	/* TODO maybe a flag to do this so we can just call delete_at_column with arg = 1? */
-	if (env->start_line < env->line_no) {
-		int tmp = env->line_no;
-		env->line_no = env->start_line;
-		env->start_line = tmp;
-	}
-	delete_at_column(1);
-}
-
 BIM_ACTION(enter_col_selection, 0,
 	"Enter column selection mode."
 )(void) {
@@ -8238,7 +8227,6 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 		fclose(tags);
 	}
 
-	/* TODO: Get these from syntax files with a dynamic callback */
 	if (env->syntax && env->syntax->completion_matcher) {
 		env->syntax->completion_matcher(comp,matches,matches_count,complete_match,matches_len);
 	}
@@ -9077,7 +9065,7 @@ struct action_map _COL_SELECTION_MAP[] = {
 	{KEY_CTRL_V,    leave_selection, 0, 0},
 	{'I',           enter_col_insert, opt_rw, 0},
 	{'a',           enter_col_insert_after, opt_rw, 0},
-	{'d',           delete_column, opt_norm | opt_rw, 0},
+	{'d',           delete_at_column, opt_arg | opt_rw, 1},
 	{-1, NULL, 0, 0},
 };
 
