@@ -629,7 +629,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* Remove the buffer from the vector, moving others up */
 	if (i != buffers_len - 1) {
-		memmove(&buffers[i], &buffers[i+1], sizeof(*buffers) * (buffers_len - i));
+		memmove(&buffers[i], &buffers[i+1], sizeof(*buffers) * (buffers_len - i - 1));
 	}
 
 	/* There is one less buffer */
