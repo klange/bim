@@ -880,6 +880,7 @@ void add_syntax(struct syntax_definition def) {
  * Calculate syntax highlighting for the given line.
  */
 void recalculate_syntax(line_t * line, int line_no) {
+	if (env->slowop) return;
 	/* Clear syntax for this line first */
 	int is_original = 1;
 	while (1) {
@@ -8477,6 +8478,7 @@ BIM_ACTION(paste, ARG_IS_CUSTOM | ACTION_IS_RW,
 	"Paste yanked text before (`P`) or after (`p`) the cursor."
 )(int direction) {
 	if (global_config.yanks) {
+		env->slowop = 1;
 		if (!global_config.yank_is_full_lines) {
 			/* Handle P for paste before, p for past after */
 			int target_column = (direction == -1 ? (env->col_no) : (env->col_no+1));
@@ -8513,13 +8515,13 @@ BIM_ACTION(paste, ARG_IS_CUSTOM | ACTION_IS_RW,
 				replace_line(env->lines, env->line_no - (direction == -1 ? 1 : 0) + i, global_config.yanks[i]);
 			}
 		}
+		env->slowop = 0;
 		/* Recalculate whole document syntax */
-		for (int i = 0; i < env->line_count; ++i) {
+		for (int i = env->line_no - 1; i < env->line_count; ++i) {
 			env->lines[i]->istate = 0;
 		}
-		for (int i = 0; i < env->line_count; ++i) {
-			recalculate_syntax(env->lines[i],i);
-		}
+		int line_to_recalculate = (env->line_no > 1 ? env->line_no - 2 : 0);
+		recalculate_syntax(env->lines[line_to_recalculate], line_to_recalculate);
 		if (direction == 1) {
 			if (global_config.yank_is_full_lines) {
 				env->line_no += 1;

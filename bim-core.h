@@ -272,6 +272,7 @@ typedef struct _env {
 	unsigned int crnl:1;
 	unsigned int numbers:1;
 	unsigned int gutter:1;
+	unsigned int slowop:1;
 
 	int highlighting_paren;
 	int maxcolumn;
