@@ -8804,19 +8804,24 @@ BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
 }
 
 static int state_before_paste = 0;
+static int line_before_paste = 0;
 BIM_ACTION(paste_begin, 0, "Begin bracketed paste; disable indentation, completion, etc.")(void) {
 	if (global_config.smart_complete) state_before_paste |= 0x01;
 	if (env->indent) state_before_paste |= 0x02;
 
 	global_config.smart_complete = 0;
 	env->indent = 0;
-	/* TODO: We need env->loading == 1, but with history (manual breaks, though) */
+	env->slowop = 1;
+	line_before_paste = env->line_no;
 }
 
 BIM_ACTION(paste_end, 0, "End bracketed paste; restore indentation, completion, etc.")(void) {
 	if (state_before_paste & 0x01) global_config.smart_complete = 1;
 	if (state_before_paste & 0x02) env->indent = 1;
-	redraw_statusbar();
+	env->slowop = 0;
+	int line_to_recalculate = (line_before_paste > 1 ? line_before_paste - 2 : 0);
+	recalculate_syntax(env->lines[line_to_recalculate], line_to_recalculate);
+	redraw_all();
 }
 
 struct action_map _NORMAL_MAP[] = {
