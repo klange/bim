@@ -946,25 +946,31 @@ void recalculate_tabs(line_t * line) {
  * so that they can act on buffers other than the active one.
  */
 
-void recursive_history_free(history_t * root) {
+void history_free(history_t * root) {
 	if (!root->next) return;
 
 	history_t * n = root->next;
-	recursive_history_free(n);
-
-	switch (n->type) {
-		case HISTORY_REPLACE_LINE:
-			free(n->contents.remove_replace_line.contents);
-			/* fall-through */
-		case HISTORY_REMOVE_LINE:
-			free(n->contents.remove_replace_line.old_contents);
-			break;
-		default:
-			/* Nothing extra to free */
-			break;
+	while (n->next) {
+		n = n->next;
 	}
 
-	free(n);
+	while (n != root) {
+		history_t * p = n->previous;
+		switch (n->type) {
+			case HISTORY_REPLACE_LINE:
+				free(n->contents.remove_replace_line.contents);
+				/* fall-through */
+			case HISTORY_REMOVE_LINE:
+				free(n->contents.remove_replace_line.old_contents);
+				break;
+			default:
+				/* Nothing extra to free */
+				break;
+		}
+		free(n);
+		n = p;
+	}
+
 	root->next = NULL;
 }
 
@@ -973,7 +979,7 @@ void recursive_history_free(history_t * root) {
 		e->line = env->line_no; \
 		if (env->history) { \
 			e->previous = env->history; \
-			recursive_history_free(env->history); \
+			history_free(env->history); \
 			env->history->next = e; \
 			e->next = NULL; \
 		} \
