@@ -2560,12 +2560,18 @@ void redraw_line(int x) {
 
 	draw_line_number(x);
 
+	int should_shift = x + 1 == env->line_no || global_config.horizontal_shift_scrolling || 
+			((env->mode == MODE_COL_SELECTION || env->mode == MODE_COL_INSERT) &&
+			x + 1 >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
+			x + 1 <= ((env->start_line < env->line_no) ? env->line_no : env->start_line));
+	
+
 	/*
 	 * Draw the line text 
 	 * If this is the active line, the current character cell offset should be used.
 	 * (Non-active lines are not shifted and always render from the start of the line)
 	 */
-	render_line(env->lines[x], env->width - gutter_width() - num_width(), (x + 1 == env->line_no || global_config.horizontal_shift_scrolling) ? env->coffset : 0, x+1);
+	render_line(env->lines[x], env->width - gutter_width() - num_width(), should_shift ? env->coffset : 0, x+1);
 
 }
 
@@ -7545,7 +7551,9 @@ BIM_ACTION(delete_at_column, ARG_IS_CUSTOM | ACTION_IS_RW,
 	if (direction == -1 && env->sel_col <= 0) return;
 
 	int prev_width = 0;
-	for (int i = env->line_no; i <= env->start_line; i++) {
+	int s = (env->line_no < env->start_line) ? env->line_no : env->start_line;
+	int e = (env->line_no < env->start_line) ? env->start_line : env->line_no;
+	for (int i = s; i <= e; i++) {
 		line_t * line = env->lines[i - 1];
 
 		int _x = 0;
@@ -7950,7 +7958,9 @@ BIM_ACTION(insert_char_at_column, ARG_IS_INPUT | ACTION_IS_RW,
 	int inserted_width = 0;
 
 	/* For each line */
-	for (int i = env->line_no; i <= env->start_line; i++) {
+	int s = (env->line_no < env->start_line) ? env->line_no : env->start_line;
+	int e = (env->line_no < env->start_line) ? env->start_line : env->line_no;
+	for (int i = s; i <= e; i++) {
 		line_t * line = env->lines[i - 1];
 
 		int _x = 0;
@@ -7979,21 +7989,17 @@ BIM_ACTION(insert_char_at_column, ARG_IS_INPUT | ACTION_IS_RW,
 		}
 		recalculate_tabs(line);
 		inserted_width = line->text[col-1].display_width;
+		if (i == env->line_no) env->col_no = col + 1;
 	}
 
 	env->sel_col += inserted_width;
-	env->col_no++;
+	env->preferred_column = env->sel_col;
+	place_cursor_actual();
 }
 
 BIM_ACTION(enter_col_insert, ACTION_IS_RW,
 	"Enter column insert mode."
 )(void) {
-	if (env->start_line < env->line_no) {
-		/* swap */
-		int tmp = env->line_no;
-		env->line_no = env->start_line;
-		env->start_line = tmp;
-	}
 	env->mode = MODE_COL_INSERT;
 }
 
