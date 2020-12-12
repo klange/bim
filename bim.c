@@ -27,7 +27,7 @@ global_config_t global_config = {
 	.yank_is_full_lines = 0,
 	.tty_in = STDIN_FILENO,
 	.bimrc_path = "~/.bimrc",
-	.syntax_fallback = NULL, /* syntax to fall back to if none other match applies */
+	.syntax_fallback = NULL, /* Syntax to fall back to if no other match applies */
 	.search = NULL,
 	.overlay_mode = OVERLAY_MODE_NONE,
 	.command_buffer = NULL,
@@ -403,7 +403,7 @@ enum Key key_from_name(char * name) {
 	while (*name) {
 		if (!decode(&state, &c, (unsigned char)*name)) {
 			if (candidate == -1) candidate = c;
-			else return -1; /* Multiple characters */
+			else return -1; /* Reject `name` if it is multiple codepoints */
 		} else if (state == UTF8_REJECT) {
 			return -1;
 		}
@@ -443,7 +443,7 @@ buffer_t * buffer_new(void) {
 		buffers = realloc(buffers, sizeof(buffer_t *) * buffers_avail);
 	}
 
-	/* TODO: Support having split buffers with more than two buffers open */
+	/* TODO: Clean up split support and support multiple splits... */
 	if (left_buffer) {
 		left_buffer->left = 0;
 		left_buffer->width = global_config.term_width;
@@ -471,10 +471,10 @@ buffer_t * buffer_new(void) {
  * Open the biminfo file.
  */
 FILE * open_biminfo(void) {
-	/* TODO This should probably be configurable line bimrc */
+	/* TODO: biminfo paths should probably configurable with an arg, like bimrc */
 	char * home = getenv("HOME");
 	if (!home) {
-		/* Since it's not, we need HOME */
+		/* ... but since it's not, we need $HOME, so fail if it isn't set. */
 		return NULL;
 	}
 
@@ -498,7 +498,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 	/* Can't fetch if we don't have a filename */
 	if (!buf->file_name) return 1;
 
-	/* Get the absolute name of the file */
+	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+2];
 	if (!realpath(buf->file_name, tmp_path)) {
 		return 1;
@@ -540,7 +540,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 int update_biminfo(buffer_t * buf) {
 	if (!buf->file_name) return 1;
 
-	/* Get the absolute name of the file */
+	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+1];
 	if (!realpath(buf->file_name, tmp_path)) {
 		return 1;
@@ -576,7 +576,8 @@ int update_biminfo(buffer_t * buf) {
 		fprintf(biminfo, "# Cursor positions and other state are stored here.\n");
 	}
 
-	/* Haven't found what we're looking for, should be at end of file */
+	/* If we reach this point, we didn't find a record for this file
+	 * and the write cursor should be at the end, so just add a new line */
 	fprintf(biminfo, ">%s %20d %20d\n", tmp_path, buf->line_no, buf->col_no);
 
 _done:
@@ -590,15 +591,15 @@ _done:
 buffer_t * buffer_close(buffer_t * buf) {
 	int i;
 
-	/* Locate the buffer in the buffer pointer vector */
+	/* Locate the buffer in the buffer list */
 	for (i = 0; i < buffers_len; i++) {
 		if (buf == buffers[i])
 			break;
 	}
 
-	/* Invalid buffer? */
+	/* This buffer doesn't exist? */
 	if (i == buffers_len) {
-		return env; /* wtf */
+		return env;
 	}
 
 	update_biminfo(buf);
@@ -641,12 +642,12 @@ buffer_t * buffer_close(buffer_t * buf) {
 		return NULL;
 	}
 
-	/* If this was the last buffer, return the previous last buffer */
+	/* If this was the last buffer in the list, return the previous last buffer */
 	if (i == buffers_len) {
 		return buffers[buffers_len-1];
 	}
 
-	/* Otherwise return the new last buffer */
+	/* Otherwise return the buffer in the same location */
 	return buffers[i];
 }
 
@@ -656,7 +657,7 @@ buffer_t * buffer_close(buffer_t * buf) {
  * This default set is pretty simple "default foreground on default background"
  * except for search and selections which are black-on-white specifically.
  *
- * The theme colors get set by separate configurable themes.
+ * The theme colors get set by separate configurable theme scripts.
  */
 const char * COLOR_FG        = "@9";
 const char * COLOR_BG        = "@9";
@@ -723,10 +724,9 @@ const char * flag_to_color(int _flag) {
 	}
 }
 
-
 /**
  * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
- * Returns 1 if a keyword from the last was found, otherwise 0.
+ * Returns 1 if a keyword from the list was found, otherwise 0.
  */
 int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
 	if (keyword_qualifier(lastchar())) return 0;
@@ -768,6 +768,9 @@ int match_and_paint(struct syntax_state * state, const char * keyword, int flag,
 	return 0;
 }
 
+/**
+ * Paint a basic single-quote string.
+ */
 void paint_single_string(struct syntax_state * state) {
 	paint(1, FLAG_STRING);
 	while (charat() != -1) {
@@ -784,7 +787,9 @@ void paint_single_string(struct syntax_state * state) {
 	}
 }
 
-
+/**
+ * Paint a simple double-quote string.
+ */
 void paint_simple_string(struct syntax_state * state) {
 	/* Assumes you came in from a check of charat() == '"' */
 	paint(1, FLAG_STRING);
@@ -811,7 +816,8 @@ int simple_keyword_qualifier(int c) {
 
 /**
  * These words can appear in comments and should be highlighted.
- * Since there are a lot of comment highlighters, let's break them out.
+ * Since there are a lot of comment highlighters, this is provided
+ * as a common function that can be used by multiple highlighters.
  */
 int common_comment_buzzwords(struct syntax_state * state) {
 	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
@@ -821,7 +827,7 @@ int common_comment_buzzwords(struct syntax_state * state) {
 }
 
 /**
- * Paint a comment until end of line, assumes this comment can not continue.
+ * Paint a comment until end of line; assumes this comment can not continue.
  * (Some languages have comments that can continue with a \ - don't use this!)
  * Assumes you've already painted your comment start characters.
  */
@@ -848,7 +854,7 @@ int match_forward(struct syntax_state * state, char * c) {
 }
 
 /**
- * Find and return a highlighter by name, or NULL
+ * Find and return a highlighter by name, or return NULL if none was found.
  */
 struct syntax_definition * find_syntax_calculator(const char * name) {
 	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
@@ -877,7 +883,14 @@ void add_syntax(struct syntax_definition def) {
 }
 
 /**
- * Calculate syntax highlighting for the given line.
+ * Calculate syntax highlighting for the given line, and lines after
+ * if their initial syntax state has changed by this recalculation.
+ *
+ * If `line_no` is -1, this line is taken to be a special line and not
+ * part of a buffer; search highlighting will not be processed and syntax
+ * highlighting will halt after the line is finished.
+ *
+ * If `env->slowop` is currently enabled, recalculation is skipped.
  */
 void recalculate_syntax(line_t * line, int line_no) {
 	if (env->slowop) return;
@@ -941,20 +954,36 @@ void recalculate_tabs(line_t * line) {
 }
 
 /**
- * TODO:
+ * The next section contains the basic editing primitives. All other
+ * actions are built out of these primitives, and they are the basic
+ * instructions that get stored in history to be undone (or redone).
  *
- * The line editing functions should probably take a buffer_t *
- * so that they can act on buffers other than the active one.
+ * Primitives may recalculate syntax or redraw lines, if needed, but only
+ * when conditions for redrawing are met (such as not being in `slowop`,
+ * or loading the file; also replaying history, or when loading files).
+ *
+ * At the moment, primitives and most other functions do not take the current
+ * buffer (environment) as an argument and instead rely on a global variable;
+ * this should definitely be fixed at some point...
  */
 
+/**
+ * When a new action that produces history happens and there is forward
+ * history that can be redone, we need to erase it as our tree has branched.
+ * If we wanted, we could actually story things in a tree structure so that
+ * the new branch and the old branch can both stick around, and that should
+ * probably be explored in the future...
+ */
 void history_free(history_t * root) {
 	if (!root->next) return;
 
+	/* Find the last entry so we can free backwards */
 	history_t * n = root->next;
 	while (n->next) {
 		n = n->next;
 	}
 
+	/* Free everything after the root, including stored content. */
 	while (n != root) {
 		history_t * p = n->previous;
 		switch (n->type) {
@@ -975,6 +1004,10 @@ void history_free(history_t * root) {
 	root->next = NULL;
 }
 
+/**
+ * This macro is called by primitives to insert history elements for each
+ * primitive action when performing in edit modes.
+ */
 #define HIST_APPEND(e) do { \
 		e->col = env->col_no; \
 		e->line = env->line_no; \
@@ -989,10 +1022,15 @@ void history_free(history_t * root) {
 
 /**
  * Mark a point where a complete set of actions has ended.
+ * Individual history entries include things like "insert one character"
+ * but a user action that should be undone is "insert several characters";
+ * breaks should be inserted after a series of primitives when there is
+ * a clear "end", such as when switching out of insert mode after typing.
  */
 void set_history_break(void) {
 	if (!global_config.history_enabled) return;
 
+	/* Do not produce duplicate breaks, or add breaks if we are at a sentinel. */
 	if (env->history->type != HISTORY_BREAK && env->history->type != HISTORY_SENTINEL) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_BREAK;
@@ -1001,7 +1039,15 @@ void set_history_break(void) {
 }
 
 /**
- * Insert a character into an existing line.
+ * (Primitive) Insert a character into an existing line.
+ *
+ * This is the most basic primitive action: Take a line, and insert a codepoint
+ * into it at a given offset. If `lineno` is not -1, the line is assumed to
+ * be part of the active buffer. If inserting a character means the line needs
+ * to grow, then it will be reallocated, so the return value of the new line
+ * must ALWAYS be used. This primitive will NOT automatically update the
+ * buffer with the new pointer, so if you are calling insert on a buffer you
+ * MUST update env->lines[lineno-1] yourself.
  */
 __attribute__((warn_unused_result)) line_t * line_insert(line_t * line, char_t c, int offset, int lineno) {
 
@@ -1046,7 +1092,11 @@ __attribute__((warn_unused_result)) line_t * line_insert(line_t * line, char_t c
 }
 
 /**
- * Delete a character from a line
+ * (Primitive) Delete a character from a line.
+ *
+ * Remove the character at the given offset. We never shrink lines, so this
+ * does not have a return value, and delete should never be called during
+ * a loading operation (though it may be called during a history replay).
  */
 void line_delete(line_t * line, int offset, int lineno) {
 
@@ -1076,7 +1126,12 @@ void line_delete(line_t * line, int offset, int lineno) {
 }
 
 /**
- * Replace a character in a line
+ * (Primitive) Replace a character in a line.
+ *
+ * Replaces the codepoint at the given offset with a new character. Since this
+ * does not involve any size changes, it does not have a return value.
+ * Since a replacement character may be a tab, we do still need to recalculate
+ * character widths for tabs as they may change.
  */
 void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 
@@ -1100,7 +1155,14 @@ void line_replace(line_t * line, char_t _c, int offset, int lineno) {
 }
 
 /**
- * Remove a line from the active buffer
+ * (Primitive) Remove a line from the active buffer
+ *
+ * This primitive is only valid for a buffer. Delete a line, or if this is the
+ * only line in the buffer, clear it but keep the line around with no
+ * characters. We use the `line_delete` primitive to clear that line,
+ * otherwise we are our own primitive and produce history entries.
+ *
+ * While we do not shrink the `lines` array, it is returned here anyway.
  */
 line_t ** remove_line(line_t ** lines, int offset) {
 
@@ -1112,6 +1174,8 @@ line_t ** remove_line(line_t ** lines, int offset) {
 		return lines;
 	}
 
+	/* When a line is removed, we need to keep its contents so we
+	 * can un-remove it on redo... */
 	if (!env->loading && global_config.history_enabled) {
 		history_t * e = malloc(sizeof(history_t));
 		e->type = HISTORY_REMOVE_LINE;
@@ -1136,7 +1200,11 @@ line_t ** remove_line(line_t ** lines, int offset) {
 }
 
 /**
- * Add a new line to the active buffer.
+ * (Primitive) Add a new line to the active buffer.
+ *
+ * Inserts a new line into a buffer at the given line offset.
+ * Since this grows the buffer, it will return the new line array
+ * after reallocation if needed.
  */
 line_t ** add_line(line_t ** lines, int offset) {
 
@@ -1181,7 +1249,10 @@ line_t ** add_line(line_t ** lines, int offset) {
 }
 
 /**
- * Replace a line with data from another line (used by paste to paste yanked lines)
+ * (Primitive) Replace a line with data from another line.
+ *
+ * This is only called when pasting yanks after calling `add_line`,
+ * but it allows us to have simpler history for that action.
  */
 void replace_line(line_t ** lines, int offset, line_t * replacement) {
 
@@ -1210,8 +1281,14 @@ void replace_line(line_t ** lines, int offset, line_t * replacement) {
 }
 
 /**
- * Merge two consecutive lines.
- * lineb is the offset of the second line.
+ * (Primitive) Merge two consecutive lines.
+ *
+ * Take two lines in a buffer and turn them into one line.
+ * `lineb` is the offset of the second line... or the
+ * line number of the first line, depending on which indexing
+ * system you prefer to think about. This won't grow `lines`,
+ * but it will likely modify it and can reallocate individual
+ * lines as well.
  */
 line_t ** merge_lines(line_t ** lines, int lineb) {
 
@@ -1265,7 +1342,11 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 }
 
 /**
- * Split a line into two lines at the given column
+ * (Primitive) Split a line into two lines at the given column.
+ *
+ * Takes one line and makes it two lines. There are some optimizations
+ * if you are trying to "split" at the first or last column, which
+ * are both just treated as add_line.
  */
 line_t ** split_line(line_t ** lines, int line, int split) {
 
@@ -1297,9 +1378,9 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 		memmove(&lines[line+2], &lines[line+1], sizeof(line_t *) * (env->line_count - line));
 	}
 
-	/* I have no idea what this is doing */
 	int remaining = lines[line]->actual - split;
 
+	/* This is some wacky math to get a good power-of-two */
 	int v = remaining;
 	v--;
 	v |= v >> 1;
@@ -1335,6 +1416,19 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 }
 
 /**
+ * Primitives end here. Everything after this point that wants to
+ * perform modifications must be built on these primitives and
+ * should never directly modify env->lines or the contents thereof,
+ * outside of syntax highlighting flag changes.
+ */
+
+/**
+ * The following section is where we implement "smart" automatic
+ * indentation. A lot of this is hacked-together nonsense and "smart"
+ * is a bit of an overstatement.
+ */
+
+/**
  * Understand spaces and comments and check if the previous line
  * ended with a brace or a colon.
  */
@@ -1351,6 +1445,13 @@ int line_ends_with_brace(line_t * line) {
 	return (line->text[i].codepoint == '{' || line->text[i].codepoint == ':') ? i+1 : 0;
 }
 
+/**
+ * Determine if a given line is a comment by checking its initial
+ * syntax highlighting state value. This is used by automatic indentation
+ * to continue block comments in languages like C.
+ *
+ * TODO: Why isn't this a syntax-> method?
+ */
 int line_is_comment(line_t * line) {
 	if (!env->syntax) return 0;
 
@@ -1367,6 +1468,12 @@ int line_is_comment(line_t * line) {
 	return 0;
 }
 
+/**
+ * Figure out where the indentation for a brace belongs by finding
+ * where the start of the line is after whitespace. This is called
+ * by default when we insert } and tries to align it with the indentation
+ * of the matching opening {.
+ */
 int find_brace_line_start(int line, int col) {
 	int ncol = col - 1;
 	while (ncol > 0) {
@@ -1395,7 +1502,11 @@ int find_brace_line_start(int line, int col) {
 }
 
 /**
- * Add indentation from the previous (temporally) line
+ * Add indentation from the previous (temporally) line.
+ *
+ * By "temporally", we mean not necessarily the line above, but
+ * potentially the line below if we are inserting a line above
+ * the cursor.
  */
 void add_indent(int new_line, int old_line, int ignore_brace) {
 	if (env->indent) {
@@ -1497,7 +1608,9 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 }
 
 /**
- * Initialize a buffer with default values
+ * Initialize a buffer with default values.
+ *
+ * Should be called after creating a buffer.
  */
 void setup_buffer(buffer_t * env) {
 	/* If this buffer was already initialized, clear out its line data */
@@ -1625,12 +1738,24 @@ int codepoint_width(wchar_t codepoint) {
 }
 
 /**
+ * The following section contains methods for crafting terminal escapes
+ * for rendering the display. We do not use curses or any similar
+ * library, so we have to generate these sequences ourself based on
+ * some assumptions about the target terminal.
+ */
+
+/**
  * Move the terminal cursor
  */
 void place_cursor(int x, int y) {
 	printf("\033[%d;%dH", y, x);
 }
 
+/**
+ * Given two color codes from a theme, convert them to an escape
+ * sequence to set the foreground and background color. This allows
+ * us to support basic 16, xterm 256, and true color in themes.
+ */
 char * color_string(const char * fg, const char * bg) {
 	static char output[100];
 	char * t = output;
@@ -1700,10 +1825,8 @@ void clear_to_end(void) {
 }
 
 /**
- * For terminals without bce,
- * prepaint the whole line, so we don't have to track
- * where the cursor is for everything. Inefficient,
- * but effective.
+ * For terminals without bce, prepaint the whole line, so we don't have to track
+ * where the cursor is for everything. Inefficient, but effective.
  */
 void paint_line(const char * bg) {
 	if (!global_config.can_bce) {
@@ -1876,6 +1999,10 @@ void unset_bracketed_paste(void) {
 /**
  * Get the name of just a file from a full path.
  * Returns a pointer within the original string.
+ *
+ * Called in a few different places where the name of a file
+ * is needed from its full path, such as drawing tab names or
+ * building HTML files.
  */
 char * file_basename(char * file) {
 	char * c = strrchr(file, '/');
@@ -1917,8 +2044,12 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 	}
 
 	while (*t) {
+		/* File names can definitely by UTF-8, and we need to
+		 * understand their display width... */
 		if (!decode(&state, &c, (unsigned char)*t)) {
 
+			/* But our displayed tab name is also just stored
+			 * as UTF-8 again, so we essentially rebuild it... */
 			char tmp[7];
 			int size = to_eight(c, tmp);
 			if (bytes + size > 62) break;
@@ -1946,7 +2077,7 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 }
 
 /**
- * Redaw the tabbar, with a tab for each buffer.
+ * Redraw the tabbar, with a tab for each buffer.
  *
  * The active buffer is highlighted.
  */
@@ -2013,7 +2144,8 @@ void redraw_tabbar(void) {
 }
 
 /**
- * Braindead log10 implementation for the line numbers
+ * Braindead log10 implementation for figuring out the width of the
+ * line number column.
  */
 int log_base_10(unsigned int v) {
 	int r = (v >= 1000000000) ? 9 : (v >= 100000000) ? 8 : (v >= 10000000) ? 7 :
@@ -2023,10 +2155,12 @@ int log_base_10(unsigned int v) {
 }
 
 /**
- * Render a line of text
+ * Render a line of text.
  *
  * This handles rendering the actual text content. A full line of text
- * also includes a line number and some padding.
+ * also includes a line number and some padding, but those elements
+ * are rendered elsewhere; this method can be used for lines that are
+ * not attached to a buffer such as command input lines.
  *
  * width: width of the text display region (term width - line number width)
  * offset: how many cells into the line to start rendering at
@@ -2043,8 +2177,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 	/*
 	 * When we are rendering in the middle of a wide character,
-	 * we render -'s to fill the remaining amount of the 
-	 * charater's width
+	 * we render -'s to fill the remaining amount of the character's width.
 	 */
 	int remainder = 0;
 
@@ -2217,13 +2350,20 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		}
 	}
 
+	/**
+	 * Determine what color the rest of the line should be.
+	 */
 	if (env->mode != MODE_LINE_SELECTION) {
+		/* If we are not selecting, then use the normal background or highlight
+		 * the current line if that feature is enabled. */
 		if (line->is_current) {
 			set_colors(COLOR_FG, COLOR_ALT_BG);
 		} else {
 			set_colors(COLOR_FG, COLOR_BG);
 		}
 	} else {
+		/* If this line was empty but was part of the selection, we didn't
+		 * set the selection color already, so we need to do that here. */
 		if (!line->actual) {
 			if (env->line_no == line_no ||
 				(env->start_line > env->line_no && 
@@ -2235,6 +2375,10 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		}
 	}
 
+	/**
+	 * In column modes, we may need to draw a column select beyond the end
+	 * of a given line, so we need to draw up to that point first.
+	 */
 	if ((env->mode == MODE_COL_SELECTION  || env->mode == MODE_COL_INSERT) &&
 		line_no >= ((env->start_line < env->line_no) ? env->start_line : env->line_no) &&
 		line_no <= ((env->start_line < env->line_no) ? env->line_no : env->start_line) &&
@@ -2251,6 +2395,10 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		set_colors(COLOR_FG, COLOR_BG);
 	}
 
+	/*
+	 * `maxcolumn` renders the background outside of the requested line length
+	 * in a different color, with a line at the border between the two.
+	 */
 	if (env->maxcolumn && line_no > -1 /* ensures we don't do this for command line */) {
 
 		/* Fill out the normal background */
@@ -2264,7 +2412,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			j++;
 			set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 			if (global_config.can_unicode) {
-				printf("▏");
+				printf("▏"); /* Should this be configurable? */
 			} else {
 				printf("|");
 			}
@@ -2274,7 +2422,12 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 		set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 	}
 
-	if (env->left + env->width == global_config.term_width && global_config.can_bce) {
+	/**
+	 * Clear out the rest of the line. If we are the only buffer or the right split,
+	 * and our terminal supports `bce`, we can just bce; otherwise write spaces
+	 * until we reach the right side of the screen.
+	 */
+	if (global_config.can_bce && (line_no == -1 || env->left + env->width == global_config.term_width)) {
 		clear_to_end();
 	} else {
 		/* Paint the rest of the line */
@@ -2571,7 +2724,7 @@ int statusbar_build_right(char * right_hand) {
  * The status bar shows the name of the file, whether it has modifications,
  * and (in the future) what syntax highlighting mode is enabled.
  *
- * The right side of the tatus bar shows the line number and column.
+ * The right side of the status bar shows the line number and column.
  */
 void redraw_statusbar(void) {
 	if (global_config.hide_statusbar) return;
@@ -2901,7 +3054,7 @@ void render_status_message(char * message, ...) {
 }
 
 /**
- * Draw an errormessage to the command line.
+ * Draw an error message to the command line.
  */
 void render_error(char * message, ...) {
 	/* varargs setup */
@@ -3206,7 +3359,7 @@ BIM_ACTION(goto_line, ARG_IS_CUSTOM,
 
 
 /**
- * Processs (part of) a file and add it to a buffer.
+ * Process (part of) a file and add it to a buffer.
  */
 void add_buffer(uint8_t * buf, int size) {
 	for (int i = 0; i < size; ++i) {
@@ -3656,7 +3809,7 @@ void try_quit(void) {
  * Switch to the previous buffer
  */
 BIM_ACTION(previous_tab, 0,
-	"Switch the previoius tab"
+	"Switch the previous tab"
 )(void) {
 	buffer_t * last = NULL;
 	for (int i = 0; i < buffers_len; i++) {
@@ -3767,7 +3920,7 @@ int git_examine(char * filename) {
 				} else if (from_count > 0 && to_count == 0) {
 					/*
 					 * No +, all - means we have a deletion. We mark the next line such that it has a red bar at the top
-					 * Note that to_line is one lower than the affacted line, so we don't need to mes with indexes.
+					 * Note that to_line is one lower than the affected line, so we don't need to mess with indexes.
 					 */
 					if (to_line >= env->line_count) continue;
 					env->lines[to_line]->rev_status = 4; /* Red */
@@ -5047,7 +5200,7 @@ BIM_COMMAND(indent,"indent","Enable smart indentation") {
 	return 0;
 }
 
-BIM_COMMAND(noindent,"noindent","Disable smrat indentation") {
+BIM_COMMAND(noindent,"noindent","Disable smart indentation") {
 	env->indent = 0;
 	redraw_statusbar();
 	return 0;
@@ -8613,13 +8766,13 @@ BIM_ACTION(expand_split_left, 0,
 }
 
 BIM_ACTION(go_page_up, 0,
-	"Jump up a screenful."
+	"Jump up a screenfull."
 )(void) {
 	goto_line(env->line_no - (global_config.term_height - 6));
 }
 
 BIM_ACTION(go_page_down, 0,
-	"Jump down a screenful."
+	"Jump down a screenfull."
 )(void) {
 	goto_line(env->line_no + (global_config.term_height - 6));
 }
@@ -8711,7 +8864,7 @@ BIM_ACTION(smart_backspace, ACTION_IS_RW,
 }
 
 BIM_ACTION(perform_omni_completion, ACTION_IS_RW,
-	"(temporary) Perform smart symbol competion from ctags."
+	"(temporary) Perform smart symbol completion from ctags."
 )(void) {
 	/* This should probably be a submode */
 	while (omni_complete(0) == 1);
@@ -8796,7 +8949,7 @@ BIM_ACTION(enter_line_selection_and_cursor_down, 0,
 }
 
 BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
-	"Shift the current line or screen view horiztonally, depending on settings."
+	"Shift the current line or screen view horizontally, depending on settings."
 )(int amount) {
 	env->coffset += amount;
 	if (env->coffset < 0) env->coffset = 0;
@@ -9421,7 +9574,7 @@ static void show_usage(char * argv[]) {
 			"        nomouse     " _s "disable mouse support" _e
 			"        nounicode   " _s "disable unicode display" _e
 			"        nobright    " _s "disable bright next" _e
-			"        nohideshow  " _s "disable togglging cursor visibility" _e
+			"        nohideshow  " _s "disable toggling cursor visibility" _e
 			"        nosyntax    " _s "disable syntax highlighting on load" _e
 			"        notitle     " _s "disable title-setting escapes" _e
 			"        history     " _s "enable experimental undo/redo" _e
@@ -9442,6 +9595,23 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
+/**
+ * These methods deal with user functions, which are defined in scripts.
+ * User functions can be called as actions, or called from the command line.
+ * They are also used to define themes and preload actions for different filetypes.
+ *
+ * Right now, user functions are essentially just a list of commands to run, but
+ * eventually they should be replaced with a proper scripting language with support
+ * for looping, conditionals, variables...
+ *
+ * Also all of run/has/find loop over the whole index individually, and
+ * `has` and `find` use the exact same logic, so we probably only need one
+ * of them (find) and not the other?
+ */
+
+/**
+ * Delete a user function by deleting all of its commands.
+ */
 void free_function(struct bim_function * func) {
 	do {
 		struct bim_function * next = func->next;
@@ -9451,6 +9621,9 @@ void free_function(struct bim_function * func) {
 	} while (func);
 }
 
+/**
+ * Given a function name, run that function.
+ */
 int run_function(char * name) {
 	for (int i = 0; i < flex_user_functions_count; ++i) {
 		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
@@ -9471,6 +9644,9 @@ int run_function(char * name) {
 	return -1;
 }
 
+/**
+ * Does a function by this name exist?
+ */
 int has_function(char * name) {
 	for (int i = 0; i < flex_user_functions_count; ++i) {
 		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
@@ -9480,6 +9656,9 @@ int has_function(char * name) {
 	return 0;
 }
 
+/**
+ * Locate a function by name.
+ */
 int find_function(char * name) {
 	for (int i = 0; i < flex_user_functions_count; ++i) {
 		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
