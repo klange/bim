@@ -313,6 +313,7 @@ extern struct theme_def * themes;
 extern void add_colorscheme(struct theme_def theme);
 
 struct syntax_state {
+	buffer_t * env;
 	line_t * line;
 	int line_no;
 	int state;
@@ -347,38 +348,6 @@ extern struct syntax_definition * syntaxes;
 #define MODE_COL_SELECTION 5
 #define MODE_COL_INSERT 6
 #define MODE_DIRECTORY_BROWSE 7
-
-extern global_config_t global_config;
-
-extern const char * COLOR_FG;
-extern const char * COLOR_BG;
-extern const char * COLOR_ALT_FG;
-extern const char * COLOR_ALT_BG;
-extern const char * COLOR_NUMBER_FG;
-extern const char * COLOR_NUMBER_BG;
-extern const char * COLOR_STATUS_FG;
-extern const char * COLOR_STATUS_BG;
-extern const char * COLOR_STATUS_ALT;
-extern const char * COLOR_TABBAR_BG;
-extern const char * COLOR_TAB_BG;
-extern const char * COLOR_ERROR_FG;
-extern const char * COLOR_ERROR_BG;
-extern const char * COLOR_SEARCH_FG;
-extern const char * COLOR_SEARCH_BG;
-extern const char * COLOR_KEYWORD;
-extern const char * COLOR_STRING;
-extern const char * COLOR_COMMENT;
-extern const char * COLOR_TYPE;
-extern const char * COLOR_PRAGMA;
-extern const char * COLOR_NUMERAL;
-extern const char * COLOR_SELECTFG;
-extern const char * COLOR_SELECTBG;
-extern const char * COLOR_RED;
-extern const char * COLOR_GREEN;
-extern const char * COLOR_BOLD;
-extern const char * COLOR_LINK;
-extern const char * COLOR_ESCAPE;
-extern const char * current_theme;
 
 struct action_def {
 	char * name;
@@ -425,16 +394,6 @@ struct command_def {
 		add_prefix_command((struct command_def){cmd_prefix, bim_command_ ## cmd_name, description}); \
 	} \
 	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
-
-extern buffer_t * env;
-extern buffer_t * left_buffer;
-extern buffer_t * right_buffer;
-#define NAV_BUFFER_MAX 10
-extern char nav_buf[NAV_BUFFER_MAX+1];
-extern int nav_buffer;
-extern int    buffers_len;
-extern int    buffers_avail;
-extern buffer_t ** buffers;
 
 extern const char * flag_to_color(int _flag);
 extern void redraw_line(int x);

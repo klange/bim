@@ -95,8 +95,8 @@ int syn_markdown_calculate(struct syntax_state * state) {
 			/* Go backwards until we find the source ``` */
 			int count = 0;
 			for (int i = state->line_no; i > 0; i--) {
-				if (env->lines[i]->istate < 1) {
-					while (env->lines[i]->text[count].codepoint == ' ') {
+				if (state->env->lines[i]->istate < 1) {
+					while (state->env->lines[i]->text[count].codepoint == ' ') {
 						if (charrel(count) != ' ') goto _nope;
 						count++;
 					}

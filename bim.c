@@ -119,6 +119,44 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
+/**
+ * Theming data
+ *
+ * This default set is pretty simple "default foreground on default background"
+ * except for search and selections which are black-on-white specifically.
+ *
+ * The theme colors get set by separate configurable theme scripts.
+ */
+const char * COLOR_FG        = "@9";
+const char * COLOR_BG        = "@9";
+const char * COLOR_ALT_FG    = "@9";
+const char * COLOR_ALT_BG    = "@9";
+const char * COLOR_NUMBER_FG = "@9";
+const char * COLOR_NUMBER_BG = "@9";
+const char * COLOR_STATUS_FG = "@9";
+const char * COLOR_STATUS_BG = "@9";
+const char * COLOR_STATUS_ALT= "@9";
+const char * COLOR_TABBAR_BG = "@9";
+const char * COLOR_TAB_BG    = "@9";
+const char * COLOR_ERROR_FG  = "@9";
+const char * COLOR_ERROR_BG  = "@9";
+const char * COLOR_SEARCH_FG = "@0";
+const char * COLOR_SEARCH_BG = "@17";
+const char * COLOR_KEYWORD   = "@9";
+const char * COLOR_STRING    = "@9";
+const char * COLOR_COMMENT   = "@9";
+const char * COLOR_TYPE      = "@9";
+const char * COLOR_PRAGMA    = "@9";
+const char * COLOR_NUMERAL   = "@9";
+const char * COLOR_SELECTFG  = "@0";
+const char * COLOR_SELECTBG  = "@17";
+const char * COLOR_RED       = "@1";
+const char * COLOR_GREEN     = "@2";
+const char * COLOR_BOLD      = "@9";
+const char * COLOR_LINK      = "@9";
+const char * COLOR_ESCAPE    = "@9";
+const char * current_theme = "none";
+
 struct ColorName color_names[] = {
 	{"text-fg", &COLOR_FG},
 	{"text-bg", &COLOR_BG},
@@ -423,6 +461,7 @@ buffer_t * right_buffer = NULL;
 /**
  * A buffer for holding a number (line, repetition count)
  */
+#define NAV_BUFFER_MAX 10
 char nav_buf[NAV_BUFFER_MAX+1];
 int nav_buffer = 0;
 
@@ -650,44 +689,6 @@ buffer_t * buffer_close(buffer_t * buf) {
 	/* Otherwise return the buffer in the same location */
 	return buffers[i];
 }
-
-/**
- * Theming data
- *
- * This default set is pretty simple "default foreground on default background"
- * except for search and selections which are black-on-white specifically.
- *
- * The theme colors get set by separate configurable theme scripts.
- */
-const char * COLOR_FG        = "@9";
-const char * COLOR_BG        = "@9";
-const char * COLOR_ALT_FG    = "@9";
-const char * COLOR_ALT_BG    = "@9";
-const char * COLOR_NUMBER_FG = "@9";
-const char * COLOR_NUMBER_BG = "@9";
-const char * COLOR_STATUS_FG = "@9";
-const char * COLOR_STATUS_BG = "@9";
-const char * COLOR_STATUS_ALT= "@9";
-const char * COLOR_TABBAR_BG = "@9";
-const char * COLOR_TAB_BG    = "@9";
-const char * COLOR_ERROR_FG  = "@9";
-const char * COLOR_ERROR_BG  = "@9";
-const char * COLOR_SEARCH_FG = "@0";
-const char * COLOR_SEARCH_BG = "@17";
-const char * COLOR_KEYWORD   = "@9";
-const char * COLOR_STRING    = "@9";
-const char * COLOR_COMMENT   = "@9";
-const char * COLOR_TYPE      = "@9";
-const char * COLOR_PRAGMA    = "@9";
-const char * COLOR_NUMERAL   = "@9";
-const char * COLOR_SELECTFG  = "@0";
-const char * COLOR_SELECTBG  = "@17";
-const char * COLOR_RED       = "@1";
-const char * COLOR_GREEN     = "@2";
-const char * COLOR_BOLD      = "@9";
-const char * COLOR_LINK      = "@9";
-const char * COLOR_ESCAPE    = "@9";
-const char * current_theme = "none";
 
 /**
  * Convert syntax highlighting flag to color code
