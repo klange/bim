@@ -3525,6 +3525,7 @@ void read_directory_into_buffer(char * file) {
 		files[count].filename = strdup(ent->d_name);
 		count++;
 		ent = readdir(dirp);
+		free(tmp);
 	}
 	closedir(dirp);
 
@@ -8306,6 +8307,9 @@ void draw_completion_matches(uint32_t * tmp, struct completion_match *matches, i
  * Autocomplete words (function/variable names, etc.) in input mode.
  */
 int omni_complete(int quit_quietly_on_none) {
+	int retval = 0;
+	int index = 0;
+
 	int c;
 
 	int (*qualifier)(int c) = simple_keyword_qualifier;
@@ -8345,14 +8349,18 @@ int omni_complete(int quit_quietly_on_none) {
 	int matches_count;
 
 	/* TODO just reading ctags is rather mediocre; can we do something cool here? */
-	if (read_tags(tmp, &matches, &matches_count, 0)) goto _completion_done;
+	if (read_tags(tmp, &matches, &matches_count, 0)) {
+		goto _completion_done;
+	}
 
 	/* Draw box with matches at cursor-width(tmp) */
-	if (quit_quietly_on_none && matches_count == 0) return 0;
-	draw_completion_matches(tmp, matches, matches_count, 0);
+	if (quit_quietly_on_none && matches_count == 0) {
+		free(tmp);
+		free(matches);
+		return 0;
+	}
 
-	int retval = 0;
-	int index = 0;
+	draw_completion_matches(tmp, matches, matches_count, 0);
 
 _completion_done:
 	place_cursor_actual();
@@ -9787,9 +9795,6 @@ BIM_COMMAND(runscript,"runscript","Run a script file") {
 		if (!strncmp(linebuf, "function ", 9)) {
 			/* Confirm we have a function name */
 			if (was_collecting_function) {
-				free_function(new_function);
-				render_error("Syntax error on line %d: attempt nest function while already defining function '%s'", line, function_name);
-				retval = 1;
 				break;
 			}
 			if (!strlen(linebuf+9)) {
@@ -9928,7 +9933,10 @@ void load_bimrc(void) {
 	}
 
 	struct stat statbuf;
-	if (stat(tmp, &statbuf)) return;
+	if (stat(tmp, &statbuf)) {
+		free(tmp);
+		return;
+	}
 
 	char * args[] = {"runscript", tmp, NULL};
 	if (bim_command_runscript("runscript", 2, args)) {
@@ -9937,6 +9945,7 @@ void load_bimrc(void) {
 		int c;
 		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
 	}
+	free(tmp);
 }
 
 /**
