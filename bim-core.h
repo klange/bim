@@ -331,7 +331,7 @@ struct syntax_definition {
 	int (*calculate)(struct syntax_state *);
 	int prefers_spaces;
 	int (*completion_qualifier)(int c);
-	int (*completion_matcher)(uint32_t * comp, struct completion_match ** matches, int * matches_count, int complete_match, int * matches_len);
+	int (*completion_matcher)(uint32_t * comp, struct completion_match ** matches, int * matches_count, int complete_match, int * matches_len, buffer_t * env);
 };
 
 extern struct syntax_definition * syntaxes;

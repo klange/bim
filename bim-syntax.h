@@ -17,7 +17,8 @@
 		struct completion_match **matches __attribute__((unused)), \
 		int * matches_count __attribute__((unused)), \
 		int complete_match __attribute__((unused)), \
-		int *matches_len __attribute__((unused)))
+		int *matches_len __attribute__((unused)), \
+		buffer_t * env __attribute__((unused)))
 
 #define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
 #define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)

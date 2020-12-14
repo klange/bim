@@ -8229,7 +8229,7 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 	}
 
 	if (env->syntax && env->syntax->completion_matcher) {
-		env->syntax->completion_matcher(comp,matches,matches_count,complete_match,matches_len);
+		env->syntax->completion_matcher(comp,matches,matches_count,complete_match,matches_len, env);
 	}
 
 	return 0;
