@@ -638,7 +638,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 
 	/* This buffer doesn't exist? */
 	if (i == buffers_len) {
-		return env;
+		return NULL;
 	}
 
 	update_biminfo(buf);
@@ -1727,7 +1727,7 @@ int codepoint_width(wchar_t codepoint) {
 		return 1;
 	}
 	/* Skip wcwidth for anything under 256 */
-	if (codepoint > 256) {
+	if (codepoint > 127) {
 		if (global_config.can_unicode) {
 			/* Higher codepoints may be wider (eg. Japanese) */
 			int out = wcwidth(codepoint);
@@ -8975,7 +8975,7 @@ BIM_ACTION(paste_end, 0, "End bracketed paste; restore indentation, completion, 
 	if (state_before_paste & 0x01) global_config.smart_complete = 1;
 	if (state_before_paste & 0x02) env->indent = 1;
 	env->slowop = 0;
-	int line_to_recalculate = (line_before_paste > 1 ? line_before_paste - 2 : 0);
+	int line_to_recalculate = (line_before_paste > 1 ? line_before_paste - 1 : 0);
 	recalculate_syntax(env->lines[line_to_recalculate], line_to_recalculate);
 	redraw_all();
 }
@@ -9956,8 +9956,9 @@ void detect_weird_terminals(void) {
 
 	char * term = getenv("TERM");
 	if (term && !strcmp(term,"linux")) {
-		/* Linux VTs can't scroll. */
-		global_config.can_scroll = 0;
+		/* Linux VTs actually can't use the scroll escapes, they need insert/delete. */
+		global_config.can_insert = 1;
+		global_config.can_unicode = 0; // depends on configuration, but let's disable?
 	}
 	if (term && !strcmp(term,"cons25")) {
 		/* Dragonfly BSD console */
