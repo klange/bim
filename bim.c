@@ -9958,7 +9958,6 @@ void detect_weird_terminals(void) {
 	if (term && !strcmp(term,"linux")) {
 		/* Linux VTs actually can't use the scroll escapes, they need insert/delete. */
 		global_config.can_insert = 1;
-		global_config.can_unicode = 0; // depends on configuration, but let's disable?
 	}
 	if (term && !strcmp(term,"cons25")) {
 		/* Dragonfly BSD console */
