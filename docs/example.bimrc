@@ -22,7 +22,9 @@ quirk TERM toaru caninsert canpaste cansgrmouse
 # JetBrains (IntelliJ) IDEs have no bce
 quirk TERMINAL_EMULATOR JetBrains nobce
 
-# These options automatically reject non-ASCII if `nounicode`
+# These options automatically reject non-ASCII if `nounicode` is set
+# so don't worry about setting fancy indicators here.
+# ("tabindicator  " will set the indicator to a blank space.)
 tabindicator »
 spaceindicator ·
 

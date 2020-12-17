@@ -35,29 +35,57 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 - Split viewports to view multiple files or different parts of the same file.
 - Simple autocompletions using ctags.
 
-## Prerequisites
+## Build Requirements
 
-Bim has no external dependencies beyond a functioning C library, C99 compiler, and sufficient escape code support in the hosting terminal.
+Bim requires only a sufficiently Unix-like C library and a C99 compiler with certain GNU extensions (such as `__attribute__((constructor))`).
+
+Bim has been built successfully for a number of targets, including various BSDs, ToaruOS, Sortix, and others.
 
 ### Terminal Support
 
-Unicode support is recommended, but not completely required. Most terminals support the handful of characters used in the default setup regardless, but use `-O nounicode` if you experience issues with the rendering of indentation hints.
+Bim has been tested in a number of terminals, and while it does not use `terminfo` databases, basic functionality should be available in the vast majority of remnant emulators and even classic DEC hardware.
 
-256-color and 24-bit color are optional. The default theme uses only the standard 16 colors. If your terminal only supports 8 colors, you can also supply `-O nobright` to disable bright colors.
+If the terminal you are using has some quirks or does not play well with the default assumptions, you can modify the behavior to suit your environment.
 
-Scrolling is normally done through `^[[1S` and `^[[1T`. If your terminal doesn't support these escapes, or has trouble scrolling, supply `-O noscroll` to have the screen refresh when scrolling. This may be slow.
+Capability features can be controlled with "quirks", either through the `quirk` command in a bimrc, or with the `-O` command line option.
 
-Mouse support with `^[[?1000h` is available; if this escape sequence causes issues in your terminal, use `-O nomouse`.
+The format of the `quirk` command is `quirk ENVVAR teststr no... can...` where `ENVVAR` is the name of an environment variable and `teststr` is a string to check against which must be a prefix of the environment variable.
 
-The alternate screen is used if available with `^[[?1049h`. This can be disabled with `-O noaltscreen`.
+For example, `quirk TERM xterm nounicode` will disable Unicode output on all terminals starting with "xterm" (including "xterm-256color").
+
+You may also specifies quirks with the `$COLORTERM` environment variable, or the `$TERMINAL_EMULATOR` variable set by certain IDEs.
+
+Some example quirk configurations are provided in [docs/example.bimrc](docs/example.bimrc) and may be a good place to start if you are experiencing rendering issues.
+
+Unicode/UTF-8 support is recommended and assumed by default. The `nounicode` quirk option will disable output of UTF-8 characters and render them as codepoint hints like `<U+1234>` instead.
+
+256-color and 24-bit color are also assumed by default, disable them with the `no256color` and `no24bit` quirks respectively.
+
+If you have a particularly low-color terminal, the `nobright` quirk will hint to themes that only the lower 8 colors should be used.
+
+Three scroll modes are supported: shift scrolling, insert/delete scrolling, and redraw scrolling.
+
+Shift scrolling (`^[[1S`/`^[[1T`) is assumed by default. If your terminal supports insert/delete scrolling (`^[[L`/`^[[M`), enable the `caninsert` quirk.
+
+If neither scrolling option is available, use the `noscroll` quirk to redraw the text field when scrolling. This will probably be slow!
+
+Mouse support with `^[[?1000h` is assumed by default. Use the `nomouse` quirk to disable it.
+
+If your terminal supports SGR mouse modes ("1006"), enable the `cansgrmouse` quirk. Most xterm-like terminals support this and it will provide support for click on cells in larger terminal windows.
+
+Alternate screen support is also assumed. This is normally fine even if your terminal doesn't support it, but if it causes issues the `noaltscreen` quirk will disable it.
 
 ## Key Bindings
 
 Default keybindings can be found in [docs/mappings.md](docs/mappings.md).
 
+This listing can be generated with `bim --dump-mappings`.
+
 ## Commands
 
 A complete listing of available commands can be found in [docs/commands.md](docs/commands.md).
+
+This listing can be generated with `bim --dump-commands`.
 
 ## Additional Bim Functionality
 
@@ -66,6 +94,8 @@ You can use Bim to display files in your terminal with syntax highlighting with 
 ![screenshot](docs/screenshot_cat.png)
 
 You can pipe text to bim for editing with `bim -`. Note that Bim will wait for end-of-file before launching, so this is not suitable for use as a pager (pager support is planned).
+
+Bim can also be used to generate HTML documents with syntax-highlighted source code with `bim --html`; the configured theme will be used.
 
 ## Themes
 
