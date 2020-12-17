@@ -9562,16 +9562,13 @@ static void show_usage(char * argv[]) {
 			"       %s [options] -- -\n"
 			"\n"
 			" -R     " _s "open initial buffer read-only" _e
-			" -O     " _s "set various options:" _e
-			"        noscroll    " _s "disable terminal scrolling" _e
+			" -O     " _s "set various options; examples:" _e
 			"        noaltscreen " _s "disable alternate screen buffer" _e
-			"        nomouse     " _s "disable mouse support" _e
 			"        nounicode   " _s "disable unicode display" _e
-			"        nobright    " _s "disable bright next" _e
-			"        nohideshow  " _s "disable toggling cursor visibility" _e
 			"        nosyntax    " _s "disable syntax highlighting on load" _e
-			"        notitle     " _s "disable title-setting escapes" _e
-			"        history     " _s "enable experimental undo/redo" _e
+			"        nohistory   " _s "disable undo/redo" _e
+			"        nomouse     " _s "disable mouse support" _e
+			"        cansgrmouse " _s "enable SGR mouse escape sequences" _e
 			" -c,-C  " _s "print file to stdout with syntax highlighting" _e
 			"        " _s "-C includes line numbers, -c does not" _e
 			" -u     " _s "override bimrc file" _e
