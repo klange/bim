@@ -98,6 +98,23 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 				}
 			}
 			return -1;
+		} else if (match_and_paint(state, "quirk", FLAG_KEYWORD, cmd_qualifier)) {
+			if (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_TYPE);
+			if (charat() == ' ') skip();
+			while (charat() != -1 && charat() != ' ') paint(1, FLAG_NUMERAL);
+			if (charat() != ' ') skip();
+			while (charat() != -1) {
+				if (charat() == 'n' && nextchar() == 'o') {
+					while (charat() != -1 && charat() != ' ') paint(1, FLAG_DIFFMINUS);
+				} else if (charat() == 'c' && nextchar() == 'a' && charrel(2) == 'n') {
+					while (charat() != -1 && charat() != ' ') paint(1, FLAG_DIFFPLUS);
+				} else {
+					while (charat() != -1 && charat() != ' ') paint(1, FLAG_ERROR);
+				}
+				if (charat() == ' ') skip();
+			}
+			return -1;
 		} else if (match_and_paint(state, "mapkey", FLAG_KEYWORD, cmd_qualifier)) {
 			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
 			for (struct mode_names * m = mode_names; m->name; ++m) {
@@ -107,11 +124,15 @@ int syn_bimcmd_calculate(struct syntax_state * state) {
 			while (charat() != ' ' && charat() != -1) skip(); /* key name */
 			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
 			for (struct action_def * a = mappable_actions; a->name; ++a) {
-				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) break;
+				if (match_and_paint(state, a->name, FLAG_TYPE, cmd_qualifier)) goto _found;
+			}
+			for (struct bim_function ** f = user_functions; user_functions && *f; ++f) {
+				if (match_and_paint(state, (*f)->command, FLAG_TYPE, cmd_qualifier)) goto _found;
 			}
 			match_and_paint(state, "none", FLAG_TYPE, cmd_qualifier);
+	_found:
 			if (charat() == -1) return -1;
-			if (charat() == ' ' && charat() != -1) skip(); else { paint(1, FLAG_ERROR); return -1; }
+			if (charat() == ' ') skip(); else { paint(1, FLAG_ERROR); return -1; }
 			while (charat() != -1 && charat() != ' ') {
 				if (!strchr("racnwmb",charat())) {
 					paint(1, FLAG_ERROR);

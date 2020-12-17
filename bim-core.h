@@ -34,7 +34,7 @@
 # define TAG ""
 #endif
 
-#define BIM_VERSION   "2.7.0" TAG
+#define BIM_VERSION   "2.7.1" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2020 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #define BLOCK_SIZE 4096
@@ -181,6 +181,8 @@ typedef struct {
 	unsigned int can_italic:1;
 	unsigned int can_insert:1;
 	unsigned int can_bracketedpaste:1;
+	unsigned int can_sgrmouse:1;
+
 	unsigned int history_enabled:1;
 	unsigned int highlight_parens:1;
 	unsigned int smart_case:1;
@@ -196,7 +198,6 @@ typedef struct {
 	unsigned int autohide_tabs:1;
 	unsigned int smart_complete:1;
 	unsigned int has_terminal:1;
-	unsigned int use_sgr_mouse:1;
 	unsigned int search_wraps:1;
 
 	int cursor_padding;

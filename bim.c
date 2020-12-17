@@ -53,6 +53,7 @@ global_config_t global_config = {
 	.can_italic = 1, /* can use italics (without inverting) */
 	.can_insert = 0, /* ^[[L */
 	.can_bracketedpaste = 0, /* puts escapes before and after pasted stuff */
+	.can_sgrmouse = 0, /* Whether SGR mouse mode is availabe (large coordinates) */
 	/* Configuration options */
 	.history_enabled = 1,
 	.highlight_parens = 1, /* highlight parens/braces when cursor moves */
@@ -69,7 +70,6 @@ global_config_t global_config = {
 	.autohide_tabs = 0,
 	.smart_complete = 0,
 	.has_terminal = 0,
-	.use_sgr_mouse = 0,
 	.search_wraps = 1,
 	/* Integer config values */
 	.cursor_padding = 4,
@@ -1920,7 +1920,7 @@ void restore_cursor(void) {
 void mouse_enable(void) {
 	if (global_config.can_mouse) {
 		printf("\033[?1000h");
-		if (global_config.use_sgr_mouse) {
+		if (global_config.can_sgrmouse) {
 			printf("\033[?1006h");
 		}
 	}
@@ -1931,7 +1931,7 @@ void mouse_enable(void) {
  */
 void mouse_disable(void) {
 	if (global_config.can_mouse) {
-		if (global_config.use_sgr_mouse) {
+		if (global_config.can_sgrmouse) {
 			printf("\033[?1006l");
 		}
 		printf("\033[?1000l");
@@ -5137,6 +5137,7 @@ BIM_COMMAND(tabindicator,"tabindicator","Set the tab indicator") {
 		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
 		return 1;
 	}
+	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (global_config.tab_indicator) free(global_config.tab_indicator);
 	global_config.tab_indicator = strdup(argv[1]);
 	return 0;
@@ -5151,19 +5152,9 @@ BIM_COMMAND(spaceindicator,"spaceindicator","Set the space indicator") {
 		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
 		return 1;
 	}
+	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (global_config.space_indicator) free(global_config.space_indicator);
 	global_config.space_indicator = strdup(argv[1]);
-	return 0;
-}
-
-BIM_COMMAND(global_sgr,"global.sgr_mouse","Enable SGR mouse escapes") {
-	if (argc < 2) {
-		render_status_message("global.sgr_mouse=%d", global_config.use_sgr_mouse);
-	} else {
-		if (global_config.has_terminal) mouse_disable();
-		global_config.use_sgr_mouse = !!atoi(argv[1]);
-		if (global_config.has_terminal) mouse_enable();
-	}
 	return 0;
 }
 
@@ -9902,6 +9893,89 @@ BIM_COMMAND(rundir,"rundir","Run scripts from a directory, in unspecified order"
 }
 
 /**
+ * Enable or disable terminal features/quirks and other options.
+ * Used by -O and by the `quirks` bimrc command.
+ */
+int set_capability(char * arg) {
+	char * argname;
+	int value;
+	if (strstr(arg,"no") == arg) {
+		argname = &arg[2];
+		value = 0;
+	} else if (strstr(arg,"can") == arg) {
+		argname = &arg[3];
+		value = 1;
+	} else {
+		render_error("Capabilities must by 'no{CAP}' or 'can{CAP}': %s", arg);
+		return 2;
+	}
+
+	/* Terminal features / quirks */
+	if (!strcmp(argname, "24bit")) global_config.can_24bit = value;
+	else if (!strcmp(argname, "256color")) global_config.can_256color = value;
+	else if (!strcmp(argname, "altscreen")) global_config.can_altscreen = value;
+	else if (!strcmp(argname, "bce")) global_config.can_bce = value;
+	else if (!strcmp(argname, "bright")) global_config.can_bright = value;
+	else if (!strcmp(argname, "hideshow")) global_config.can_hideshow = value;
+	else if (!strcmp(argname, "italic")) global_config.can_italic = value;
+	else if (!strcmp(argname, "mouse")) global_config.can_mouse = value;
+	else if (!strcmp(argname, "scroll")) global_config.can_scroll = value;
+	else if (!strcmp(argname, "title")) global_config.can_title = value;
+	else if (!strcmp(argname, "unicode")) global_config.can_unicode = value;
+	else if (!strcmp(argname, "insert")) global_config.can_insert = value;
+	else if (!strcmp(argname, "paste")) global_config.can_bracketedpaste = value;
+	else if (!strcmp(argname, "sgrmouse")) global_config.can_sgrmouse = value;
+	/* Startup options */
+	else if (!strcmp(argname, "syntax")) global_config.highlight_on_open = value;
+	else if (!strcmp(argname, "history")) global_config.history_enabled = value;
+	else {
+		render_error("Unknown capability: %s", argname);
+		return 1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(setcap, "setcap", "Enable or disable quirks/features.") {
+	for (int i = 1; i < argc; ++i) {
+		if (set_capability(argv[i])) return 1;
+	}
+	return 0;
+}
+
+BIM_COMMAND(quirk,"quirk","Handle quirks based on environment variables") {
+	if (argc < 2) goto _quirk_arg_error;
+	char * varname = argv[1];
+	char * teststr = strstr(varname, " ");
+	if (!teststr) goto _quirk_arg_error;
+	*teststr = '\0';
+	teststr++;
+
+	char * arg = strstr(teststr, " ");
+	if (!arg) goto _quirk_arg_error;
+	*arg = '\0';
+	arg++;
+
+	char * value = getenv(varname);
+	if (!value) return 0;
+
+	if (strstr(value, teststr) == value) {
+		/* Process quirk strings */
+		while (arg) {
+			char * next = strstr(arg, " ");
+			if (next) { *next = '\0'; next++; }
+			/* Quirks disable default-enabled options; continue on error by default */
+			set_capability(arg);
+			arg = next;
+		}
+	}
+
+	return 0;
+_quirk_arg_error:
+	render_error("Usage: quirk ENVVAR value no... can...");
+	return 1;
+}
+
+/**
  * Load bimrc configuration file.
  *
  * At the moment, this a simple key=value list.
@@ -9950,64 +10024,6 @@ void load_bimrc(void) {
 }
 
 /**
- * Set some default values when certain terminals are detected.
- */
-void detect_weird_terminals(void) {
-
-	char * term = getenv("TERM");
-	if (term && !strcmp(term,"linux")) {
-		/* Linux VTs actually can't use the scroll escapes, they need insert/delete. */
-		global_config.can_insert = 1;
-	}
-	if (term && !strcmp(term,"cons25")) {
-		/* Dragonfly BSD console */
-		global_config.can_hideshow = 0;
-		global_config.can_altscreen = 0;
-		global_config.can_mouse = 0;
-		global_config.can_unicode = 0;
-		global_config.can_bright = 0;
-	}
-	if (term && !strcmp(term,"sortix")) {
-		/* sortix will spew title escapes to the screen, no good */
-		global_config.can_title = 0;
-	}
-	if (term && strstr(term,"tmux") == term) {
-		global_config.can_scroll = 0;
-		global_config.can_bce = 0;
-	}
-	if (term && strstr(term,"screen") == term) {
-		/* unfortunately */
-		global_config.can_24bit = 0;
-		global_config.can_italic = 0;
-	}
-	if (term && strstr(term,"toaru-vga") == term) {
-		global_config.can_24bit = 0; /* Also not strictly true */
-		global_config.can_256color = 0; /* Not strictly true */
-	}
-	if (term && strstr(term,"xterm-256color") == term) {
-		global_config.can_insert = 1;
-		global_config.can_bracketedpaste = 1;
-		char * term_emu = getenv("TERMINAL_EMULATOR");
-		if (term_emu && strstr(term_emu,"JetBrains")) {
-			global_config.can_bce = 0;
-		}
-	}
-	if (term && strstr(term,"toaru") == term) {
-		global_config.can_insert = 1;
-		global_config.can_bracketedpaste = 1;
-	}
-
-	if (!global_config.can_unicode) {
-		global_config.tab_indicator = strdup(">");
-		global_config.space_indicator = strdup("-");
-	} else {
-		global_config.tab_indicator = strdup("»");
-		global_config.space_indicator = strdup("·");
-	}
-
-}
-
-/**
  * Run global initialization tasks
  */
 void initialize(void) {
@@ -10040,8 +10056,9 @@ void initialize(void) {
 
 #undef CLONE_MAP
 
-	/* Detect terminal quirks */
-	detect_weird_terminals();
+	/* Simple ASCII defaults, but you could use " " as a config option */
+	global_config.tab_indicator = strdup(">");
+	global_config.space_indicator = strdup("-");
 
 	/* Load bimrc */
 	load_bimrc();
@@ -10524,17 +10541,7 @@ int main(int argc, char * argv[]) {
 				break;
 			case 'O':
 				/* Set various display options */
-				if (!strcmp(optarg,"noaltscreen"))     global_config.can_altscreen = 0;
-				else if (!strcmp(optarg,"noscroll"))   global_config.can_scroll = 0;
-				else if (!strcmp(optarg,"nomouse"))    global_config.can_mouse = 0;
-				else if (!strcmp(optarg,"nounicode"))  global_config.can_unicode = 0;
-				else if (!strcmp(optarg,"nobright"))   global_config.can_bright = 0;
-				else if (!strcmp(optarg,"nohideshow")) global_config.can_hideshow = 0;
-				else if (!strcmp(optarg,"nosyntax"))   global_config.highlight_on_open = 0;
-				else if (!strcmp(optarg,"nohistory"))  global_config.history_enabled = 0;
-				else if (!strcmp(optarg,"notitle"))    global_config.can_title = 0;
-				else if (!strcmp(optarg,"nobce"))      global_config.can_bce = 0;
-				else {
+				if (set_capability(optarg)) {
 					fprintf(stderr, "%s: unrecognized -O option: %s\n", argv[0], optarg);
 					return 1;
 				}
