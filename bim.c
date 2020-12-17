@@ -10110,22 +10110,41 @@ void dump_mapping(const char * description, struct action_map * map) {
 	printf("\n");
 }
 
+int sort_regular_commands(const void * a, const void * b) {
+	return strcmp(regular_commands[*(int *)a].name, regular_commands[*(int *)b].name);
+}
+
+int sort_prefix_commands(const void * a, const void * b) {
+	return strcmp(prefix_commands[*(int *)a].name, prefix_commands[*(int *)b].name);
+}
+
 void dump_commands(void) {
 	printf("## Regular Commands\n");
 	printf("\n");
 	printf("| **Command** | **Description** |\n");
 	printf("|-------------|-----------------|\n");
-	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-		printf("| `:%s` | %s |\n", c->name, c->description);
+	int * offsets = malloc(sizeof(int) * flex_regular_commands_count);
+	for (int i = 0; i < flex_regular_commands_count; ++i) {
+		offsets[i] = i;
 	}
+	qsort(offsets, flex_regular_commands_count, sizeof(int), sort_regular_commands);
+	for (int i = 0; i < flex_regular_commands_count; ++i) {
+		printf("| `:%s` | %s |\n", regular_commands[offsets[i]].name, regular_commands[offsets[i]].description);
+	}
+	free(offsets);
 	printf("\n");
 	printf("## Prefix Commands\n");
 	printf("\n");
 	printf("| **Command** | **Description** |\n");
 	printf("|-------------|-----------------|\n");
-	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
-		printf("| `:%s...` | %s |\n", !strcmp(c->name, "`") ? "`(backtick)`" : c->name, c->description);
+	offsets = malloc(sizeof(int) * flex_prefix_commands_count);
+	for (int i = 0; i < flex_prefix_commands_count; ++i) offsets[i] = i;
+	qsort(offsets, flex_prefix_commands_count, sizeof(int), sort_regular_commands);
+	for (int i = 0; i < flex_prefix_commands_count; ++i) {
+		printf("| `:%s...` | %s |\n", !strcmp(prefix_commands[offsets[i]].name, "`") ? "`(backtick)`" : 
+			prefix_commands[offsets[i]].name, prefix_commands[offsets[i]].description);
 	}
+	free(offsets);
 	printf("\n");
 }
 

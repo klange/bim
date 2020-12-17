@@ -2,6 +2,7 @@
 
 | **Command** | **Description** |
 |-------------|-----------------|
+| `:TOhtml` | Alias for tohtml |
 | `:action` | Execute a bim action |
 | `:buffers` | Show the open buffers |
 | `:call` | Call a function |
@@ -16,7 +17,6 @@
 | `:global.autohidetabs` | Whether to show the tab bar when there is only one tab |
 | `:global.git` | Show or change the default status of git integration |
 | `:global.numbers` | Set whether numbers are displayed by default |
-| `:global.sgr_mouse` | Enable SGR mouse escapes |
 | `:global.statusbar` | Show or set whether to display the statusbar |
 | `:help` | Show help text. |
 | `:history` | Display command history |
@@ -29,50 +29,51 @@
 | `:mapkey` | Map a key to an action. |
 | `:maxcolumn` | Highlight past the given column to indicate maximum desired line length |
 | `:noh` | Clear search term |
-| `:noindent` | Disable smrat indentation |
+| `:noindent` | Disable smart indentation |
 | `:numbers` | Show or set the display of line numbers |
 | `:padding` | Show or set cursor padding when scrolling vertically |
-| `:qa!` | Force exit |
-| `:qall` | Alias for qa |
-| `:qa` | Try to close all buffers |
 | `:q` | Close buffer |
 | `:q!` | Force close buffer |
+| `:qa` | Try to close all buffers |
+| `:qa!` | Force exit |
+| `:qall` | Alias for qa |
+| `:quirk` | Handle quirks based on environment variables |
 | `:recalc` | Recalculate syntax for the entire file. |
 | `:relativenumbers` | Show or set the display of relative line numbers |
 | `:rundir` | Run scripts from a directory, in unspecified order |
 | `:runscript` | Run a script file |
+| `:setcap` | Enable or disable quirks/features. |
 | `:setcolor` | Set colorscheme colors |
 | `:showfunction` | Show the commands in a function |
 | `:smartcase` | Show or set the status of the smartcase search option |
 | `:smartcomplete` | Enable autocompletion while typing |
 | `:spaceindicator` | Set the space indicator |
 | `:spaces` | Use spaces for indentation |
-| `:splitpercent` | Display or change view split |
 | `:split` | Split the current view. |
+| `:splitpercent` | Display or change view split |
 | `:syntax` | Show or set the active syntax highlighter |
 | `:tabindicator` | Set the tab indicator |
-| `:tabnew` | Open a new tab |
 | `:tabn` | Next tab |
+| `:tabnew` | Open a new tab |
 | `:tabp` | Previous tab |
-| `:tabstop` | Show or set the tabstop (width of an indentation unit) |
 | `:tabs` | Use tabs for indentation |
+| `:tabstop` | Show or set the tabstop (width of an indentation unit) |
 | `:theme` | Set color theme |
-| `:TOhtml` | Alias for tohtml |
 | `:tohtml` | Convert the document to an HTML representation with syntax highlighting. |
 | `:trycall` | Call a function but return quietly if it fails |
 | `:unsplit` | Show only one buffer on screen |
 | `:version` | Show version information. |
+| `:w` | Write a file |
 | `:whatis` | Describe actions bound to a key in different modes. |
 | `:wq` | Write and close buffer |
 | `:wrapsearch` | Enable search wrapping around from top or bottom |
-| `:w` | Write a file |
 
 ## Prefix Commands
 
 | **Command** | **Description** |
 |-------------|-----------------|
-| `:!...` | Executes shell commands. |
-| `:`(backtick)`...` | Executes Python commands. |
 | `:s...` | Perform a replacement over selected lines |
+| `:`(backtick)`...` | Executes Python commands. |
 | `:%s...` | Perform a replacement over the entire file. |
+| `:!...` | Executes shell commands. |
 
