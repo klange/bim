@@ -6449,6 +6449,7 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 			env->lines[i]->text[j].flags &= (~FLAG_SEARCH);
 		}
 	}
+	int my_index = 0, match_count = 0;
 	int line = -1, col = -1, _line = 1, _col = 1;
 	do {
 		int matchlen;
@@ -6458,6 +6459,8 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 			for (int i = col; matchlen > 0; ++i, --matchlen) {
 				l->text[i-1].flags |= FLAG_SEARCH;
 			}
+			match_count += 1;
+			if (col == env->col_no && line == env->line_no) my_index = match_count;
 		}
 		_line = line;
 		_col  = col+1;
@@ -6468,15 +6471,17 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 	place_cursor_actual();
 	redraw_statusbar();
 	redraw_commandline();
-	if (redraw_buffer != -1) {
-		printf(redraw_buffer == 1 ? "/" : "?");
-		uint32_t * c = buffer;
-		while (*c) {
-			char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
-			to_eight(*c, tmp);
-			printf("%s", tmp);
-			c++;
-		}
+	set_fg_color(COLOR_ALT_FG);
+	printf("[%d/%d] ", my_index, match_count);
+	set_fg_color(COLOR_KEYWORD);
+	printf(redraw_buffer == 1 ? "/" : "?");
+	set_fg_color(COLOR_FG);
+	uint32_t * c = buffer;
+	while (*c) {
+		char tmp[7] = {0}; /* Max six bytes, use 7 to ensure last is always nil */
+		to_eight(*c, tmp);
+		printf("%s", tmp);
+		c++;
 	}
 }
 
@@ -6534,6 +6539,8 @@ _finish:
 
 	/* Leave command mode */
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
+
+	draw_search_match(global_config.search, global_config.search_direction);
 }
 
 /**
@@ -6544,19 +6551,24 @@ BIM_ACTION(search_next, 0,
 )(void) {
 	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
-	int line = -1, col = -1;
+	int line = -1, col = -1, wrapped = 0;
 	find_match(env->line_no, env->col_no+1, &line, &col, global_config.search, NULL);
 
 	if (line == -1) {
 		if (!global_config.search_wraps) return;
 		find_match(1,1, &line, &col, global_config.search, NULL);
 		if (line == -1) return;
+		wrapped = 1;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(global_config.search, -1);
+	draw_search_match(global_config.search, 1);
+	if (wrapped) {
+		set_fg_color(COLOR_ALT_FG);
+		printf(" (search wrapped to top)");
+	}
 }
 
 /**
@@ -6567,19 +6579,24 @@ BIM_ACTION(search_prev, 0,
 )(void) {
 	if (!global_config.search) return;
 	if (env->coffset) env->coffset = 0;
-	int line = -1, col = -1;
+	int line = -1, col = -1, wrapped = 0;
 	find_match_backwards(env->line_no, env->col_no-1, &line, &col, global_config.search);
 
 	if (line == -1) {
 		if (!global_config.search_wraps) return;
 		find_match_backwards(env->line_count, env->lines[env->line_count-1]->actual, &line, &col, global_config.search);
 		if (line == -1) return;
+		wrapped = 1;
 	}
 
 	env->col_no = col;
 	env->line_no = line;
 	set_preferred_column();
-	draw_search_match(global_config.search, -1);
+	draw_search_match(global_config.search, 0);
+	if (wrapped) {
+		set_fg_color(COLOR_ALT_FG);
+		printf(" (search wrapped to bottom)");
+	}
 }
 
 /**
