@@ -5398,24 +5398,12 @@ BIM_COMMAND(recalc,"recalc","Recalculate syntax for the entire file.") {
 	return 0;
 }
 
-BIM_COMMAND(tabs,"tabs","Use tabs for indentation") {
-	env->tabs = 1;
-	redraw_statusbar();
-	return 0;
-}
-
-BIM_COMMAND(spaces,"spaces","Use spaces for indentation") {
-	env->tabs = 0;
-	redraw_statusbar();
-	return 0;
-}
-
 BIM_COMMAND(tabstop,"tabstop","Show or set the tabstop (width of an indentation unit)") {
 	if (argc < 2) {
 		render_status_message("tabstop=%d", env->tabstop);
 	} else {
 		int t = atoi(argv[1]);
-		if (t > 0 && t < 32) {
+		if (t > 0 && t < 12) {
 			env->tabstop = t;
 			for (int i = 0; i < env->line_count; ++i) {
 				recalculate_tabs(env->lines[i]);
@@ -5425,6 +5413,24 @@ BIM_COMMAND(tabstop,"tabstop","Show or set the tabstop (width of an indentation 
 			render_error("Invalid tabstop: %s", argv[1]);
 		}
 	}
+	return 0;
+}
+
+BIM_COMMAND(spaces,"spaces","Use spaces for indentation") {
+	env->tabs = 0;
+	if (argc > 1) {
+		bim_command_tabstop("tabstop", argc, argv);
+	}
+	redraw_statusbar();
+	return 0;
+}
+
+BIM_COMMAND(tabs,"tabs","Use tabs for indentation") {
+	env->tabs = 1;
+	if (argc > 1) {
+		bim_command_tabstop("tabstop", argc, argv);
+	}
+	redraw_statusbar();
 	return 0;
 }
 
