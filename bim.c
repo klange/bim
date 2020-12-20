@@ -5133,11 +5133,11 @@ BIM_COMMAND(tabindicator,"tabindicator","Set the tab indicator") {
 		render_status_message("tabindicator=%s", global_config.tab_indicator);
 		return 0;
 	}
+	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (display_width_of_string(argv[1]) != 1) {
 		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
 		return 1;
 	}
-	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (global_config.tab_indicator) free(global_config.tab_indicator);
 	global_config.tab_indicator = strdup(argv[1]);
 	return 0;
@@ -5148,11 +5148,11 @@ BIM_COMMAND(spaceindicator,"spaceindicator","Set the space indicator") {
 		render_status_message("spaceindicator=%s", global_config.space_indicator);
 		return 0;
 	}
+	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (display_width_of_string(argv[1]) != 1) {
 		render_error("Can't set '%s' as indicator, must be one cell wide.", argv[1]);
 		return 1;
 	}
-	if (!global_config.can_unicode && strlen(argv[1]) != 1) return 0;
 	if (global_config.space_indicator) free(global_config.space_indicator);
 	global_config.space_indicator = strdup(argv[1]);
 	return 0;
