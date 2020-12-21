@@ -7689,7 +7689,7 @@ BIM_ACTION(column_left, 0, "Move the column cursor left.")(void) {
 	}
 }
 
-BIM_ACTION(column_right, 0, "Move tle column cursor right.")(void) {
+BIM_ACTION(column_right, 0, "Move the column cursor right.")(void) {
 	env->sel_col += 1;
 	env->preferred_column = env->sel_col;
 	/* Figure out where the cursor should be */

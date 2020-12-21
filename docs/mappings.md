@@ -23,7 +23,7 @@
 | `R` | `enter_replace` | Enter replace mode. |
 | `<shift-up>` | `enter_line_selection_and_cursor_up` | Enter line selection and move the cursor up one line. |
 | `<shift-down>` | `enter_line_selection_and_cursor_down` | Enter line selection and move the cursor down one line. |
-| `<alt-up>` | `previous_tab` | Switch the previoius tab |
+| `<alt-up>` | `previous_tab` | Switch the previous tab |
 | `<alt-down>` | `next_tab` | Switch to the next tab |
 
 ## Insert
@@ -35,7 +35,7 @@
 | `^C` | `leave_insert` | Leave insert modes and return to normal mode. |
 | `<backspace>` | `smart_backspace` | Delete the preceding character, with special handling for indentation. |
 | `<enter>` | `insert_line_feed` | Insert a line break, splitting the current line into two. |
-| `^O` | `perform_omni_completion` | (temporary) Perform smart symbol competion from ctags. |
+| `^O` | `perform_omni_completion` | (temporary) Perform smart symbol completion from ctags. |
 | `^V` | `insert_char` | Insert one character. |
 | `^W` | `delete_word` | Delete the previous word. |
 | `<tab>` | `smart_tab` | Insert a tab or spaces depending on indent mode. (Use ^V <tab> to guarantee a literal tab) |
@@ -99,7 +99,7 @@
 | `^V` | `leave_selection` | Leave selection modes and return to normal mode. |
 | `I` | `enter_col_insert` | Enter column insert mode. |
 | `a` | `enter_col_insert_after` | Enter column insert mode after the selected column. |
-| `d` | `delete_column` | (temporary) Delete the selected column. |
+| `d` | `delete_at_column` | Delete from the current column backwards (`<backspace>`) or forwards (`<del>`). |
 
 ## Col Insert
 
@@ -112,13 +112,15 @@
 | `<enter>` | `(unbound)` | (unbound) |
 | `^W` | `(unbound)` | (unbound) |
 | `^V` | `insert_char_at_column` | Insert a character on all lines at the current column. |
+| `<left>` | `column_left` | Move the column cursor left. |
+| `<right>` | `column_right` | Move the column cursor right. |
 
 ## Navigation (Select)
 
 | **Key** | **Action** | **Description** |
 |---------|------------|-----------------|
-| `^B` | `go_page_up` | Jump up a screenful. |
-| `^F` | `go_page_down` | Jump down a screenful. |
+| `^B` | `go_page_up` | Jump up a screenfull. |
+| `^F` | `go_page_down` | Jump down a screenfull. |
 | `:` | `enter_command` | Enter command input mode. |
 | `/` | `enter_search` | Enter search mode. |
 | `?` | `enter_search` | Enter search mode. |
@@ -132,15 +134,15 @@
 | `w` | `word_right` | Move the cursor right to the start of the next word. |
 | `B` | `big_word_left` | Move the cursor left to the previous WORD. |
 | `W` | `big_word_right` | Move the cursor right to the start of the next WORD. |
-| `<` | `shift_horizontally` | Shift the current line or screen view horiztonally, depending on settings. |
-| `>` | `shift_horizontally` | Shift the current line or screen view horiztonally, depending on settings. |
+| `<` | `shift_horizontally` | Shift the current line or screen view horizontally, depending on settings. |
+| `>` | `shift_horizontally` | Shift the current line or screen view horizontally, depending on settings. |
 | `f` | `find_character_forward` | Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it. |
 | `F` | `find_character_backward` | Find a character backward on the current line and place the cursor on (`F`) or after (`T`) it. |
 | `t` | `find_character_forward` | Find a character forward on the current line and place the cursor on (`f`) or before (`t`) it. |
 | `T` | `find_character_backward` | Find a character backward on the current line and place the cursor on (`F`) or after (`T`) it. |
 | `G` | `goto_line` | Jump to the requested line. |
 | `*` | `search_under_cursor` | Search for the word currently under the cursor. |
-| `<space>` | `go_page_down` | Jump down a screenful. |
+| `<space>` | `go_page_down` | Jump down a screenfull. |
 | `%` | `jump_to_matching_bracket` | Find and jump to the matching bracket for the character under the cursor. |
 | `{` | `jump_to_previous_blank` | Jump to the preceding blank line before the cursor. |
 | `}` | `jump_to_next_blank` | Jump to the next blank line after the cursor. |
@@ -174,8 +176,8 @@
 | `<alt-shift-left>` | `use_left_buffer` | Switch to the left split view. |
 | `<home>` | `cursor_home` | Move the cursor to the beginning of the line. |
 | `<end>` | `cursor_end` | Move the cursor to the end of the line, or past the end in insert mode. |
-| `<page-up>` | `go_page_up` | Jump up a screenful. |
-| `<page-down>` | `go_page_down` | Jump down a screenful. |
+| `<page-up>` | `go_page_up` | Jump up a screenfull. |
+| `<page-down>` | `go_page_down` | Jump down a screenfull. |
 | `^Z` | `suspend` | Suspend bim and the rest of the job it was run in. |
 
 ## Command
