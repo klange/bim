@@ -7667,6 +7667,36 @@ BIM_ACTION(delete_at_column, ARG_IS_CUSTOM | ACTION_IS_RW,
 	redraw_text();
 }
 
+void realign_column_cursor(void) {
+	line_t * line = env->lines[env->line_no - 1];
+	int _x = 0, col = 1, j = 0;
+	for (; j < line->actual; ++j) {
+		char_t * c = &line->text[j];
+		_x += c->display_width;
+		col = j + 1;
+		if (_x > env->sel_col) break;
+	}
+	env->col_no = col;
+}
+
+BIM_ACTION(column_left, 0, "Move the column cursor left.")(void) {
+	if (env->sel_col > 0) {
+		env->sel_col -= 1;
+		env->preferred_column = env->sel_col;
+		/* Figure out where the cursor should be */
+		realign_column_cursor();
+		redraw_all();
+	}
+}
+
+BIM_ACTION(column_right, 0, "Move tle column cursor right.")(void) {
+	env->sel_col += 1;
+	env->preferred_column = env->sel_col;
+	/* Figure out where the cursor should be */
+	realign_column_cursor();
+	redraw_all();
+}
+
 uint32_t * get_word_under_cursor(void) {
 	/* Figure out size */
 	int c_before = 0;
@@ -9166,6 +9196,8 @@ struct action_map _COL_INSERT_MAP[] = {
 	{KEY_ENTER,     NULL, 0, 0},
 	{KEY_CTRL_W,    NULL, 0, 0},
 	{KEY_CTRL_V,    insert_char_at_column, opt_char, 0},
+	{KEY_LEFT,      column_left, 0, 0},
+	{KEY_RIGHT,     column_right, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
