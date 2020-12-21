@@ -565,7 +565,7 @@ int file_is_open(char * file_name) {
 					render_error("biminfo indicates another instance may already be editing this file");
 					render_commandline_message("\n");
 					render_commandline_message("file path = %s\n", tmp_path);
-					render_commandline_message("pid = %d (still running)\n");
+					render_commandline_message("pid = %d (still running)\n", pid);
 					render_commandline_message("Open file anyway? (y/N)");
 					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 					if (key != 'y') {
@@ -673,7 +673,8 @@ int update_biminfo(buffer_t * buf, int is_open) {
 
 	/* If we reach this point, we didn't find a record for this file
 	 * and the write cursor should be at the end, so just add a new line */
-	fprintf(biminfo, ">%s %20d %20d\n", tmp_path, buf->line_no, buf->col_no);
+	fprintf(biminfo,"%c%s %20d %20d\n", is_open ? '%' : '>', tmp_path,
+		is_open ? getpid() : buf->line_no, buf->col_no);
 
 _done:
 	fclose(biminfo);
@@ -3736,8 +3737,6 @@ void open_file(char * file) {
 		env->file_name = strdup(file);
 	}
 
-	update_biminfo(env, 1);
-
 	if (!f) {
 		if (global_config.highlight_on_open) {
 			env->syntax = match_syntax(file);
@@ -3749,6 +3748,7 @@ void open_file(char * file) {
 		if (env->syntax && env->syntax->prefers_spaces) {
 			env->tabs = 0;
 		}
+		update_biminfo(env, 1);
 		run_onload(env);
 		return;
 	}
@@ -3832,6 +3832,8 @@ void open_file(char * file) {
 			set_preferred_column();
 		}
 	}
+
+	update_biminfo(env, 1);
 
 	fclose(f);
 
