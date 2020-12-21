@@ -531,6 +531,58 @@ FILE * open_biminfo(void) {
 }
 
 /**
+ * Check if a file is open by examining the biminfo file
+ */
+int file_is_open(char * file_name) {
+	/* Get the absolute path of the file to normalize for lookup */
+	char tmp_path[PATH_MAX+2];
+	if (!realpath(file_name, tmp_path)) {
+		return 0; /* Assume not */
+	}
+	strcat(tmp_path," ");
+
+	FILE * biminfo = open_biminfo();
+	if (!biminfo) return 0; /* Assume not */
+
+	/* Scan */
+	char line[PATH_MAX+64];
+
+	while (!feof(biminfo)) {
+		fpos_t start_of_line;
+		fgetpos(biminfo, &start_of_line);
+		fgets(line, PATH_MAX+63, biminfo);
+		if (line[0] != '%') {
+			continue;
+		}
+
+		if (!strncmp(&line[1],tmp_path, strlen(tmp_path))) {
+			/* File is currently open */
+			int pid = -1;
+			sscanf(line+1+strlen(tmp_path)+1,"%d",&pid);
+			if (pid != -1 && pid != getpid()) {
+				if (!kill(pid, 0)) {
+					int key = 0;
+					render_error("biminfo indicates another instance may already be editing this file");
+					render_commandline_message("\n");
+					render_commandline_message("file path = %s\n", tmp_path);
+					render_commandline_message("pid = %d (still running)\n");
+					render_commandline_message("Open file anyway? (y/N)");
+					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+					if (key != 'y') {
+						fclose(biminfo);
+						return 1;
+					}
+				}
+			}
+			fclose(biminfo);
+			return 0;
+		}
+	}
+	fclose(biminfo);
+	return 0;
+}
+
+/**
  * Fetch the cursor position from a biminfo file
  */
 int fetch_from_biminfo(buffer_t * buf) {
@@ -566,17 +618,20 @@ int fetch_from_biminfo(buffer_t * buf) {
 			if (buf->line_no > buf->line_count) buf->line_no = buf->line_count;
 			if (buf->col_no > buf->lines[buf->line_no-1]->actual) buf->col_no = buf->lines[buf->line_no-1]->actual;
 			try_to_center();
+
+			fclose(biminfo);
 			return 0;
 		}
 	}
 
+	fclose(biminfo);
 	return 0;
 }
 
 /**
  * Write a file containing the last cursor position of a buffer.
  */
-int update_biminfo(buffer_t * buf) {
+int update_biminfo(buffer_t * buf, int is_open) {
 	if (!buf->file_name) return 1;
 
 	/* Get the absolute path of the file to normalize for lookup */
@@ -596,14 +651,15 @@ int update_biminfo(buffer_t * buf) {
 		fpos_t start_of_line;
 		fgetpos(biminfo, &start_of_line);
 		fgets(line, PATH_MAX+63, biminfo);
-		if (line[0] != '>') {
+		if (line[0] != '>' && line[0] != '%') {
 			continue;
 		}
 
 		if (!strncmp(&line[1],tmp_path, strlen(tmp_path))) {
 			/* Update */
 			fsetpos(biminfo, &start_of_line);
-			fprintf(biminfo,">%s %20d %20d\n", tmp_path, buf->line_no, buf->col_no);
+			fprintf(biminfo,"%c%s %20d %20d\n", is_open ? '%' : '>', tmp_path,
+				is_open ? getpid() : buf->line_no, buf->col_no);
 			goto _done;
 		}
 	}
@@ -641,7 +697,7 @@ buffer_t * buffer_close(buffer_t * buf) {
 		return NULL;
 	}
 
-	update_biminfo(buf);
+	update_biminfo(buf, 0);
 
 	/* Clean up lines used by old buffer */
 	for (int i = 0; i < buf->line_count; ++i) {
@@ -3663,6 +3719,12 @@ void open_file(char * file) {
 			}
 		}
 
+		if (file_is_open(_file)) {
+			if (file != _file) free(_file);
+			close_buffer();
+			return;
+		}
+
 		struct stat statbuf;
 		if (!stat(_file, &statbuf) && S_ISDIR(statbuf.st_mode)) {
 			read_directory_into_buffer(_file);
@@ -3673,6 +3735,8 @@ void open_file(char * file) {
 		if (file != _file) free(_file);
 		env->file_name = strdup(file);
 	}
+
+	update_biminfo(env, 1);
 
 	if (!f) {
 		if (global_config.highlight_on_open) {

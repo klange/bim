@@ -413,7 +413,7 @@ extern int bim_getch_timeout(int timeout);
 extern buffer_t * buffer_new(void);
 extern FILE * open_biminfo(void);
 extern int fetch_from_biminfo(buffer_t * buf);
-extern int update_biminfo(buffer_t * buf);
+extern int update_biminfo(buffer_t * buf, int is_open);
 extern buffer_t * buffer_close(buffer_t * buf);
 extern int to_eight(uint32_t codepoint, char * out);
 extern char * name_from_key(enum Key keycode);
@@ -444,6 +444,7 @@ extern int run_function(char * name);
 extern int has_function(char * name);
 extern void find_matching_paren(int * out_line, int * out_col, int in_col);
 extern void render_error(char * message, ...);
+extern void render_commandline_message(char * message, ...);
 extern void pause_for_key(void);
 
 #define add_match(match_string, match_file, match_search) do { \
