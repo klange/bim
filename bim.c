@@ -7697,6 +7697,28 @@ BIM_ACTION(column_right, 0, "Move the column cursor right.")(void) {
 	redraw_all();
 }
 
+BIM_ACTION(column_up, 0, "Move the column cursor up.")(void) {
+	if (env->line_no > 1 && env->start_line > 1) {
+		env->line_no--;
+		env->start_line--;
+		/* Figure out where the cursor should be */
+		realign_column_cursor();
+		place_cursor_actual();
+		redraw_all();
+	}
+}
+
+BIM_ACTION(column_down, 0, "Move the column cursor down.")(void) {
+	if (env->line_no < env->line_count && env->start_line < env->line_count) {
+		env->line_no++;
+		env->start_line++;
+		/* Figure out where the cursor should be */
+		realign_column_cursor();
+		place_cursor_actual();
+		redraw_all();
+	}
+}
+
 uint32_t * get_word_under_cursor(void) {
 	/* Figure out size */
 	int c_before = 0;
@@ -9198,6 +9220,8 @@ struct action_map _COL_INSERT_MAP[] = {
 	{KEY_CTRL_V,    insert_char_at_column, opt_char, 0},
 	{KEY_LEFT,      column_left, 0, 0},
 	{KEY_RIGHT,     column_right, 0, 0},
+	{KEY_UP,        column_up, 0, 0},
+	{KEY_DOWN,      column_down, 0, 0},
 	{-1, NULL, 0, 0},
 };
 

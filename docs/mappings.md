@@ -114,6 +114,8 @@
 | `^V` | `insert_char_at_column` | Insert a character on all lines at the current column. |
 | `<left>` | `column_left` | Move the column cursor left. |
 | `<right>` | `column_right` | Move the column cursor right. |
+| `<up>` | `column_up` | Move the column cursor up. |
+| `<down>` | `column_down` | Move the column cursor down. |
 
 ## Navigation (Select)
 
