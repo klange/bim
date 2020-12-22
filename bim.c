@@ -2725,7 +2725,7 @@ void redraw_alt_buffer(buffer_t * buf) {
  * Basically wcswidth() but implemented internally using our
  * own utf-8 decoder to ensure it works properly.
  */
-int display_width_of_string(char * str) {
+int display_width_of_string(const char * str) {
 	uint8_t * s = (uint8_t *)str;
 
 	int out = 0;
@@ -10734,17 +10734,36 @@ int main(int argc, char * argv[]) {
 			case '-':
 				if (!strcmp(optarg,"version")) {
 					initialize(); /* Need to load bimrc to get themes */
-					fprintf(stderr, "bim %s%s - %s\n", BIM_VERSION, BIM_BUILD_DATE, BIM_COPYRIGHT);
-					fprintf(stderr, " Available syntax highlighters:");
+					update_screen_size(); /* Get terminal size if possible */
+					fprintf(stderr, "\033[1mbim\033[0m %s%s\n%s\n\n", BIM_VERSION, BIM_BUILD_DATE, BIM_COPYRIGHT);
+					#define SECTION(title) do { \
+						int x, width; \
+						width = 2 + display_width_of_string(title); \
+						fprintf(stderr, " \033[1m%s\033[0m:", title); \
+						x = width;
+					#define ENDSECTION() fprintf(stderr, "\n\n"); } while (0)
+					#define ITEM(str) do { \
+						int my_width = display_width_of_string(str); \
+						if (x + my_width + 1 >= global_config.term_width) { \
+							fprintf(stderr, "\n"); \
+							for (x = 0; x <= width; ++x) fprintf(stderr, " "); \
+							fprintf(stderr, "%s", str); \
+							x += width; \
+						} else { \
+							fprintf(stderr, " %s", str); \
+							x += my_width + 1; \
+						} } while(0)
+
+					SECTION("Syntax");
 					for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
-						fprintf(stderr, " %s", s->name);
+						ITEM(s->name);
 					}
-					fprintf(stderr, "\n");
-					fprintf(stderr, " Available color themes:");
+					ENDSECTION();
+					SECTION("Themes");
 					for (struct theme_def * d = themes; themes && d->name; ++d) {
-						fprintf(stderr, " %s", d->name);
+						ITEM(d->name);
 					}
-					fprintf(stderr, "\n");
+					ENDSECTION();
 					return 0;
 				} else if (!strcmp(optarg,"help")) {
 					show_usage(argv);
