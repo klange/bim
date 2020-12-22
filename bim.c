@@ -3808,7 +3808,7 @@ void open_file(char * file) {
 	}
 
 	if (spaces) {
-		int one, two, three, four; /* If you use more than that, I don't like you. */
+		int one = 0, two = 0, three = 0, four = 0; /* If you use more than that, I don't like you. */
 		for (int i = 0; i < env->line_count; ++i) {
 			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
 				/* Count spaces at beginning */
