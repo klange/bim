@@ -11,7 +11,7 @@ INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 INSTALL_DATA=$(INSTALL) -m 644
 
-SYNTAXES = $(patsubst %.c, %.o, $(wildcard syntax/*.c))
+SYNTAXES = $(patsubst %.c, %.o, $(sort $(wildcard syntax/*.c)))
 HEADERS = $(wildcard bim-*.h)
 
 .PHONY: all clean distclean install install-strip uninstall
