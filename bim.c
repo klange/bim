@@ -3807,7 +3807,31 @@ void open_file(char * file) {
 		env->tabs = env->syntax->prefers_spaces;
 	}
 
-	/* TODO figure out tabstop for spaces? */
+	if (spaces) {
+		int one, two, three, four; /* If you use more than that, I don't like you. */
+		for (int i = 0; i < env->line_count; ++i) {
+			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
+				/* Count spaces at beginning */
+				int c = 0;
+				while (c < env->lines[i]->actual && env->lines[i]->text[c].codepoint == ' ') c++;
+				if (c) {
+					one += 1;
+					two += ((c % 2) == 0);
+					three += ((c % 3) == 0);
+					four += ((c % 4) == 0);
+				}
+			}
+		}
+		if (four && (four > three) && (four >= two)) {
+			env->tabstop = 4;
+		} else if (three && (three > two) && (three >= one)) {
+			env->tabstop = 3;
+		} else if (two && (two > (one / 2))) {
+			env->tabstop = 2;
+		} else {
+			env->tabstop = 1;
+		}
+	}
 
 	env->loading = 0;
 
