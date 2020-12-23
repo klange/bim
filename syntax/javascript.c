@@ -23,14 +23,13 @@ static char * syn_js_special[] = {
 	NULL
 };
 
-void paint_js_format_string(struct syntax_state * state) {
-	paint(1, FLAG_STRING);
+static int paint_js_format_string(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (charat() == '\\' && nextchar() == '`') {
 			paint(2, FLAG_ESCAPE);
 		} else if (charat() == '`') {
 			paint(1, FLAG_STRING);
-			return;
+			return 0;
 		} else if (charat() == '\\') {
 			paint(2, FLAG_ESCAPE);
 		} else if (charat() == '$' && nextchar() == '{') {
@@ -43,6 +42,7 @@ void paint_js_format_string(struct syntax_state * state) {
 			paint(1, FLAG_STRING);
 		}
 	}
+	return 1;
 }
 
 int syn_js_calculate(struct syntax_state * state) {
@@ -96,7 +96,8 @@ int syn_js_calculate(struct syntax_state * state) {
 				paint_single_string(state);
 				return 0;
 			} else if (charat() == '`') {
-				paint_js_format_string(state);
+				paint(1, FLAG_STRING);
+				if (paint_js_format_string(state)) return 2;
 				return 0;
 			} else if (charat() != -1) {
 				skip();
@@ -105,6 +106,9 @@ int syn_js_calculate(struct syntax_state * state) {
 			break;
 		case 1:
 			if (paint_c_comment(state) == 1) return 1;
+			return 0;
+		case 2:
+			if (paint_js_format_string(state)) return 2;
 			return 0;
 	}
 	return -1;
