@@ -1160,6 +1160,8 @@ void line_delete(line_t * line, int offset, int lineno) {
 
 	/* Can't delete character before start of line. */
 	if (offset == 0) return;
+	/* Can't delete past end of line either */
+	if (offset > line->actual) return;
 
 	if (!env->loading && global_config.history_enabled && lineno != -1) {
 		history_t * e = malloc(sizeof(history_t));
