@@ -6996,6 +6996,15 @@ BIM_ACTION(handle_mouse, 0,
 	handle_common_mouse(buttons, x, y);
 }
 
+BIM_ACTION(eat_mouse_sgr, 0,
+	"Receive, but do not process, mouse actions."
+)(void) {
+	do {
+		int _c = bim_getch();
+		if (_c == -1 || _c == 'm' || _c == 'M') break;
+	} while (1);
+}
+
 BIM_ACTION(handle_mouse_sgr, 0,
 	"Process SGR-style mouse actions."
 )(void) {
@@ -9358,6 +9367,7 @@ struct action_map _INPUT_BUFFER_MAP[] = {
 	{KEY_BACKSPACE, command_backspace, 0, 0},
 	{KEY_CTRL_W,    command_word_delete, 0, 0},
 	{KEY_MOUSE,     eat_mouse, 0, 0},
+	{KEY_MOUSE_SGR, eat_mouse_sgr, 0, 0},
 	{KEY_LEFT,      command_cursor_left, 0, 0},
 	{KEY_CTRL_LEFT, command_word_left, 0, 0},
 	{KEY_RIGHT,     command_cursor_right, 0, 0},
