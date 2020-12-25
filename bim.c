@@ -7608,6 +7608,14 @@ BIM_ACTION(yank_lines, 0,
  * Helper to yank part of a line into a new yank line.
  */
 void yank_partial_line(int yank_no, int line_no, int start_off, int count) {
+	if (start_off + count > env->lines[line_no]->actual) {
+		if (start_off >= env->lines[line_no]->actual) {
+			start_off = env->lines[line_no]->actual;
+			count = 0;
+		} else {
+			count = env->lines[line_no]->actual - start_off;
+		}
+	}
 	global_config.yanks[yank_no] = malloc(sizeof(line_t) + sizeof(char_t) * (count + 1));
 	global_config.yanks[yank_no]->available = count + 1; /* ensure extra space */
 	global_config.yanks[yank_no]->actual = count;
