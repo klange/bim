@@ -7694,6 +7694,7 @@ BIM_ACTION(insert_line_feed, ACTION_IS_RW,
 	} else {
 		env->lines = split_line(env->lines, env->line_no-1, env->col_no - 1);
 	}
+	unhighlight_matching_paren();
 	env->coffset = 0;
 	env->col_no = 1;
 	env->line_no += 1;
