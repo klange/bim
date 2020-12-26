@@ -215,6 +215,7 @@ typedef struct {
 #define OVERLAY_MODE_COMMAND  2
 #define OVERLAY_MODE_SEARCH   3
 #define OVERLAY_MODE_COMPLETE 4
+#define OVERLAY_MODE_FILESEARCH 5
 
 #define HISTORY_SENTINEL     0
 #define HISTORY_INSERT       1

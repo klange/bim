@@ -2176,6 +2176,20 @@ void redraw_tabbar(void) {
 			set_underline();
 		}
 
+		if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
+			if (global_config.command_buffer->actual) {
+				char * f = _env->file_name ? file_basename(_env->file_name) : "";
+				/* TODO: Support unicode input here; needs conversion */
+				int i = 0;
+				for (; i < global_config.command_buffer->actual &&
+				      f[i] == global_config.command_buffer->text[i].codepoint; ++i);
+				if (global_config.command_buffer->actual == i) {
+					set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
+				}
+			}
+		}
+
+
 		char title[64];
 		int size = 0;
 		int filled = draw_tab_name(_env, title, global_config.term_width - offset, &size);
@@ -3019,7 +3033,9 @@ BIM_ACTION(redraw_all, 0,
 	}
 	redraw_statusbar();
 	redraw_commandline();
-	if (global_config.overlay_mode == OVERLAY_MODE_COMMAND || global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
+	if (global_config.overlay_mode == OVERLAY_MODE_COMMAND ||
+	    global_config.overlay_mode == OVERLAY_MODE_SEARCH ||
+	    global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
 		render_command_input_buffer();
 	}
 }
@@ -5220,6 +5236,57 @@ BIM_COMMAND(tabn,"tabn","Next tab") {
 	return 0;
 }
 
+BIM_COMMAND(tabm,"tabm","Move the current tab to a new index") {
+	/* Figure out the current index */
+	int i = 0;
+	for (; i < buffers_len; i++) {
+		if (buffers[i] == env) break;
+	}
+
+	if (i == buffers_len) {
+		render_status_message("(invalid state?)");
+		return 1;
+	}
+
+	if (argc < 2) {
+		render_status_message("tab = %d", i);
+		return 1;
+	}
+
+	int newIndex = atoi(argv[1]);
+
+	if (newIndex == i) {
+		return 0;
+	}
+
+	/* Okay, this is stupid, but, remove the buffer */
+	memmove(&buffers[i], &buffers[i+1], sizeof(*buffers) * (buffers_len - i -1));
+	/* Then make space at the destination */
+	memmove(&buffers[newIndex+1], &buffers[newIndex], sizeof(*buffers) * (buffers_len - newIndex -1));
+
+	buffers[newIndex] = env;
+
+	redraw_tabbar();
+	update_title();
+	return 0;
+}
+
+BIM_COMMAND(tab,"tab", "Open a specific tab") {
+	if (argc < 2) return bim_command_tabm("tabm", argc, argv);
+	int i = atoi(argv[1]);
+
+	if (i < 0 || i > buffers_len) {
+		render_error("Invalid tab index");
+		return 1;
+	}
+
+	env = buffers[i];
+	if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
+	redraw_all();
+	update_title();
+	return 0;
+}
+
 BIM_COMMAND(tabindicator,"tabindicator","Set the tab indicator") {
 	if (argc < 2) {
 		render_status_message("tabindicator=%s", global_config.tab_indicator);
@@ -6195,6 +6262,8 @@ void render_command_input_buffer(void) {
 		set_colors(COLOR_FG, COLOR_BG);
 		if (global_config.overlay_mode == OVERLAY_MODE_SEARCH) {
 			printf(global_config.search_direction == 0 ? "?" : "/");
+		} else if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
+			printf("_");
 		} else {
 			printf(":");
 		}
@@ -6581,6 +6650,66 @@ void draw_search_match(uint32_t * buffer, int redraw_buffer) {
 		printf("%s", tmp);
 		c++;
 	}
+}
+
+BIM_ACTION(start_file_search, 0, "Search for open files and switch tabs quickly.")(void) {
+	global_config.overlay_mode = OVERLAY_MODE_FILESEARCH;
+
+	global_config.command_offset = 0;
+	global_config.command_col_no = 1;
+
+	if (global_config.command_buffer) {
+		free(global_config.command_buffer);
+	}
+
+	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer->available = 32;
+
+	global_config.command_syn_back = env->syntax;
+	global_config.command_syn = NULL; /* uh, dunno for now */
+
+	render_command_input_buffer();
+}
+
+BIM_ACTION(file_search_accept, 0, "Open the requested tab")(void) {
+	if (!global_config.command_buffer->actual) {
+		goto _finish;
+	}
+
+	/* See if the command buffer matches any open buffers */
+	buffer_t * match = NULL;
+	for (int i = global_config.tab_offset; i < buffers_len; i++) {
+		buffer_t * _env = buffers[i];
+
+		if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
+			if (global_config.command_buffer->actual) {
+				char * f = _env->file_name ? file_basename(_env->file_name) : "";
+				/* TODO: Support unicode input here; needs conversion */
+				int i = 0;
+				for (; i < global_config.command_buffer->actual &&
+				      f[i] == global_config.command_buffer->text[i].codepoint; ++i);
+				if (global_config.command_buffer->actual == i) {
+					match = _env;
+					break;
+				}
+			}
+		}
+	}
+
+	if (match) {
+		env = match;
+		if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
+		redraw_all();
+		update_title();
+	}
+
+_finish:
+	/* Free the original editing buffer */
+	free(global_config.command_buffer);
+	global_config.command_buffer = NULL;
+
+	/* Leave command mode */
+	global_config.overlay_mode = OVERLAY_MODE_NONE;
 }
 
 BIM_ACTION(enter_search, ARG_IS_CUSTOM,
@@ -9179,6 +9308,7 @@ struct action_map _NORMAL_MAP[] = {
 	{KEY_SHIFT_DOWN, enter_line_selection_and_cursor_down, 0, 0},
 	{KEY_ALT_UP,    previous_tab, 0, 0},
 	{KEY_ALT_DOWN,  next_tab, 0, 0},
+	{KEY_CTRL_UNDERSCORE, start_file_search, 0, 0},
 	{-1, NULL, 0, 0},
 };
 
@@ -9351,6 +9481,15 @@ struct action_map _COMMAND_MAP[] = {
 	{-1, NULL, 0, 0}
 };
 
+struct action_map _FILESEARCH_MAP[] = {
+	{KEY_ENTER,    file_search_accept, 0, 0},
+
+	{KEY_UP,       NULL, 0, 0},
+	{KEY_DOWN,     NULL, 0, 0},
+
+	{-1, NULL, 0, 0}
+};
+
 struct action_map _SEARCH_MAP[] = {
 	{KEY_ENTER,    search_accept, 0, 0},
 
@@ -9396,6 +9535,7 @@ struct action_map * NAVIGATION_MAP = NULL;
 struct action_map * ESCAPE_MAP = NULL;
 struct action_map * COMMAND_MAP = NULL;
 struct action_map * SEARCH_MAP = NULL;
+struct action_map * FILESEARCH_MAP = NULL;
 struct action_map * INPUT_BUFFER_MAP = NULL;
 
 struct mode_names mode_names[] = {
@@ -9502,6 +9642,20 @@ void normal_mode(void) {
 				if (key != KEY_TIMEOUT) {
 					refresh = 1;
 					if (!handle_action(COMMAND_MAP, key))
+						if (!handle_action(INPUT_BUFFER_MAP, key))
+							if (key < KEY_ESCAPE) command_insert_char(key);
+				}
+				continue;
+			} else if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
+				if (refresh) {
+					render_command_input_buffer();
+					redraw_tabbar();
+					refresh = 0;
+				}
+				int key = bim_getkey(DEFAULT_KEY_WAIT);
+				if (key != KEY_TIMEOUT) {
+					refresh = 1;
+					if (!handle_action(FILESEARCH_MAP, key))
 						if (!handle_action(INPUT_BUFFER_MAP, key))
 							if (key < KEY_ESCAPE) command_insert_char(key);
 				}
@@ -10238,6 +10392,7 @@ void initialize(void) {
 	CLONE_MAP(ESCAPE_MAP);
 	CLONE_MAP(COMMAND_MAP);
 	CLONE_MAP(SEARCH_MAP);
+	CLONE_MAP(FILESEARCH_MAP);
 	CLONE_MAP(INPUT_BUFFER_MAP);
 
 #undef CLONE_MAP
