@@ -6699,8 +6699,6 @@ BIM_ACTION(file_search_accept, 0, "Open the requested tab")(void) {
 	if (match) {
 		env = match;
 		if (left_buffer && (left_buffer != env && right_buffer != env)) unsplit();
-		redraw_all();
-		update_title();
 	}
 
 _finish:
@@ -6710,6 +6708,8 @@ _finish:
 
 	/* Leave command mode */
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
+
+	redraw_all();
 }
 
 BIM_ACTION(enter_search, ARG_IS_CUSTOM,
