@@ -199,6 +199,6 @@ int syn_py_calculate(struct syntax_state * state) {
 	return -1;
 }
 
-char * syn_py_ext[] = {".py",NULL};
+char * syn_py_ext[] = {".py",".krk",NULL};
 
 BIM_SYNTAX(py, 1)
