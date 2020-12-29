@@ -966,6 +966,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 
 		/* Start from the line's stored in initial state */
 		struct syntax_state state;
+		state.env = env;
 		state.line = line;
 		state.line_no = line_no;
 		state.state = line->istate;
