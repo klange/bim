@@ -4,15 +4,16 @@
 char * syn_krk_keywords[] = {
 	"and","class","def","else","export","for","if","in","import",
 	"let","not","or","print","return","while","try","except","raise",
+	"continue","break",
 	NULL
 };
 
 char * syn_krk_types[] = {
 	/* built-in functions */
 	"self", "super", /* implicit in a class method */
-	"len", "str", /* global functions from __builtins__ */
+	"len", "str", "int", "float", "dir", "repr", /* global functions from __builtins__ */
 	"list","dict","range", /* builtin classes */
-	"object","exception",
+	"object","exception","isinstance","type",
 	NULL
 };
 
@@ -49,6 +50,10 @@ int syn_krk_calculate(struct syntax_state * state) {
 				paint_comment(state);
 			} else if (charat() == '"') {
 				paint_simple_string(state);
+				return 0;
+			} else if (charat() == '@') {
+				paint(1, FLAG_TYPE);
+				while (c_keyword_qualifier(charat())) paint(1, FLAG_TYPE);
 				return 0;
 			} else if (find_keywords(state, syn_krk_keywords, FLAG_KEYWORD, c_keyword_qualifier)) {
 				return 0;
