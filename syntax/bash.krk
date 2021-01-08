@@ -1,0 +1,141 @@
+from bim import highlighter, flags
+
+let keywords = [
+    'if','then','else','elif','fi','case','esac','for','coproc',
+    'select','while','until','do','done','in','function','time',
+    'exit','return','source','export','alias','complete','shopt',
+    'local','eval','echo','cd','pushd','popd','printf','sed',
+    'rm','mv'
+]
+
+def popState(state):
+    let newState = state / 100
+    return newState * 10
+
+def pushState(state, newState):
+    return state * 10 + newState
+
+def paintTick(state, outState):
+    let last = None
+    while state.charat != None:
+        if last != '\\' and state.charat == "'":
+            state.paint(1, flags.FLAG_STRING)
+            return popState(outState)
+        else if last == '\\':
+            state.paint(1, flags.FLAG_STRING)
+            last = None
+        else if state.charat != None:
+            last = state.charat
+            state.paint(1, flags.FLAG_STRING)
+    return outState
+
+def paintBracedVariable(state):
+    while state.charat != None:
+        if state.charat == '}':
+            state.paint(1, flags.FLAG_NUMERAL)
+            return 0
+        state.paint(1, flags.FLAG_NUMERAL)
+    return 0
+
+let specialVariable = lambda c: (c == '@' or c == '?')
+
+def paintString(state, term, outState, color):
+    let last = None
+    while state.charat != None:
+        if last != '\\' and state.charat == term:
+            state.paint(1, color)
+            return popState(outState)
+        else if last == '\\':
+            state.paint(1, color)
+            last = None
+        else if term != '`' and state.charat == '`':
+            state.paint(1, flags.FLAG_ESCAPE)
+            outState = paintString(state, '`', pushState(outState, 20), flags.FLAG_ESCAPE)
+        else if term != ')' and state.charat == '$' and state.nextchar == '(':
+            state.paint(2, flags.FLAG_TYPE)
+            outState = paintString(state, ')', pushState(outState, 30), flags.FLAG_TYPE)
+        else if state.charat == '$' and state.nextchar == '{':
+            state.paint(2, flags.FLAG_NUMERAL)
+            paintBracedVariable(state)
+        else if state.charat == '$':
+            state.paint(1, flags.FLAG_NUMERAL)
+            if specialVariable(state.charat):
+                state.paint(1, flags.FLAG_NUMERAL)
+                continue
+            while state.cKeywordQualifier(state.charat): state.paint(1, flags.FLAG_NUMERAL)
+        else if term != '"' and state.charat == '"':
+            state.paint(1, flags.FLAG_STRING)
+            outState = paintString(state, '"', pushState(outState, 40), flags.FLAG_STRING)
+        else if term != '"' and state.charat == "'":
+            state.paint(1, flags.FLAG_STRING)
+            outState = paintTick(state, outState)
+        else if state.charat != -1:
+            last = state.charat
+            state.paint(1, color)
+    return outState
+
+@highlighter("bash",extensions=('.sh','.bash','.bashrc'))
+def syntax_bash(state):
+    if state.state < 1:
+        if state.charat == '#' and state.lastchar != '\\':
+            while state.charat != None:
+                if state.commentBuzzwords(): continue
+                state.paint(1, flags.FLAG_COMMENT)
+            return None
+        else if state.charat == "'" and state.lastchar != '\\':
+            state.paint(1, flags.FLAG_STRING)
+            return paintTick(state, 10)
+        else if state.charat == '`' and state.lastchar != '\\':
+            state.paint(1, flags.FLAG_ESCAPE)
+            return paintString(state, '`', 20, flags.FLAG_ESCAPE)
+        else if state.charat == '$' and state.nextchar == '(' and state.lastchar != '\\':
+            state.paint(2, flags.FLAG_TYPE)
+            return paintString(state, ')', 30, flags.FLAG_TYPE)
+        else if state.charat == '"' and state.lastchar != '\\':
+            state.paint(1, flags.FLAG_STRING)
+            return paintString(state, '"', 40, flags.FLAG_STRING)
+        else if state.charat == '$' and state.nextchar == '{' and state.lastchar == '\\':
+            state.paint(2, flags.FLAG_NUMERAL)
+            paintBracedVariable(state)
+            return 0
+        else if state.charat == '$'and state.lastchar != '\\':
+            state.paint(1, flags.FLAG_NUMERAL)
+            if specialVariable(state.charat):
+                state.paint(1, flags.FLAG_NUMERAL)
+                return 0
+            while state.cKeywordQualifier(state.charat): state.paint(1, flags.FLAG_NUMERAL)
+            return 0
+        else if state.findKeywords(keywords, flags.FLAG_KEYWORD, state.cKeywordQualifier):
+            return 0
+        else if state.charat == ';':
+            state.paint(1, flags.FLAG_KEYWORD)
+            return 0
+        else if state.cKeywordQualifier(state.charat):
+            for i = 0, state.charrel(i) != None, i++:
+                if state.charrel(i) == ' ': break
+                if state.charrel(i) == '=':
+                    state.paint(i, flags.FLAG_TYPE)
+                    state.skip()
+                    return 0
+            for i = 0, state.charrel(i) != None, i++:
+                if state.charrel(i) == '(':
+                    state.paint(i, flags.FLAG_TYPE)
+                    return 0
+                if not state.cKeywordQualifier(state.charrel(i)) and state.charrel(i) != '-' and state.charrel(i) != ' ':
+                    break
+            state.skip()
+            return 0
+        else if state.charat != None:
+            state.skip()
+            return 0
+    else if state.state >= 10:
+        let outState = state.state
+        while state.charat != None:
+            let s = (outState / 10) % 10
+            if s == 1: outState = paintString(state, "'", outState, flags.FLAG_STRING)
+            else if s == 2: outState = paintString(state, '`', outState, flags.FLAG_ESCAPE)
+            else if s == 3: outState = paintString(state, ')', outState, flags.FLAG_TYPE)
+            else if s == 4: outState = paintString(state, '"', outState, flags.FLAG_STRING)
+            else if not s: return None
+        return outState
+    return None

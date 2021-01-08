@@ -1,0 +1,105 @@
+from bim import highlighter, flags
+
+let keywords = [
+    'and','class','def','else','export','for','if','in','import','let','not',
+    'or','return','while','try','except','raise','continue','break','as','from',
+    'elif', 'lambda'
+]
+
+let types = [
+    'self','super','len','str','int','float','dir','repr','list','dict','range',
+    'object','exception','isinstance','type','print'
+]
+
+let special = [
+    'True', 'False', 'None'
+]
+
+def paintTriple(state, strType):
+    while state.charat != None:
+        if state.charat == strType:
+            state.paint(1, flags.FLAG_STRING)
+            if state.charat == strType and state.nextchar == strType:
+                state.paint(2, flags.FLAG_STRING)
+                return 0
+        else:
+            state.paint(1, flags.FLAG_STRING)
+    return int(strType == "'") + 1
+
+def paintString(state, strType):
+    while state.charat != None:
+        if state.charat == '\\' and state.nextchar == strType:
+            state.paint(2, flags.FLAG_ESCAPE)
+        else if state.charat == strType:
+            state.paint(1, flags.FLAG_STRING)
+            return 0
+        else if state.charat == '\\':
+            if state.nextchar == None:
+                state.paint(1, flags.FLAG_ESCAPE)
+                return int(strType == "'") + 3
+            state.paint(2, flags.FLAG_ESCAPE)
+        else:
+            state.paint(1, flags.FLAG_STRING)
+    return 0
+
+def paintNumeral(state):
+    if state.charat == '0' and (state.nextchar == 'x' or state.nextchar == 'X'):
+        state.paint(2, flags.FLAG_NUMERAL)
+        while state.isxdigit(state.charat):
+            state.paint(1, flags.FLAG_NUMERAL)
+    else if state.charat == '0' and (state.nextchar == 'o' or state.nextchar == 'O'):
+        state.paint(2, flags.FLAG_NUMERAL)
+        while state.charat in '01234567':
+            state.flag(1, flags.FLAG_NUMERAL)
+    else if state.charat == '0' and (state.nextchar == 'b' or state.nextchar == 'B'):
+        state.paint(2, flags.FLAG_NUMERAL)
+        while state.charat == '0' or state.charat == '1':
+            state.paint(1, flags.FLAG_NUMERAL)
+    else:
+        while state.isdigit(state.charat):
+            state.paint(1, flags.FLAG_NUMERAL)
+        if state.charat == '.' and state.isdigit(state.nextchar):
+            state.paint(1, flags.FLAG_NUMERAL)
+            while state.isdigit(state.charat):
+                state.paint(1, flags.FLAG_NUMERAL)
+    return 0
+
+@highlighter(name='krk',extensions=('.krk',),spaces=True)
+def syntax_kuroko(state):
+    if state.state <= 0:
+        if state.charat == '#':
+            state.paintComment()
+        else if state.charat == '@':
+            state.paint(1, flags.FLAG_TYPE)
+            while state.cKeywordQualifier(state.charat):
+                state.paint(1, flags.FLAG_TYPE)
+            return 0
+        else if state.charat == '"' or state.charat == "'":
+            let strType = state.charat
+            if state.nextchar == strType and state.charrel(2) == strType:
+                state.paint(3, flags.FLAG_STRING)
+                return paintTriple(state, strType)
+            state.paint(1, flags.FLAG_STRING)
+            return paintString(state, strType)
+        else if state.findKeywords(keywords, flags.FLAG_KEYWORD, state.cKeywordQualifier):
+            return 0
+        else if state.lastchar != '.' and state.findKeywords(types, flags.FLAG_TYPE, state.cKeywordQualifier):
+            return 0
+        else if state.findKeywords(special, flags.FLAG_NUMERAL, state.cKeywordQualifier):
+            return 0
+        else if not state.cKeywordQualifier(state.lastchar) and state.isdigit(state.charat):
+            paintNumeral(state)
+            return 0
+        else if state.charat != None:
+            state.skip()
+            return 0
+    else if state.state == 1:
+        return paintTriple(state, '"')
+    else if state.state == 2:
+        return paintTriple(state, "'")
+    else if state.state == 3:
+        return paintString(state, '"')
+    else if state.state == 4:
+        return paintString(state, "'")
+    return None
+
