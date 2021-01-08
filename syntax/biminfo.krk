@@ -1,0 +1,13 @@
+from bim import highlighter, flags
+
+@highlighter("biminfo",extensions=('.biminfo',))
+def syntax_biminfo(state):
+    if state.i == 0:
+        if state.charat == '#':
+            state.paint(-1, flags.FLAG_COMMENT)
+        else if state.charat == '>':
+            state.paint(1, flags.FLAG_KEYWORD)
+            while state.charat != ' ': state.paint(1, flags.FLAG_TYPE)
+            state.skip()
+            state.paint(-1, flags.FLAG_NUMERAL)
+    return None

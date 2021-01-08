@@ -1,0 +1,19 @@
+from bim import highlighter, flags
+
+@highlighter("conf",extensions=('.conf','.ini','.git/config','.cfg','.properties'),spaces=True)
+def syntax_conf(state):
+    if state.i == 0:
+        if state.charat == ';':
+            state.paintComment()
+        else if state.charat == '#':
+            state.paintComment()
+        else if state.charat == '[':
+            state.paint(1, flags.FLAG_KEYWORD)
+            while state.charat and state.charat != ']':
+                state.paint(1, flags.FLAG_KEYWORD)
+            if state.charat == ']':
+                state.paint(1, flags.FLAG_KEYWORD)
+        else:
+            while state.charat and state.charat != '=':
+                state.paint(1, flags.FLAG_TYPE)
+    return None

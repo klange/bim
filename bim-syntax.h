@@ -3,12 +3,12 @@
 
 #define BIM_SYNTAX(name, spaces) \
 	__attribute__((constructor)) static void _load_ ## name (void) { \
-		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, NULL, NULL}); \
+		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, NULL, NULL, NULL}); \
 	} \
 
 #define BIM_SYNTAX_EXT(name, spaces, matcher) \
 	__attribute__((constructor)) static void _load_ ## name (void) { \
-		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, matcher, _match_completions_ ## name}); \
+		add_syntax((struct syntax_definition){#name, syn_ ## name ## _ext, syn_ ## name ## _calculate, spaces, matcher, _match_completions_ ## name, NULL}); \
 	} \
 
 #define BIM_SYNTAX_COMPLETER(name) \
