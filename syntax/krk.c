@@ -9,22 +9,35 @@ int paint_krk_string(struct syntax_state * state, int type) {
 			paint(1, FLAG_STRING);
 			return 0;
 		} else if (charat() == '\\') {
-			if (nextchar() == -1) {
-				paint(1, FLAG_ESCAPE);
-				return (type == '"') ? 3 : 4;
+			if (nextchar() == 'x') {
+				paint(2, FLAG_ESCAPE);
+				/* Why is my FLAG_ERROR not valid in rline? */
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+			} else if (nextchar() == 'u') {
+				paint(2, FLAG_ESCAPE);
+				/* Why is my FLAG_ERROR not valid in rline? */
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_DIFFMINUS);
+			} else {
+				paint(2, FLAG_ESCAPE);
 			}
-			paint(2, FLAG_ESCAPE);
 		} else {
 			paint(1, FLAG_STRING);
 		}
 	}
-	return 0;
+	if (lastchar() == '\\') {
+		return (type == '"') ? 3 : 4; /* continues */
+	}
+	return -1;
 }
 
 char * syn_krk_keywords[] = {
 	"and","class","def","else","export","for","if","in","import",
 	"let","not","or","return","while","try","except","raise",
-	"continue","break","as","from","elif","lambda","with",
+	"continue","break","as","from","elif","lambda","with","is",
 	NULL
 };
 
@@ -70,6 +83,20 @@ int paint_krk_triple_string(struct syntax_state * state, int type) {
 			if (charat() == type && nextchar() == type) {
 				paint(2, FLAG_STRING);
 				return 0;
+			}
+		} else if (charat() == '\\') {
+			if (nextchar() == 'x') {
+				paint(2, FLAG_ESCAPE);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+			} else if (nextchar() == 'u') {
+				paint(2, FLAG_ESCAPE);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+				paint(1, isxdigit(charat()) ? FLAG_ESCAPE : FLAG_ERROR);
+			} else {
+				paint(2, FLAG_ESCAPE);
 			}
 		} else {
 			paint(1, FLAG_STRING);
