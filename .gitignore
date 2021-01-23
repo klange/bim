@@ -1,3 +1,4 @@
 bim
 *.o
 *.swp
+*.so

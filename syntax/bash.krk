@@ -111,13 +111,13 @@ def syntax_bash(state):
             state.paint(1, flags.FLAG_KEYWORD)
             return 0
         else if state.cKeywordQualifier(state.charat):
-            for i = 0, state.charrel(i) != None, i++:
+            for i = 0; state.charrel(i) != None; i++:
                 if state.charrel(i) == ' ': break
                 if state.charrel(i) == '=':
                     state.paint(i, flags.FLAG_TYPE)
                     state.skip()
                     return 0
-            for i = 0, state.charrel(i) != None, i++:
+            for i = 0; state.charrel(i) != None; i++:
                 if state.charrel(i) == '(':
                     state.paint(i, flags.FLAG_TYPE)
                     return 0
