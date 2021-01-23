@@ -1,6 +1,6 @@
 TARGET=bim
 CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -DNO_SYSTEM_BINDS
-LDFLAGS=-Lkuroko -Wl,-rpath -Wl,kuroko
+LDFLAGS=-Wl,-rpath -Wl,'$$ORIGIN' -L.
 LDLIBS=-lkuroko -ldl
 
 prefix=/usr/local
@@ -14,7 +14,7 @@ INSTALL_PROGRAM=$(INSTALL)
 INSTALL_DATA=$(INSTALL) -m 644
 
 SYNTAXES = $(patsubst %.c, %.o, $(sort $(wildcard syntax/*.c)))
-KUROKO = kuroko/libkuroko.so
+KUROKO = libkuroko.so
 HEADERS = $(wildcard bim-*.h)
 
 .PHONY: all clean distclean install install-strip uninstall
@@ -26,8 +26,9 @@ syntax/*.o: $(HEADERS)
 
 bim: bim.o $(SYNTAXES) $(KUROKO)
 
-kuroko/libkuroko.so: kuroko/*.c kuroko/*.h
+libkuroko.so: kuroko/src/*.c kuroko/src/**.h
 	$(MAKE) -C kuroko
+	cp kuroko/libkuroko.so ./
 
 clean:
 	-rm -f $(TARGET) bim.o $(SYNTAXES)

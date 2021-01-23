@@ -16,9 +16,9 @@
  */
 #include "bim-core.h"
 #include "bim-syntax.h"
-#include "kuroko/kuroko.h"
-#include "kuroko/vm.h"
-#include "kuroko/debug.h"
+#include "kuroko/src/kuroko.h"
+#include "kuroko/src/vm.h"
+#include "kuroko/src/debug.h"
 
 global_config_t global_config = {
 	/* State */
@@ -10424,12 +10424,19 @@ void load_bimrc(void) {
 #define str(s) #s
 
 static KrkClass * syntaxStateClass = NULL;
+
+struct SyntaxState {
+	KrkInstance inst;
+	struct syntax_state * state;
+};
+
+
 static int syn_krk(struct syntax_state * state) {
 	/* Assume env->syntax is us... */
 	void * krkFunc = env->syntax->krkFunc;
 	KrkInstance * s = krk_newInstance(syntaxStateClass); /* TODO state class */
 	krk_push(OBJECT_VAL(s));
-	s->_internal = state;
+	((struct SyntaxState*)s)->state = state;
 
 	int key = 0;
 
@@ -10501,24 +10508,26 @@ int c_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
+#define BIM_STATE() \
+	if (argc < 1) return krk_runtimeError(vm.exceptions.typeError, "expected state"); \
+	KrkInstance * _self = AS_INSTANCE(argv[0]); \
+	struct SyntaxState * self = (struct SyntaxState*)_self; \
+	struct syntax_state * state = self->state;
+
 static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	return INTEGER_VAL(state->state);
 }
 static KrkValue bim_krk_state_index(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	return INTEGER_VAL(state->i);
 }
 static KrkValue bim_krk_state_lineno(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	return INTEGER_VAL(state->line_no);
 }
 static KrkValue bim_krk_state_charat(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	int charAt = charat();
 	if (charAt == -1) return NONE_VAL();
 	char tmp[8] = {0};
@@ -10526,8 +10535,7 @@ static KrkValue bim_krk_state_charat(int argc, KrkValue argv[]) {
 	return OBJECT_VAL(krk_copyString(tmp,len));
 }
 static KrkValue bim_krk_state_nextchar(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	int nextChar = nextchar();
 	if (nextChar == -1) return NONE_VAL();
 	char tmp[8] = {0};
@@ -10535,8 +10543,7 @@ static KrkValue bim_krk_state_nextchar(int argc, KrkValue argv[]) {
 	return OBJECT_VAL(krk_copyString(tmp,len));
 }
 static KrkValue bim_krk_state_lastchar(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	int lastChar = lastchar();
 	if (lastChar == -1) return NONE_VAL();
 	char tmp[8] = {0};
@@ -10544,8 +10551,7 @@ static KrkValue bim_krk_state_lastchar(int argc, KrkValue argv[]) {
 	return OBJECT_VAL(krk_copyString(tmp,len));
 }
 static KrkValue bim_krk_state_charrel(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	long arg = AS_INTEGER(argv[1]);
 	int charRel = charrel(arg);
 	if (charRel == -1) return NONE_VAL();
@@ -10573,8 +10579,7 @@ static KrkValue bim_krk_state_isxdigit(int argc, KrkValue argv[]) {
 	return BOOLEAN_VAL(!!isxdigit(c));
 }
 static KrkValue bim_krk_state_paint(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	long howMuch = AS_INTEGER(argv[1]);
 	if (howMuch == -1) howMuch = state->line->actual;
 	long whatFlag = AS_INTEGER(argv[2]);
@@ -10582,14 +10587,12 @@ static KrkValue bim_krk_state_paint(int argc, KrkValue argv[]) {
 	return NONE_VAL();
 }
 static KrkValue bim_krk_state_paintComment(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	paint_comment(state);
 	return NONE_VAL();
 }
 static KrkValue bim_krk_state_skip(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	skip();
 	return NONE_VAL();
 }
@@ -10599,16 +10602,14 @@ static KrkValue bim_krk_state_cKeywordQualifier(int argc, KrkValue argv[]) {
 	return BOOLEAN_VAL(!!c_keyword_qualifier(AS_CSTRING(argv[1])[0]));
 }
 static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	KrkValue qualifier = argv[3];
 	if (IS_BOUND_METHOD(qualifier) && AS_BOUND_METHOD(qualifier)->method->type == OBJ_NATIVE
 		&& ((KrkNative*)AS_BOUND_METHOD(qualifier)->method)->function == bim_krk_state_cKeywordQualifier) {
-		KrkValue _list_internal = OBJECT_VAL(AS_INSTANCE(argv[1])->_internal);
-		char ** keywordsAsCArray = malloc(sizeof(char*) * (AS_LIST(_list_internal)->count+1));
-		keywordsAsCArray[AS_LIST(_list_internal)->count] = NULL;
-		for (size_t i = 0; i < AS_LIST(_list_internal)->count; ++i) {
-			keywordsAsCArray[i] = AS_CSTRING(AS_LIST(_list_internal)->values[i]);
+		char ** keywordsAsCArray = malloc(sizeof(char*) * (AS_LIST(argv[1])->count+1));
+		keywordsAsCArray[AS_LIST(argv[1])->count] = NULL;
+		for (size_t i = 0; i < AS_LIST(argv[1])->count; ++i) {
+			keywordsAsCArray[i] = AS_CSTRING(AS_LIST(argv[1])->values[i]);
 			/* TODO type check */
 		}
 		long flag = AS_INTEGER(argv[2]);
@@ -10620,8 +10621,7 @@ static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[]) {
 	return BOOLEAN_VAL(0);
 }
 static KrkValue bim_krk_state_matchAndPaint(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	KrkValue qualifier = argv[3];
 	if (IS_BOUND_METHOD(qualifier) && AS_BOUND_METHOD(qualifier)->method->type == OBJ_NATIVE
 		&& ((KrkNative*)AS_BOUND_METHOD(qualifier)->method)->function == bim_krk_state_cKeywordQualifier) {
@@ -10634,17 +10634,14 @@ static KrkValue bim_krk_state_matchAndPaint(int argc, KrkValue argv[]) {
 	return BOOLEAN_VAL(0);
 }
 static KrkValue bim_krk_state_rewind(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	state->i -= AS_INTEGER(argv[1]);
 	return NONE_VAL();
 }
 static KrkValue bim_krk_state_commentBuzzwords(int argc, KrkValue argv[]) {
-	KrkInstance * self = AS_INSTANCE(argv[0]);
-	struct syntax_state * state = self->_internal;
+	BIM_STATE();
 	return BOOLEAN_VAL(common_comment_buzzwords(state));
 }
-
 
 const char bimBuiltins_krk[] =
 	"let handlers = {}\n"
@@ -10721,7 +10718,8 @@ void initialize(void) {
 
 	KrkString * strSyntaxState = S("SyntaxState");
 	krk_push(OBJECT_VAL(strSyntaxState));
-	syntaxStateClass = krk_newClass(strSyntaxState);
+	syntaxStateClass = krk_newClass(strSyntaxState, vm.objectClass);
+	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
 	krk_attachNamedObject(&AS_INSTANCE(bimModule)->fields, "SyntaxState", (KrkObj*)syntaxStateClass);
 	krk_pop(); /* strSyntaxState */
 	krk_defineNative(&syntaxStateClass->methods, ":state", bim_krk_state_getstate);

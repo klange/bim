@@ -3,12 +3,13 @@ from bim import highlighter, flags
 let keywords = [
     'and','class','def','else','export','for','if','in','import','let','not',
     'or','return','while','try','except','raise','continue','break','as','from',
-    'elif', 'lambda'
+    'elif', 'lambda', 'pass', 'with', 'is', 'del'
 ]
 
 let types = [
     'self','super','len','str','int','float','dir','repr','list','dict','range',
-    'object','exception','isinstance','type','print'
+    'object','exception','isinstance','type','print','tuple','bool','any','all',
+    'hex','ord','chr'
 ]
 
 let special = [

@@ -154,7 +154,7 @@ def syntax_c(state):
                     state.paint(1, flags.FLAG_STRING)
                     while state.charat != '>' and state.charat != None:
                         state.paint(1, flags.FLAG_STRING)
-                    if state.charat != NONE:
+                    if state.charat != None:
                         state.paint(1, flags.FLAG_STRING)
             else if state.matchAndPaint("if", flags.FLAG_PRAGMA, state.cKeywordQualifier):
                 if state.charat == ' ' and state.nextchar == '0' and state.charrel(2) == None:
