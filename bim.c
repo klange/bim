@@ -9846,19 +9846,32 @@ void normal_mode(void) {
 
 }
 
+KrkClass * CommandDef;
+struct CommandDef {
+	KrkInstance inst;
+	struct command_def * command;
+};
+
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
-	fprintf(stdout, " ");
-	fflush(stdout);
+	fprintf(stdout,"\n");
 	int previousExitFrame = vm.exitOnFrame;
 	vm.exitOnFrame = 0;
 	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
+	if (krk_isInstanceOf(out,CommandDef)) {
+		krk_push(out);
+		out = krk_callSimple(krk_peek(0),0,1);
+	}
+	if (outVal) *outVal = out;
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
+	int hadOutput = 0;
 	if (vm.flags & KRK_HAS_EXCEPTION) {
-		set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+		set_fg_color(COLOR_RED);
 		fflush(stdout);
 		krk_dumpTraceback();
-		pause_for_key();
+		set_fg_color(COLOR_FG);
+		fflush(stdout);
+		hadOutput = 1;
 	}
 	vm.exitOnFrame = previousExitFrame;
 	krk_resetStack();
@@ -9867,13 +9880,26 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		KrkValue repr = krk_callSimple(OBJECT_VAL(krk_getType(out)->_reprer), 1, 0);
 		if (IS_STRING(repr)) {
 			fprintf(stdout, " => %s\n", AS_CSTRING(repr));
+			clear_to_end();
 		}
 		krk_resetStack();
-		pause_for_key();
+		hadOutput = 1;
+	}
+	if (hadOutput) {
+		int c;
+		while ((c = bim_getch())== -1);
+		if (c != ':') {
+			bim_unget(c);
+		} else {
+			enter_command();
+			global_config.command_offset = 0;
+			global_config.command_col_no = 1;
+			render_command_input_buffer();
+			return retval;
+		}
 	}
 	global_config.break_from_selection = 1;
 	redraw_all();
-	if (outVal) *outVal = out;
 	return retval;
 }
 
@@ -10315,12 +10341,6 @@ static KrkValue bim_krk_action_call(int argc, KrkValue argv[]) {
 
 	return NONE_VAL();
 }
-
-KrkClass * CommandDef;
-struct CommandDef {
-	KrkInstance inst;
-	struct command_def * command;
-};
 
 static KrkValue bim_krk_command_call(int argc, KrkValue argv[]) {
 	struct CommandDef * self = (void*)AS_OBJECT(argv[0]);
