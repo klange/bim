@@ -42,7 +42,7 @@
 #define LINE_FEED     '\n'
 #define BACKSPACE_KEY 0x08
 #define DELETE_KEY    0x7F
-#define DEFAULT_KEY_WAIT -1
+#define DEFAULT_KEY_WAIT (global_config.background_task ? 0 : -1)
 
 enum Key {
 	KEY_TIMEOUT = -1,
@@ -134,6 +134,14 @@ typedef struct {
 	char_t   text[];
 } line_t;
 
+typedef struct background_task {
+	struct _env * env;
+	void (*func)(struct background_task*);
+	struct background_task * next;
+	int _private_i;
+	void * _private_p;
+} background_task_t;
+
 /**
  * Global configuration state
  *
@@ -207,6 +215,9 @@ typedef struct {
 
 	char * tab_indicator;
 	char * space_indicator;
+
+	background_task_t * background_task;
+	background_task_t * tail_task;
 
 } global_config_t;
 

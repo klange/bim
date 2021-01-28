@@ -1,7 +1,9 @@
 #ifndef _BIM_SYNTAX_H
 #define _BIM_SYNTAX_H
 
-#define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { state->line->text[state->i].flags = (flag); } } while (0)
+#define paint(length, flag) do { for (int i = 0; i < (length) && state->i < state->line->actual; i++, state->i++) { \
+	state->line->text[state->i].flags = (state->line->text[state->i].flags & (3 << 5)) | (flag); \
+} } while (0)
 #define charat() (state->i < state->line->actual ? state->line->text[(state->i)].codepoint : -1)
 #define nextchar() (state->i + 1 < state->line->actual ? state->line->text[(state->i+1)].codepoint : -1)
 #define lastchar() (state->i - 1 >= 0 ? state->line->text[(state->i-1)].codepoint : -1)
