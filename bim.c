@@ -920,7 +920,6 @@ void recalculate_syntax(line_t * line, int line_no) {
 
 		/* Start from the line's stored in initial state */
 		struct SyntaxState * s = (void*)krk_newInstance(env->syntax->krkClass);
-		krk_push(OBJECT_VAL(s));
 		s->state.env = env;
 		s->state.line = line;
 		s->state.line_no = line_no;
@@ -928,8 +927,10 @@ void recalculate_syntax(line_t * line, int line_no) {
 		s->state.i = 0;
 
 		while (1) {
+			ptrdiff_t before = vm.stackTop - vm.stack;
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callSimple(OBJECT_VAL(env->syntax->krkFunc), 1, 0);
+			vm.stackTop = vm.stack + before;
 			if (IS_NONE(result) && (vm.flags & KRK_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(vm.currentException)->_class->name->chars);
 				krk_dumpTraceback();
@@ -4460,9 +4461,9 @@ BIM_ACTION(leave_insert, 0,
 		if (env->col_no == 0) env->col_no = 1;
 		set_preferred_column();
 	}
-	set_history_break();
-	env->mode = MODE_NORMAL;
-	redraw_commandline();
+		set_history_break();
+		env->mode = MODE_NORMAL;
+		redraw_commandline();
 }
 
 /**
@@ -9855,9 +9856,11 @@ struct CommandDef {
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
 	fprintf(stdout,"\n");
+	krk_resetStack();
 	int previousExitFrame = vm.exitOnFrame;
-	vm.exitOnFrame = 0;
+	vm.exitOnFrame = vm.frameCount;
 	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
+	vm.exitOnFrame = previousExitFrame;
 	if (krk_isInstanceOf(out,CommandDef)) {
 		krk_push(out);
 		out = krk_callSimple(krk_peek(0),0,1);
@@ -9873,7 +9876,6 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		fflush(stdout);
 		hadOutput = 1;
 	}
-	vm.exitOnFrame = previousExitFrame;
 	krk_resetStack();
 	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
 		krk_push(out);
@@ -9949,6 +9951,7 @@ static void loadKrkFile(const char * file) {
 	if (ext) *ext = '\0';
 	krk_runfile(file,1,tmp,(char*)file);
 	vm.exitOnFrame = previousExitFrame;
+	krk_resetStack();
 }
 
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
@@ -10503,6 +10506,7 @@ void initialize(void) {
 
 	/* Load bimrc */
 	load_bimrc();
+	krk_resetStack();
 
 	/* Start context for command line */
 	krk_startModule("<bim-repl>");
