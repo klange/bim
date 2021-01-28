@@ -29,7 +29,7 @@ global_config_t global_config = {
 	.yank_count = 0,
 	.yank_is_full_lines = 0,
 	.tty_in = STDIN_FILENO,
-	.bimrc_path = "~/.bimrc",
+	.bimrc_path = "~/.bim3rc",
 	.syntax_fallback = NULL, /* Syntax to fall back to if no other match applies */
 	.search = NULL,
 	.overlay_mode = OVERLAY_MODE_NONE,
@@ -227,7 +227,6 @@ FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_
 FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
-FLEXIBLE_ARRAY(user_functions, add_user_function, struct bim_function *, NULL)
 
 /**
  * Special implementation of getch with a timeout
@@ -3654,16 +3653,7 @@ int line_matches(line_t * line, char * string) {
 }
 
 void run_onload(buffer_t * env) {
-	if (has_function("onload:*")) {
-		run_function("onload:*");
-	}
-	if (env->syntax) {
-		char tmp[512];
-		sprintf(tmp, "onload:%s", env->syntax->name);
-		if (has_function(tmp)) {
-			run_function(tmp);
-		}
-	}
+	/* TODO */
 }
 
 static void render_syntax_async(background_task_t * task) {
@@ -5475,16 +5465,6 @@ BIM_COMMAND(version,"version","Show version information.") {
 	return 0;
 }
 
-void load_colorscheme_script(const char * name) {
-	static char name_copy[512];
-	char tmp[1024];
-	snprintf(tmp, 1023, "theme:%s", name);
-	if (!run_function(tmp)) {
-		sprintf(name_copy, "%s", name);
-		current_theme = name_copy;
-	}
-}
-
 BIM_COMMAND(theme,"theme","Set color theme") {
 	if (argc < 2) {
 		render_status_message("theme=%s", current_theme);
@@ -5791,62 +5771,22 @@ BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 /**
  * Process a user command.
  */
+int process_krk_command(const char * cmd, KrkValue * outVal);
 int process_command(char * cmd) {
-
-	if (*cmd == '#') return 0;
-
-	/* First, check prefix commands */
-	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
-		if (strstr(cmd, c->name) == cmd &&
-		    (!isalpha(cmd[strlen(c->name)]) || !isalpha(cmd[0]))) {
-			return c->command(cmd, 0, NULL);
-		}
-	}
-
-	char * argv[3] = {NULL, NULL, NULL};
-	int argc = !!(*cmd);
-	char cmd_name[512] = {0};
-	for (char * c = cmd; *c; ++c) {
-		if (c-cmd == 511) break;
-		if (*c == ' ') {
-			cmd_name[c-cmd] = '\0';
-			argv[1] = c+1;
-			if (*argv[1]) argc++;
-			break;
-		}
-		cmd_name[c-cmd] = *c;
-	}
-
-	argv[0] = cmd_name;
-	argv[argc] = NULL;
-
-	if (argc < 1) {
-		/* no op */
+	if (cmd[0] == '-' && isdigit(cmd[1])) {
+		goto_line(env->line_no-atoi(&cmd[1]));
+		return 0;
+	} else if (cmd[0] == '+' && isdigit(cmd[1])) {
+		goto_line(env->line_no+atoi(&cmd[1]));
+		return 0;
+	} else if (isdigit(*cmd)) {
+		goto_line(atoi(cmd));
 		return 0;
 	}
 
-	/* Now check regular commands */
-	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-		if (!strcmp(argv[0], c->name)) {
-			return c->command(cmd, argc, argv);
-		}
-	}
+	int retval = process_krk_command(cmd, NULL);
 
-	global_config.break_from_selection = 1;
-
-	if (argv[0][0] == '-' && isdigit(argv[0][1])) {
-		goto_line(env->line_no-atoi(&argv[0][1]));
-		return 0;
-	} else if (argv[0][0] == '+' && isdigit(argv[0][1])) {
-		goto_line(env->line_no+atoi(&argv[0][1]));
-		return 0;
-	} else if (isdigit(*argv[0])) {
-		goto_line(atoi(argv[0]));
-		return 0;
-	} else {
-		render_error("Not an editor command: %s", argv[0]);
-		return 1;
-	}
+	return retval;
 }
 
 /**
@@ -5952,13 +5892,6 @@ void command_tab_complete(char * buffer) {
 	if (arg == 1 && (!strcmp(args[0], "action"))) {
 		for (struct action_def * a = mappable_actions; a->name; ++a) {
 			add_candidate(a->name);
-		}
-		goto _accept_candidate;
-	}
-
-	if (arg == 1 && (!strcmp(args[0], "call") || !strcmp(args[0], "trycall") || !strcmp(args[0], "showfunction"))) {
-		for (int i = 0; i < flex_user_functions_count; ++i) {
-			add_candidate(user_functions[i]->command);
 		}
 		goto _accept_candidate;
 	}
@@ -9913,24 +9846,34 @@ void normal_mode(void) {
 
 }
 
-BIM_PREFIX_COMMAND(tick,"`","(temporary) interpret a krk statement") {
-	fprintf(stdout,"\n");
+int process_krk_command(const char * cmd, KrkValue * outVal) {
+	place_cursor(global_config.term_width, global_config.term_height);
+	fprintf(stdout, " ");
+	fflush(stdout);
 	int previousExitFrame = vm.exitOnFrame;
 	vm.exitOnFrame = 0;
-	KrkValue out = krk_interpret(cmd+1,0,"<bim>","<bim>");
+	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
-
 	if (vm.flags & KRK_HAS_EXCEPTION) {
+		set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
+		fflush(stdout);
 		krk_dumpTraceback();
+		pause_for_key();
 	}
 	vm.exitOnFrame = previousExitFrame;
 	krk_resetStack();
-
-	enter_command();
-	global_config.command_offset = 0;
-	global_config.command_col_no = 1;
-	command_insert_char('`');
-	render_command_input_buffer();
+	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
+		krk_push(out);
+		KrkValue repr = krk_callSimple(OBJECT_VAL(krk_getType(out)->_reprer), 1, 0);
+		if (IS_STRING(repr)) {
+			fprintf(stdout, " => %s\n", AS_CSTRING(repr));
+		}
+		krk_resetStack();
+		pause_for_key();
+	}
+	global_config.break_from_selection = 1;
+	redraw_all();
+	if (outVal) *outVal = out;
 	return retval;
 }
 
@@ -9971,163 +9914,6 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
-/**
- * These methods deal with user functions, which are defined in scripts.
- * User functions can be called as actions, or called from the command line.
- * They are also used to define themes and preload actions for different filetypes.
- *
- * Right now, user functions are essentially just a list of commands to run, but
- * eventually they should be replaced with a proper scripting language with support
- * for looping, conditionals, variables...
- *
- * Also all of run/has/find loop over the whole index individually, and
- * `has` and `find` use the exact same logic, so we probably only need one
- * of them (find) and not the other?
- */
-
-/**
- * Delete a user function by deleting all of its commands.
- */
-void free_function(struct bim_function * func) {
-	do {
-		struct bim_function * next = func->next;
-		free(func->command);
-		free(func);
-		func = next;
-	} while (func);
-}
-
-/**
- * Given a function name, run that function.
- */
-int run_function(char * name) {
-	for (int i = 0; i < flex_user_functions_count; ++i) {
-		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
-			/* Execute function */
-			struct bim_function * this = user_functions[i]->next;
-			while (this) {
-				char * tmp = strdup(this->command);
-				int result = process_command(tmp);
-				free(tmp);
-				if (result != 0) {
-					return result;
-				}
-				this = this->next;
-			}
-			return 0;
-		}
-	}
-	return -1;
-}
-
-/**
- * Does a function by this name exist?
- */
-int has_function(char * name) {
-	for (int i = 0; i < flex_user_functions_count; ++i) {
-		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-/**
- * Locate a function by name.
- */
-int find_function(char * name) {
-	for (int i = 0; i < flex_user_functions_count; ++i) {
-		if (user_functions[i] && !strcmp(user_functions[i]->command, name)) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-BIM_COMMAND(call,"call","Call a function") {
-	if (argc < 2) {
-		render_error("Expected function name");
-		return 1;
-	}
-	int result = run_function(argv[1]);
-	if (result == -1) {
-		render_error("Undefined function: %s", argv[1]);
-		return 1;
-	}
-	return result;
-}
-
-BIM_COMMAND(try_call,"trycall","Call a function but return quietly if it fails") {
-	if (argc < 2) return 0;
-	run_function(argv[1]);
-	return 0;
-}
-
-BIM_COMMAND(list_functions,"listfunctions","List functions") {
-	render_commandline_message("");
-	for (int i = 0; i < flex_user_functions_count; ++i) {
-		render_commandline_message("%s\n", user_functions[i]->command);
-	}
-	pause_for_key();
-	return 0;
-}
-
-BIM_COMMAND(show_function,"showfunction","Show the commands in a function") {
-	if (argc < 2) return 1;
-	struct bim_function * this = NULL;
-	for (int i = 0; i < flex_user_functions_count; ++i) {
-		if (user_functions[i] && !strcmp(user_functions[i]->command, argv[1])) {
-			this = user_functions[i];
-			break;
-		}
-	}
-	if (!this) {
-		render_error("Not a function: %s", argv[1]);
-		return 1;
-	}
-
-	/* We really should rewrite this so syntax highlighting takes a highlighter */
-	struct syntax_definition * old_syntax = env->syntax;
-	env->syntax = find_syntax_calculator("bimcmd");
-
-	int i = 0;
-
-	while (this) {
-		/* Turn command into line */
-		line_t * tmp = calloc(sizeof(line_t) + sizeof(char_t) * strlen(this->command),1);
-		tmp->available = strlen(this->command);
-
-		unsigned char * t = (unsigned char *)this->command;
-		uint32_t state = 0;
-		uint32_t c = 0;
-		int col = 1;
-		while (*t) {
-			if (!decode(&state, &c, *t)) {
-				char_t _c = {codepoint_width(c), 0, c};
-				tmp = line_insert(tmp, _c, col - 1, -1);
-				col++;
-			}
-			t++;
-		}
-
-		render_commandline_message("");
-		render_line(tmp, global_config.term_width - 1, 0, -1);
-		printf("\n");
-		this = this->next;
-		i++;
-		if (this && i == global_config.term_height - 3) {
-			printf("(function continues)");
-			while (bim_getkey(DEFAULT_KEY_WAIT) == KEY_TIMEOUT);
-		}
-	}
-
-	/* Restore previous syntax */
-	env->syntax = old_syntax;
-
-	pause_for_key();
-	return 0;
-}
-
 static void loadKrkFile(const char * file) {
 	int previousExitFrame = vm.exitOnFrame;
 	vm.exitOnFrame = vm.frameCount;
@@ -10149,161 +9935,8 @@ BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	krk_runfile(argv[1],1,"<bim>",argv[1]);
 	vm.exitOnFrame = previousExitFrame;
 
-#if 0
-	int key = 0;
-	fprintf(stdout,"\n\n");
-	render_commandline_message("(waiting for keypress)");
-	while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-#endif
-
 	redraw_all();
 
-	return 0;
-}
-
-BIM_COMMAND(runscript,"runscript","Run a script file") {
-	if (argc < 2) {
-		render_error("Expected a script to run");
-		return 1;
-	}
-
-	/* Run commands */
-	FILE * f;
-	char * home;
-	if (argv[1][0] == '~' && (home = getenv("HOME"))) {
-		char * tmp = malloc(strlen(argv[1]) + strlen(home) + 4);
-		sprintf(tmp,"%s%s", home, argv[1]+1);
-		f = fopen(tmp,"r");
-		free(tmp);
-	} else {
-		f = fopen(argv[1],"r");
-	}
-	if (!f) {
-		render_error("Failed to open script");
-		return 1;
-	}
-
-	int retval = 0;
-	char linebuf[4096];
-	int line = 1;
-	int was_collecting_function = 0;
-	char * function_name = NULL;
-	struct bim_function * new_function = NULL;
-	struct bim_function * last_function = NULL;
-
-	while (!feof(f)) {
-		memset(linebuf, 0, 4096);
-		fgets(linebuf, 4095, f);
-		/* Remove linefeed */
-		char * s = strstr(linebuf, "\n");
-		if (s) *s = '\0';
-
-		/* See if this is a special syntax element */
-		if (!strncmp(linebuf, "function ", 9)) {
-			/* Confirm we have a function name */
-			if (was_collecting_function) {
-				break;
-			}
-			if (!strlen(linebuf+9)) {
-				render_error("Syntax error on line %d: function needs a name", line);
-				retval = 1;
-				break;
-			}
-			function_name = strdup(linebuf+9);
-			was_collecting_function = 1;
-			new_function = malloc(sizeof(struct bim_function));
-			new_function->command = strdup(function_name);
-			new_function->next = NULL;
-			last_function = new_function;
-			/* Set up function */
-		} else if (!strcmp(linebuf,"end")) {
-			if (!was_collecting_function) {
-				render_error("Syntax error on line %d: unexpected 'end'", line);
-				retval = 1;
-				break;
-			}
-			was_collecting_function = 0;
-			/* See if a function with this name is already defined */
-			int this = -1;
-			for (int i = 0; i < flex_user_functions_count; ++i) {
-				if (user_functions[i] && !strcmp(user_functions[i]->command, function_name)) {
-					this = i;
-					break;
-				}
-			}
-			if (this > -1) {
-				free_function(user_functions[this]);
-				user_functions[this] = new_function;
-			} else {
-				add_user_function(new_function);
-				if (strstr(function_name,"theme:") == function_name) {
-					add_colorscheme((struct theme_def){strdup(function_name+6), load_colorscheme_script});
-				}
-			}
-			free(function_name);
-			new_function = NULL;
-			last_function = NULL;
-			function_name = NULL;
-		} else if (was_collecting_function) {
-			/* Collect function */
-			last_function->next = malloc(sizeof(struct bim_function));
-			last_function = last_function->next;
-			char * s = linebuf;
-			while (*s == ' ') s++;
-			last_function->command = strdup(s);
-			last_function->next = NULL;
-		} else {
-			int result = process_command(linebuf);
-			if (result != 0) {
-				retval = result;
-				break;
-			}
-		}
-
-		line++;
-	}
-
-	if (was_collecting_function) {
-		free_function(new_function);
-		render_error("Syntax error on line %d: unexpected end of file while defining function '%s'", line, function_name);
-		retval = 1;
-	}
-
-	if (function_name) free(function_name);
-	fclose(f);
-	return retval;
-}
-
-BIM_COMMAND(rundir,"rundir","Run scripts from a directory, in unspecified order") {
-	if (argc < 2) return 1;
-	char * file = argv[1];
-	DIR * dirp = NULL;
-	if (file[0] == '~') {
-		char * home = getenv("HOME");
-		if (home) {
-			char * _file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-			sprintf(_file, "%s%s", home, file+1);
-			dirp = opendir(_file);
-			free(_file);
-		}
-	} else {
-		dirp = opendir(file);
-	}
-	if (!dirp) {
-		render_error("Directory is not accessible: %s", argv[1]);
-		return 1;
-	}
-	struct dirent * ent = readdir(dirp);
-	while (ent) {
-		if (str_ends_with(ent->d_name,".bimscript")) {
-			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
-			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
-			char * args[] = {"runscript",tmp,NULL};
-			bim_command_runscript("runscript", 2, args);
-			free(tmp);
-		}
-		ent = readdir(dirp);
-	}
 	return 0;
 }
 
@@ -10358,29 +9991,16 @@ BIM_COMMAND(setcap, "setcap", "Enable or disable quirks/features.") {
 }
 
 BIM_COMMAND(quirk,"quirk","Handle quirks based on environment variables") {
-	if (argc < 2) goto _quirk_arg_error;
+	if (argc < 3) goto _quirk_arg_error;
 	char * varname = argv[1];
-	char * teststr = strstr(varname, " ");
-	if (!teststr) goto _quirk_arg_error;
-	*teststr = '\0';
-	teststr++;
-
-	char * arg = strstr(teststr, " ");
-	if (!arg) goto _quirk_arg_error;
-	*arg = '\0';
-	arg++;
-
+	char * teststr = argv[2];
 	char * value = getenv(varname);
 	if (!value) return 0;
 
 	if (strstr(value, teststr) == value) {
 		/* Process quirk strings */
-		while (arg) {
-			char * next = strstr(arg, " ");
-			if (next) { *next = '\0'; next++; }
-			/* Quirks disable default-enabled options; continue on error by default */
-			set_capability(arg);
-			arg = next;
+		for (int i = 3; i < argc; ++i) {
+			set_capability(argv[i]);
 		}
 	}
 
@@ -10428,8 +10048,8 @@ void load_bimrc(void) {
 		return;
 	}
 
-	char * args[] = {"runscript", tmp, NULL};
-	if (bim_command_runscript("runscript", 2, args)) {
+	char * args[] = {"runkrk", tmp, NULL};
+	if (bim_command_runkrk("runkrk", 2, args)) {
 		/* Wait */
 		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
 		int c;
@@ -10530,11 +10150,11 @@ static KrkValue bim_krk_state_isdigit(int argc, KrkValue argv[]) {
 		krk_runtimeError(vm.exceptions.typeError, "not a string: %s", krk_typeName(argv[1]));
 		return BOOLEAN_VAL(0);
 	}
-	if (AS_STRING(argv[1])->length > 1) {
-		krk_runtimeError(vm.exceptions.typeError, "can only handle 1-byte characters");
+	if (AS_STRING(argv[1])->codesLength > 1) {
+		krk_runtimeError(vm.exceptions.typeError, "arg must be str of len 1");
 		return BOOLEAN_VAL(0);
 	}
-	unsigned int c = (unsigned int)AS_CSTRING(argv[1])[0];
+	unsigned int c = krk_unicodeCodepoint(AS_STRING(argv[1]), 0);
 	return BOOLEAN_VAL(!!isdigit(c));
 }
 static KrkValue bim_krk_state_isxdigit(int argc, KrkValue argv[]) {
@@ -10739,6 +10359,20 @@ static void makeClass(KrkInstance * module, KrkClass ** _class, const char * nam
 	krk_pop();
 }
 
+void run_directory(char * file) {
+	DIR * dirp = opendir(file);
+	struct dirent * ent = readdir(dirp);
+	while (ent) {
+		if (str_ends_with(ent->d_name,".krk")) {
+			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
+			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
+			loadKrkFile(tmp);
+			free(tmp);
+		}
+		ent = readdir(dirp);
+	}
+}
+
 /**
  * Run global initialization tasks
  */
@@ -10794,7 +10428,7 @@ void initialize(void) {
 	for (struct action_def * a = mappable_actions; mappable_actions && a->name; ++a) {
 		struct ActionDef * actionObj = (void*)krk_newInstance(ActionDef);
 		actionObj->action = a;
-		krk_attachNamedObject(&bimModule->fields, a->name, (KrkObj*)actionObj);
+		krk_attachNamedObject(&vm.builtins->fields, a->name, (KrkObj*)actionObj);
 	}
 
 	makeClass(bimModule, &CommandDef, "Command", vm.objectClass);
@@ -10805,7 +10439,7 @@ void initialize(void) {
 	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 		struct CommandDef * commandObj = (void*)krk_newInstance(CommandDef);
 		commandObj->command = c;
-		krk_attachNamedObject(&bimModule->fields, c->name, (KrkObj*)commandObj);
+		krk_attachNamedObject(&vm.builtins->fields, c->name, (KrkObj*)commandObj);
 	}
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.objectClass);
@@ -10844,18 +10478,8 @@ void initialize(void) {
 
 	krk_resetStack();
 
-	char file[] = "syntax";
-	DIR * dirp = opendir(file);
-	struct dirent * ent = readdir(dirp);
-	while (ent) {
-		if (str_ends_with(ent->d_name,".krk")) {
-			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
-			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
-			loadKrkFile(tmp);
-			free(tmp);
-		}
-		ent = readdir(dirp);
-	}
+	run_directory("syntax");
+	run_directory("themes");
 
 	/* Load bimrc */
 	load_bimrc();
@@ -11043,8 +10667,7 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 		pause_for_key();
 	} else {
 		char * colorname = argv[1];
-		char * space = strstr(colorname, " ");
-		if (!space) {
+		if (argc == 2) {
 			struct ColorName * c = color_names;
 			while (c->name) {
 				if (!strcmp(c->name, colorname)) {
@@ -11056,8 +10679,7 @@ BIM_COMMAND(setcolor, "setcolor", "Set colorscheme colors") {
 			render_error(":setcolor <colorname> <colorvalue>");
 			return 1;
 		}
-		char * colorvalue = space + 1;
-		*space = '\0';
+		char * colorvalue = argv[2];
 		struct ColorName * c = color_names;
 		while (c->name) {
 			if (!strcmp(c->name, colorname)) {
@@ -11101,21 +10723,9 @@ BIM_COMMAND(action,"action","Execute a bim action") {
 	/* Split argument on spaces */
 	char * action = argv[1];
 	char * arg1 = NULL, * arg2 = NULL, * arg3 = NULL;
-	arg1 = strstr(argv[1]," ");
-	if (arg1) {
-		*arg1 = '\0';
-		arg1++;
-		arg2 = strstr(arg1," ");
-		if (arg2) {
-			*arg2 = '\0';
-			arg2++;
-			arg3 = strstr(arg1," ");
-			if (arg3) {
-				*arg3 = '\0';
-				arg3++;
-			}
-		}
-	}
+	if (argc > 2) arg1 = argv[2];
+	if (argc > 3) arg2 = argv[3];
+	if (argc > 4) arg3 = argv[4];
 
 	/* Find the action */
 	for (int i = 0; i < flex_mappable_actions_count; ++i) {
@@ -11180,10 +10790,6 @@ void dump_map_commands(const char * name, struct action_map * map) {
 	}
 }
 
-void call_user(int c) {
-	run_function(user_functions[c]->command);
-}
-
 BIM_COMMAND(mapkey,"mapkey","Map a key to an action.") {
 	if (argc < 2) goto _argument_error;
 
@@ -11242,19 +10848,6 @@ BIM_COMMAND(mapkey,"mapkey","Map a key to an action.") {
 			action_def = &mappable_actions[i];
 			break;
 		}
-	}
-
-	/* See if it's a user function */
-	char _tmp[30] = {0};
-	if (has_function(action) && (!action_def || action_def->action == call_user)) {
-		/* Map a new action for this user function */
-		if (!action_def) {
-			add_action((struct action_def){action, call_user, ARG_IS_CUSTOM, "(script-defined function)"});
-			action_def = &mappable_actions[flex_mappable_actions_count-1];
-		}
-		options = "a";
-		sprintf(_tmp, "%d", find_function(action));
-		arg = _tmp;
 	}
 
 	if (!action_def) {
