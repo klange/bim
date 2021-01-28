@@ -1,106 +1,123 @@
-from bim import highlighter, flags
+from bim import SyntaxState, bindHighlighter, getCommands
 
-let keywords = [
-    'and','class','def','else','export','for','if','in','import','let','not',
-    'or','return','while','try','except','raise','continue','break','as','from',
-    'elif', 'lambda', 'pass', 'with', 'is', 'del'
-]
+class KrkHighlighter(SyntaxState):
+    name = 'krk'
+    extensions = ('.krk',)
+    spaces = True
 
-let types = [
-    'self','super','len','str','int','float','dir','repr','list','dict','range',
-    'object','exception','isinstance','type','print','tuple','bool','any','all',
-    'hex','ord','chr'
-]
+    keywords = [
+        'and','class','def','else','export','for','if','in','import','let','not',
+        'or','return','while','try','except','raise','continue','break','as','from',
+        'elif', 'lambda', 'pass', 'with', 'is', 'del'
+    ]
 
-let special = [
-    'True', 'False', 'None'
-]
+    types = [
+        'self','super','len','str','int','float','dir','repr','list','dict','range',
+        'object','exception','isinstance','type','print','tuple','bool','any','all',
+        'hex','ord','chr'
+    ]
 
-def paintTriple(state, strType):
-    while state.charat != None:
-        if state.charat == strType:
-            state.paint(1, flags.FLAG_STRING)
-            if state.charat == strType and state.nextchar == strType:
-                state.paint(2, flags.FLAG_STRING)
+    special = [
+        'True', 'False', 'None'
+    ]
+
+    def paintTriple(self, strType):
+        while self[0] != None:
+            if self[0] == strType:
+                self.paint(1, self.FLAG_STRING)
+                if self[0] == strType and self[1] == strType:
+                    self.paint(2, self.FLAG_STRING)
+                    return 0
+            else:
+                self.paint(1, self.FLAG_STRING)
+        return int(strType == "'") + 1
+
+    def paintString(self, strType):
+        while self[0] != None:
+            if self[0] == '\\' and self[1] == strType:
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == strType:
+                self.paint(1, self.FLAG_STRING)
                 return 0
+            else if self[0] == '\\':
+                if self[1] == None:
+                    self.paint(1, self.FLAG_ESCAPE)
+                    return int(strType == "'") + 3
+                self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.paint(1, self.FLAG_STRING)
+        return 0
+
+    def paintNumeral(self):
+        if self[0] == '0' and (self[1] == 'x' or self[1] == 'X'):
+            self.paint(2, self.FLAG_NUMERAL)
+            while self.isxdigit(self[0]):
+                self.paint(1, self.FLAG_NUMERAL)
+        else if self[0] == '0' and (self[1] == 'o' or self[1] == 'O'):
+            self.paint(2, self.FLAG_NUMERAL)
+            while self[0] in '01234567':
+                self.flag(1, self.FLAG_NUMERAL)
+        else if self[0] == '0' and (self[1] == 'b' or self[1] == 'B'):
+            self.paint(2, self.FLAG_NUMERAL)
+            while self[0] == '0' or self[0] == '1':
+                self.paint(1, self.FLAG_NUMERAL)
         else:
-            state.paint(1, flags.FLAG_STRING)
-    return int(strType == "'") + 1
+            while self.isdigit(self[0]):
+                self.paint(1, self.FLAG_NUMERAL)
+            if self[0] == '.' and self.isdigit(self[1]):
+                self.paint(1, self.FLAG_NUMERAL)
+                while self.isdigit(self[0]):
+                    self.paint(1, self.FLAG_NUMERAL)
+        return 0
 
-def paintString(state, strType):
-    while state.charat != None:
-        if state.charat == '\\' and state.nextchar == strType:
-            state.paint(2, flags.FLAG_ESCAPE)
-        else if state.charat == strType:
-            state.paint(1, flags.FLAG_STRING)
-            return 0
-        else if state.charat == '\\':
-            if state.nextchar == None:
-                state.paint(1, flags.FLAG_ESCAPE)
-                return int(strType == "'") + 3
-            state.paint(2, flags.FLAG_ESCAPE)
-        else:
-            state.paint(1, flags.FLAG_STRING)
-    return 0
+    def calculate(self):
+        if self.state <= 0:
+            if self[0] == '#':
+                self.paintComment()
+            else if self[0] == '@':
+                self.paint(1, self.FLAG_TYPE)
+                while self.cKeywordQualifier(self[0]):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
+            else if self[0] == '"' or self[0] == "'":
+                let strType = self[0]
+                if self[1] == strType and self[2] == strType:
+                    self.paint(3, self.FLAG_STRING)
+                    return self.paintTriple(strType)
+                self.paint(1, self.FLAG_STRING)
+                return self.paintString(strType)
+            else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
+                return 0
+            else if self[-1] != '.' and self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
+                self.paintNumeral()
+                return 0
+            else if self[0] != None:
+                self.skip()
+                return 0
+        else if self.state == 1:
+            return self.paintTriple('"')
+        else if self.state == 2:
+            return self.paintTriple("'")
+        else if self.state == 3:
+            return self.paintString('"')
+        else if self.state == 4:
+            return self.paintString("'")
+        return None
 
-def paintNumeral(state):
-    if state.charat == '0' and (state.nextchar == 'x' or state.nextchar == 'X'):
-        state.paint(2, flags.FLAG_NUMERAL)
-        while state.isxdigit(state.charat):
-            state.paint(1, flags.FLAG_NUMERAL)
-    else if state.charat == '0' and (state.nextchar == 'o' or state.nextchar == 'O'):
-        state.paint(2, flags.FLAG_NUMERAL)
-        while state.charat in '01234567':
-            state.flag(1, flags.FLAG_NUMERAL)
-    else if state.charat == '0' and (state.nextchar == 'b' or state.nextchar == 'B'):
-        state.paint(2, flags.FLAG_NUMERAL)
-        while state.charat == '0' or state.charat == '1':
-            state.paint(1, flags.FLAG_NUMERAL)
-    else:
-        while state.isdigit(state.charat):
-            state.paint(1, flags.FLAG_NUMERAL)
-        if state.charat == '.' and state.isdigit(state.nextchar):
-            state.paint(1, flags.FLAG_NUMERAL)
-            while state.isdigit(state.charat):
-                state.paint(1, flags.FLAG_NUMERAL)
-    return 0
+bindHighlighter(KrkHighlighter)
 
-@highlighter(name='krk',extensions=('.krk',),spaces=True)
-def syntax_kuroko(state):
-    if state.state <= 0:
-        if state.charat == '#':
-            state.paintComment()
-        else if state.charat == '@':
-            state.paint(1, flags.FLAG_TYPE)
-            while state.cKeywordQualifier(state.charat):
-                state.paint(1, flags.FLAG_TYPE)
-            return 0
-        else if state.charat == '"' or state.charat == "'":
-            let strType = state.charat
-            if state.nextchar == strType and state.charrel(2) == strType:
-                state.paint(3, flags.FLAG_STRING)
-                return paintTriple(state, strType)
-            state.paint(1, flags.FLAG_STRING)
-            return paintString(state, strType)
-        else if state.findKeywords(keywords, flags.FLAG_KEYWORD, state.cKeywordQualifier):
-            return 0
-        else if state.lastchar != '.' and state.findKeywords(types, flags.FLAG_TYPE, state.cKeywordQualifier):
-            return 0
-        else if state.findKeywords(special, flags.FLAG_NUMERAL, state.cKeywordQualifier):
-            return 0
-        else if not state.cKeywordQualifier(state.lastchar) and state.isdigit(state.charat):
-            paintNumeral(state)
-            return 0
-        else if state.charat != None:
-            state.skip()
-            return 0
-    else if state.state == 1:
-        return paintTriple(state, '"')
-    else if state.state == 2:
-        return paintTriple(state, "'")
-    else if state.state == 3:
-        return paintString(state, '"')
-    else if state.state == 4:
-        return paintString(state, "'")
-    return None
+class BimcmdHighlighter(KrkHighlighter):
+    name = 'bimcmd'
+    extensions = ('.bimrc',)
 
+    def calculate(self):
+        if self.state <= 0:
+            if self.findKeywords(getCommands(), self.FLAG_TYPE, self.cKeywordQualifier):
+                return 0
+        return super().calculate()
+
+bindHighlighter(BimcmdHighlighter)

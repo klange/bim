@@ -1,19 +1,25 @@
-from bim import highlighter, flags
+from bim import SyntaxState, bindHighlighter
 
-@highlighter("conf",extensions=('.conf','.ini','.git/config','.cfg','.properties'),spaces=True)
-def syntax_conf(state):
-    if state.i == 0:
-        if state.charat == ';':
-            state.paintComment()
-        else if state.charat == '#':
-            state.paintComment()
-        else if state.charat == '[':
-            state.paint(1, flags.FLAG_KEYWORD)
-            while state.charat and state.charat != ']':
-                state.paint(1, flags.FLAG_KEYWORD)
-            if state.charat == ']':
-                state.paint(1, flags.FLAG_KEYWORD)
-        else:
-            while state.charat and state.charat != '=':
-                state.paint(1, flags.FLAG_TYPE)
-    return None
+class ConfigHighlighter(SyntaxState):
+    name = "conf"
+    extensions = ('.conf','.ini','.git/config','.cfg','.properties')
+    spaces = True
+
+    def calculate(self):
+        if self.i == 0:
+            if self[0] == ';':
+                self.paintComment()
+            else if self[0] == '#':
+                self.paintComment()
+            else if self[0] == '[':
+                self.paint(1, self.FLAG_KEYWORD)
+                while self[0] and self[0] != ']':
+                    self.paint(1, self.FLAG_KEYWORD)
+                if state.charat == ']':
+                    self.paint(1, self.FLAG_KEYWORD)
+            else:
+                while self[0] and self[0] != '=':
+                    self.paint(1, self.FLAG_TYPE)
+        return None
+
+bindHighlighter(ConfigHighlighter)
