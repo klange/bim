@@ -79,6 +79,8 @@ global_config_t global_config = {
 	.split_percent = 50,
 	.scroll_amount = 5,
 	.tab_offset = 0,
+	.background_task = NULL,
+	.tail_task = NULL,
 };
 
 struct key_name_map KeyNames[] = {
@@ -130,6 +132,8 @@ struct SyntaxState {
 	KrkInstance inst;
 	struct syntax_state state;
 };
+
+static void schedule_complete_recalc(void);
 
 /**
  * Theming data
@@ -234,6 +238,7 @@ void bim_unget(int c) {
 	_bim_unget = c;
 }
 
+void redraw_statusbar(void);
 int bim_getch_timeout(int timeout) {
 	fflush(stdout);
 	if (_bim_unget != -1) {
@@ -250,6 +255,16 @@ int bim_getch_timeout(int timeout) {
 		read(global_config.tty_in, buf, 1);
 		return buf[0];
 	} else {
+		background_task_t * task = global_config.background_task;
+		if (task) {
+			global_config.background_task = task->next;
+			task->func(task);
+			free(task);
+			if (task->next == NULL) {
+				global_config.tail_task = NULL;
+				redraw_statusbar();
+			}
+		}
 		return -1;
 	}
 }
@@ -896,7 +911,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 	int is_original = 1;
 	while (1) {
 		for (int i = 0; i < line->actual; ++i) {
-			line->text[i].flags = 0;
+			line->text[i].flags = line->text[i].flags & (3 << 5);
 		}
 
 		if (!env->syntax) {
@@ -1591,7 +1606,7 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 		}
 		if (old_line < new_line && !ignore_brace && line_ends_with_brace(env->lines[old_line])) {
 			if (env->tabs) {
-				char_t c;
+				char_t c = {0};
 				c.codepoint = '\t';
 				c.display_width = env->tabstop;
 				env->lines[new_line] = line_insert(env->lines[new_line], c, env->col_no-1, new_line);
@@ -1599,7 +1614,7 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 				changed = 1;
 			} else {
 				for (int j = 0; j < env->tabstop; ++j) {
-					char_t c;
+					char_t c = {0};
 					c.codepoint = ' ';
 					c.display_width = 1;
 					c.flags = FLAG_SELECT;
@@ -2827,6 +2842,10 @@ void redraw_statusbar(void) {
 		ADD("complete");
 	}
 
+	if (global_config.background_task) {
+		ADD("working");
+	}
+
 #undef ADD
 
 	uint8_t * file_name = (uint8_t *)(env->file_name ? env->file_name : "[No Name]");
@@ -3186,10 +3205,9 @@ void highlight_matching_paren(void) {
  */
 void unhighlight_matching_paren(void) {
 	if (env->highlighting_paren > 0 && env->highlighting_paren <= env->line_count) {
-		for (int i = env->highlighting_paren - 1; i <= env->highlighting_paren + 1; ++i) {
-			if (i >= 1 && i <= env->line_count) {
-				recalculate_syntax(env->lines[i-1], i-1);
-				redraw_line(i-1);
+		for (int i = 0; i < env->line_count; i++) {
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags &= ~(FLAG_SELECT);
 			}
 		}
 		env->highlighting_paren = -1;
@@ -3478,7 +3496,7 @@ void set_syntax_by_name(const char * name) {
 		for (int i = 0; i < env->line_count; ++i) {
 			env->lines[i]->istate = -1;
 			for (int j = 0; j < env->lines[i]->actual; ++j) {
-				env->lines[i]->text[j].flags = 0;
+				env->lines[i]->text[j].flags &= (3 << 5);
 			}
 		}
 		env->syntax = NULL;
@@ -3491,9 +3509,7 @@ void set_syntax_by_name(const char * name) {
 			for (int i = 0; i < env->line_count; ++i) {
 				env->lines[i]->istate = -1;
 			}
-			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
-			}
+			schedule_complete_recalc();
 			redraw_all();
 			return;
 		}
@@ -3581,9 +3597,7 @@ void read_directory_into_buffer(char * file) {
 
 	env->file_name = strdup(file);
 	env->syntax = find_syntax_calculator("dirent");
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
+	schedule_complete_recalc();
 	env->readonly = 1;
 	env->loading = 0;
 	env->mode = MODE_DIRECTORY_BROWSE;
@@ -3650,6 +3664,54 @@ void run_onload(buffer_t * env) {
 			run_function(tmp);
 		}
 	}
+}
+
+static void render_syntax_async(background_task_t * task) {
+	buffer_t * old_env = env;
+	env = task->env;
+	struct syntax_definition * old_syn = env->syntax;
+	env->syntax = task->_private_p;
+	int line_no = task->_private_i;
+
+	if (line_no < env->line_count) {
+		int tmp = env->loading;
+		env->loading = 1;
+		recalculate_syntax(env->lines[line_no], line_no);
+		env->loading = tmp;
+		if (env == old_env) {
+			redraw_line(line_no);
+		}
+	}
+
+	env->syntax = old_syn;
+	env = old_env;
+}
+
+static void schedule_complete_recalc(void) {
+	if (env->line_count < 1000) {
+		for (int i = 0; i < env->line_count; ++i) {
+			recalculate_syntax(env->lines[i], i);
+		}
+		return;
+	}
+
+	/* TODO see if there's already a redraw scheduled */
+	for (int i = 0; i < env->line_count; ++i) {
+		background_task_t * task = malloc(sizeof(background_task_t));
+		task->env  = env;
+		task->_private_i = i;
+		task->_private_p = env->syntax;
+		task->func = render_syntax_async;
+		task->next = NULL;
+		if (global_config.tail_task) {
+			global_config.tail_task->next = task;
+		}
+		global_config.tail_task = task;
+		if (!global_config.background_task) {
+			global_config.background_task = task;
+		}
+	}
+	redraw_statusbar();
 }
 
 /**
@@ -3745,11 +3807,6 @@ void open_file(char * file) {
 		return;
 	}
 
-	if (global_config.has_terminal) {
-		render_commandline_message("Please wait...");
-		fflush(stdout);
-	}
-
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
 		env->lines = remove_line(env->lines, env->line_no-1);
@@ -3769,9 +3826,7 @@ void open_file(char * file) {
 		if (!env->syntax && global_config.syntax_fallback) {
 			set_syntax_by_name(global_config.syntax_fallback);
 		}
-		for (int i = 0; i < env->line_count; ++i) {
-			recalculate_syntax(env->lines[i],i);
-		}
+		schedule_complete_recalc();
 	}
 
 	/* Try to automatically figure out tabs vs. spaces */
@@ -5515,14 +5570,7 @@ BIM_COMMAND(syntax,"syntax","Show or set the active syntax highlighter") {
 }
 
 BIM_COMMAND(recalc,"recalc","Recalculate syntax for the entire file.") {
-	for (int i = 0; i < env->line_count; ++i) {
-		env->lines[i]->istate = -1;
-	}
-	env->loading = 1;
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
-	env->loading = 0;
+	schedule_complete_recalc();
 	redraw_all();
 	return 0;
 }
@@ -7297,9 +7345,7 @@ BIM_ACTION(undo_history, ACTION_IS_RW,
 		env->lines[i]->istate = 0;
 		recalculate_tabs(env->lines[i]);
 	}
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
+	schedule_complete_recalc();
 	place_cursor_actual();
 	update_title();
 	redraw_all();
@@ -7413,9 +7459,7 @@ BIM_ACTION(redo_history, ACTION_IS_RW,
 		env->lines[i]->istate = 0;
 		recalculate_tabs(env->lines[i]);
 	}
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
+	schedule_complete_recalc();
 	place_cursor_actual();
 	update_title();
 	redraw_all();
@@ -8004,7 +8048,9 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
 			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
 			(env->line_no == env->start_line && (line) != env->start_line)) { \
-			recalculate_syntax(env->lines[(line)-1],(line)-1); \
+			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
+				env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
+			} \
 		} else { \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
 				env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
@@ -8026,10 +8072,14 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
 			(env->line_no == env->start_line && (line) != env->start_line)) { \
 			/* Line is completely outside selection */ \
-			recalculate_syntax(env->lines[(line)-1],(line)-1); \
+			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
+				env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
+			} \
 		} else { \
 			if ((line) == env->start_line || (line) == env->line_no) { \
-				recalculate_syntax(env->lines[(line)-1],(line)-1); \
+				for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
+					env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
+				} \
 			} \
 			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
 				if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) { \
@@ -8114,7 +8164,9 @@ void recalculate_selected_lines(void) {
 	if (end < 1) end = 1;
 	if (end > env->line_count) end = env->line_count;
 	for (int i = (start > 1) ? (start-1) : (start); i <= end; ++i) {
-		recalculate_syntax(env->lines[i-1],i-1);
+		for (int j = 0; j < env->lines[i-1]->actual; j++) {
+			env->lines[i-1]->text[j].flags &= ~(FLAG_SELECT);
+		}
 	}
 	redraw_all();
 }
@@ -8949,12 +9001,8 @@ BIM_ACTION(paste, ARG_IS_CUSTOM | ACTION_IS_RW,
 			}
 		}
 		env->slowop = 0;
+		schedule_complete_recalc();
 		/* Recalculate whole document syntax */
-		for (int i = env->line_no - 1; i < env->line_count; ++i) {
-			env->lines[i]->istate = 0;
-		}
-		int line_to_recalculate = (env->line_no > 1 ? env->line_no - 2 : 0);
-		recalculate_syntax(env->lines[line_to_recalculate], line_to_recalculate);
 		if (direction == 1) {
 			if (global_config.yank_is_full_lines) {
 				env->line_no += 1;
