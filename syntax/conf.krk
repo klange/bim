@@ -15,7 +15,7 @@ class ConfigHighlighter(SyntaxState):
                 self.paint(1, self.FLAG_KEYWORD)
                 while self[0] and self[0] != ']':
                     self.paint(1, self.FLAG_KEYWORD)
-                if state.charat == ']':
+                if self[0] == ']':
                     self.paint(1, self.FLAG_KEYWORD)
             else:
                 while self[0] and self[0] != '=':

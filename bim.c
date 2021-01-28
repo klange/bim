@@ -10467,31 +10467,7 @@ static KrkValue bim_krk_state_lineno(int argc, KrkValue argv[]) {
 	BIM_STATE();
 	return INTEGER_VAL(state->line_no);
 }
-static KrkValue bim_krk_state_charat(int argc, KrkValue argv[]) {
-	BIM_STATE();
-	int charAt = charat();
-	if (charAt == -1) return NONE_VAL();
-	char tmp[8] = {0};
-	size_t len = to_eight(charAt, tmp);
-	return OBJECT_VAL(krk_copyString(tmp,len));
-}
-static KrkValue bim_krk_state_nextchar(int argc, KrkValue argv[]) {
-	BIM_STATE();
-	int nextChar = nextchar();
-	if (nextChar == -1) return NONE_VAL();
-	char tmp[8] = {0};
-	size_t len = to_eight(nextChar, tmp);
-	return OBJECT_VAL(krk_copyString(tmp,len));
-}
-static KrkValue bim_krk_state_lastchar(int argc, KrkValue argv[]) {
-	BIM_STATE();
-	int lastChar = lastchar();
-	if (lastChar == -1) return NONE_VAL();
-	char tmp[8] = {0};
-	size_t len = to_eight(lastChar, tmp);
-	return OBJECT_VAL(krk_copyString(tmp,len));
-}
-static KrkValue bim_krk_state_charrel(int argc, KrkValue argv[]) {
+static KrkValue bim_krk_state_get(int argc, KrkValue argv[]) {
 	BIM_STATE();
 	long arg = AS_INTEGER(argv[1]);
 	int charRel = charrel(arg);
@@ -10634,6 +10610,87 @@ static KrkValue krk_bim_get_commands(int argc, KrkValue argv[]) {
 	return krk_pop();
 }
 
+KrkClass * ActionDef;
+struct ActionDef {
+	KrkInstance inst;
+	struct action_def * action;
+};
+
+static KrkValue bim_krk_action_call(int argc, KrkValue argv[]) {
+	struct ActionDef * self = (void*)AS_OBJECT(argv[0]);
+
+	/* Figure out arguments */
+	int args = 0;
+	if (self->action->options & ARG_IS_CUSTOM) args++;
+	if (self->action->options & ARG_IS_INPUT) args++;
+	if (self->action->options & ARG_IS_PROMPT) args++;
+
+	int argsAsInts[3] = { 0, 0, 0 };
+	for (int i = 0; i < args; i++) {
+		if (argc < i + 2)
+			return krk_runtimeError(vm.exceptions.argumentError, "%s() takes %d argument%s",
+				self->action->name, args, args == 1 ? "" : "s");
+		if (IS_INTEGER(argv[i+1])) {
+			argsAsInts[i] = AS_INTEGER(argv[i+1]);
+		} else if (IS_STRING(argv[i+1]) && AS_STRING(argv[i+1])->codesLength == 1) {
+			argsAsInts[i] = krk_unicodeCodepoint(AS_STRING(argv[i+1]), 0);
+		} else if (IS_BOOLEAN(argv[i+1])) {
+			argsAsInts[i] = AS_BOOLEAN(argv[i+1]);
+		} else {
+			return krk_runtimeError(vm.exceptions.typeError,
+				"argument to %s() must be int, bool, or str of len 1",
+				self->action->name);
+		}
+	}
+
+	self->action->action(argsAsInts[0], argsAsInts[1], argsAsInts[2]);
+
+	return NONE_VAL();
+}
+
+KrkClass * CommandDef;
+struct CommandDef {
+	KrkInstance inst;
+	struct command_def * command;
+};
+
+static KrkValue bim_krk_command_call(int argc, KrkValue argv[]) {
+	struct CommandDef * self = (void*)AS_OBJECT(argv[0]);
+
+	for (int i = 1; i < argc; ++i) {
+		if (!IS_STRING(argv[i])) {
+			return krk_runtimeError(vm.exceptions.typeError, "arguments to %s() must be str, not '%s'",
+				self->command->name, krk_typeName(argv[i]));
+		}
+	}
+
+	char ** args = malloc(sizeof(char*)*argc);
+	args[0] = strdup(self->command->name);
+
+	for (int i = 1; i < argc; ++i) {
+		args[i] = strdup(AS_CSTRING(argv[i]));
+	}
+
+	int result = self->command->command(args[0], argc, args);
+
+	for (int i = 0; i < argc; ++i) {
+		free(args[i]);
+	}
+
+	return INTEGER_VAL(result);
+}
+
+static void makeClass(KrkInstance * module, KrkClass ** _class, const char * name, KrkClass * base) {
+	KrkString * str_Name = krk_copyString(name,strlen(name));
+	krk_push(OBJECT_VAL(str_Name));
+	*_class = krk_newClass(str_Name, base);
+	krk_push(OBJECT_VAL(*_class));
+	/* Bind it */
+	krk_attachNamedObject(&module->fields,name,(KrkObj*)*_class);
+	krk_pop();
+	krk_pop();
+}
+
 /**
  * Run global initialization tasks
  */
@@ -10681,20 +10738,34 @@ void initialize(void) {
 	krk_bim_syntax_dict = krk_dict_of(0,NULL);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 
-	KrkString * strSyntaxState = S("SyntaxState");
-	krk_push(OBJECT_VAL(strSyntaxState));
-	syntaxStateClass = krk_newClass(strSyntaxState, vm.objectClass);
+	makeClass(bimModule, &ActionDef, "Action", vm.objectClass);
+	ActionDef->allocSize = sizeof(struct ActionDef);
+	krk_defineNative(&ActionDef->methods, ".__call__", bim_krk_action_call);
+	krk_finalizeClass(ActionDef);
+
+	for (struct action_def * a = mappable_actions; mappable_actions && a->name; ++a) {
+		struct ActionDef * actionObj = (void*)krk_newInstance(ActionDef);
+		actionObj->action = a;
+		krk_attachNamedObject(&bimModule->fields, a->name, (KrkObj*)actionObj);
+	}
+
+	makeClass(bimModule, &CommandDef, "Command", vm.objectClass);
+	CommandDef->allocSize = sizeof(struct CommandDef);
+	krk_defineNative(&CommandDef->methods, ".__call__", bim_krk_command_call);
+	krk_finalizeClass(CommandDef);
+
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		struct CommandDef * commandObj = (void*)krk_newInstance(CommandDef);
+		commandObj->command = c;
+		krk_attachNamedObject(&bimModule->fields, c->name, (KrkObj*)commandObj);
+	}
+
+	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_attachNamedObject(&bimModule->fields, "SyntaxState", (KrkObj*)syntaxStateClass);
-	krk_pop(); /* strSyntaxState */
 	krk_defineNative(&syntaxStateClass->methods, ":state", bim_krk_state_getstate);
 	krk_defineNative(&syntaxStateClass->methods, ":i", bim_krk_state_index);
 	krk_defineNative(&syntaxStateClass->methods, ":lineno", bim_krk_state_lineno);
-	krk_defineNative(&syntaxStateClass->methods, ":charat", bim_krk_state_charat);
-	krk_defineNative(&syntaxStateClass->methods, ":nextchar", bim_krk_state_nextchar);
-	krk_defineNative(&syntaxStateClass->methods, ":lastchar", bim_krk_state_lastchar);
 	/* These ones take argumens so they're methods instead of dynamic fields */
-	krk_defineNative(&syntaxStateClass->methods, ".charrel", bim_krk_state_charrel);
 	krk_defineNative(&syntaxStateClass->methods, ".findKeywords", bim_krk_state_findKeywords);
 	krk_defineNative(&syntaxStateClass->methods, ".cKeywordQualifier", bim_krk_state_cKeywordQualifier);
 	krk_defineNative(&syntaxStateClass->methods, ".isdigit", bim_krk_state_isdigit);
@@ -10705,7 +10776,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".matchAndPaint", bim_krk_state_matchAndPaint);
 	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
-	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_charrel);
+	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_get);
 	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
