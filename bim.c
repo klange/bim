@@ -3789,6 +3789,9 @@ void open_file(char * file) {
 		return;
 	}
 
+	render_commandline_message("Please wait...");
+	fflush(stdout);
+
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
 		env->lines = remove_line(env->lines, env->line_no-1);
@@ -5393,7 +5396,9 @@ BIM_COMMAND(noh,"noh","Clear search term") {
 		free(global_config.search);
 		global_config.search = NULL;
 		for (int i = 0; i < env->line_count; ++i) {
-			recalculate_syntax(env->lines[i],i);
+			for (int j = 0; j < env->lines[i]->actual; ++j) {
+				env->lines[i]->text[j].flags &= ~(FLAG_SEARCH);
+			}
 		}
 		redraw_text();
 	}
@@ -5642,7 +5647,9 @@ BIM_COMMAND(hlparen,"hlparen","Show or set the configuration option to highlight
 		global_config.highlight_parens = atoi(argv[1]);
 		if (env) {
 			for (int i = 0; i < env->line_count; ++i) {
-				recalculate_syntax(env->lines[i],i);
+				for (int j = 0; j < env->lines[i]->actual; ++j) {
+					env->lines[i]->text[j].flags &= (~FLAG_SELECT);
+				}
 			}
 			redraw_text();
 			place_cursor_actual();
@@ -10509,7 +10516,7 @@ int c_keyword_qualifier(int c) {
 }
 
 #define BIM_STATE() \
-	if (argc < 1) return krk_runtimeError(vm.exceptions.typeError, "expected state"); \
+	if (argc < 1 || !krk_isInstanceOf(argv[0],syntaxStateClass)) return krk_runtimeError(vm.exceptions.typeError, "expected state"); \
 	KrkInstance * _self = AS_INSTANCE(argv[0]); \
 	struct SyntaxState * self = (struct SyntaxState*)_self; \
 	struct syntax_state * state = self->state;
@@ -10740,6 +10747,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".matchAndPaint", bim_krk_state_matchAndPaint);
 	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
+	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_charrel);
 
 	krk_finalizeClass(syntaxStateClass);
 

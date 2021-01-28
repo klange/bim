@@ -23,168 +23,183 @@ let special = [
     "STDIN_FILENO","STDOUT_FILENO","STDERR_FILENO"
 ]
 
+let FLAG_NONE = flags.FLAG_NONE
+let FLAG_KEYWORD = flags.FLAG_KEYWORD
+let FLAG_STRING = flags.FLAG_STRING
+let FLAG_COMMENT = flags.FLAG_COMMENT
+let FLAG_TYPE = flags.FLAG_TYPE
+let FLAG_PRAGMA = flags.FLAG_PRAGMA
+let FLAG_NUMERAL = flags.FLAG_NUMERAL
+let FLAG_ERROR = flags.FLAG_ERROR
+let FLAG_DIFFPLUS = flags.FLAG_DIFFPLUS
+let FLAG_DIFFMINUS = flags.FLAG_DIFFMINUS
+let FLAG_NOTICE = flags.FLAG_NOTICE
+let FLAG_BOLD = flags.FLAG_BOLD
+let FLAG_LINK = flags.FLAG_LINK
+let FLAG_ESCAPE = flags.FLAG_ESCAPE
+
 # matchAndPaint
 # rewind
 
 def paintCString(state):
-    state.paint(1, flags.FLAG_STRING)
+    state.paint(1, FLAG_STRING)
     let last = None
-    while state.charat != None:
-        if last != '\\' and state.charat == '"':
-            state.paint(1, flags.FLAG_STRING)
+    while state[0] != None:
+        if last != '\\' and state[0] == '"':
+            state.paint(1, FLAG_STRING)
             return
-        else if state.charat == '\\' and state.nextchar in 'nr\\':
-            state.paint(2, flags.FLAG_ESCAPE)
+        else if state[0] == '\\' and state[1] in 'nr\\':
+            state.paint(2, FLAG_ESCAPE)
             last = None
-        else if state.charat == '\\' and state.nextchar in '01234567':
-            state.paint(2, flags.FLAG_ESCAPE)
-            if state.charat in '01234567':
-                state.paint(1, flags.FLAG_ESCAPE)
-                if state.charat in '01234567':
-                    state.paint(1, flags.FLAG_ESCAPE)
+        else if state[0] == '\\' and state[1] in '01234567':
+            state.paint(2, FLAG_ESCAPE)
+            if state[0] in '01234567':
+                state.paint(1, FLAG_ESCAPE)
+                if state[0] in '01234567':
+                    state.paint(1, FLAG_ESCAPE)
             last = None
-        else if state.charat == '%':
-            state.paint(1, flags.FLAG_ESCAPE)
-            if state.charat == '%':
-                state.paint(1, flags.FLAG_ESCAPE)
+        else if state[0] == '%':
+            state.paint(1, FLAG_ESCAPE)
+            if state[0] == '%':
+                state.paint(1, FLAG_ESCAPE)
             else:
-                while state.charat in '-#*0+': state.paint(1, flags.FLAG_ESCAPE)
-                while state.isdigit(state.charat): state.paint(1, flags.FLAG_ESCAPE)
-                if state.charat == '.':
-                    state.paint(1, flags.FLAG_ESCAPE)
-                    if state.charat == '*': state.paint(1, flags.FLAG_ESCAPE)
-                    else: while state.isdigit(state.charat): state.paint(1, flags.FLAG_ESCAPE)
-                while state.charat in 'lz': state.paint(1, flags.FLAG_ESCAPE)
-                if state.charat in '"\\': continue
-                state.paint(1, flags.FLAG_ESCAPE)
-        else if state.charat == '\\' and state.nextchar == 'x':
-            state.paint(2, flags.FLAG_ESCAPE)
-            while state.isxdigit(state.charat): state.paint(1, flags.FLAG_ESCAPE)
+                while state[0] in '-#*0+': state.paint(1, FLAG_ESCAPE)
+                while state.isdigit(state[0]): state.paint(1, FLAG_ESCAPE)
+                if state[0] == '.':
+                    state.paint(1, FLAG_ESCAPE)
+                    if state[0] == '*': state.paint(1, FLAG_ESCAPE)
+                    else: while state.isdigit(state[0]): state.paint(1, FLAG_ESCAPE)
+                while state[0] in 'lz': state.paint(1, FLAG_ESCAPE)
+                if state[0] in '"\\': continue
+                state.paint(1, FLAG_ESCAPE)
+        else if state[0] == '\\' and state[1] == 'x':
+            state.paint(2, FLAG_ESCAPE)
+            while state.isxdigit(state[0]): state.paint(1, FLAG_ESCAPE)
         else:
-            last = state.charat
-            state.paint(1, flags.FLAG_STRING)
+            last = state[0]
+            state.paint(1, FLAG_STRING)
 
 def paintCChar(state):
-    state.paint(1, flags.FLAG_NUMERAL)
+    state.paint(1, FLAG_NUMERAL)
     let last = None
-    while state.charat != None:
-        if last != '\\' and state.charat == "'":
-            state.paint(1, flags.FLAG_NUMERAL)
+    while state[0] != None:
+        if last != '\\' and state[0] == "'":
+            state.paint(1, FLAG_NUMERAL)
             return
-        else if last == '\\' and state.charat == '\\':
-            state.paint(1, flags.FLAG_NUMERAL)
+        else if last == '\\' and state[0] == '\\':
+            state.paint(1, FLAG_NUMERAL)
             last = None
         else:
-            last = state.charat
-            state.paint(1, flags.FLAG_NUMERAL)
+            last = state[0]
+            state.paint(1, FLAG_NUMERAL)
 
 def paintCComment(state):
     let last = None
-    while state.charat != None:
+    while state[0] != None:
         if state.commentBuzzwords(): continue
-        else if last == '*' and state.charat == '/':
-            state.paint(1, flags.FLAG_COMMENT)
+        else if last == '*' and state[0] == '/':
+            state.paint(1, FLAG_COMMENT)
             return 0
         else:
-            last = state.charat
-            state.paint(1, flags.FLAG_COMMENT)
+            last = state[0]
+            state.paint(1, FLAG_COMMENT)
     return 1
 
 def paintCPragma(state):
-    while state.charat != None:
-        if state.charat == '"':
+    while state[0] != None:
+        if state[0] == '"':
             paintCString(state)
-        else if state.charat == "'":
+        else if state[0] == "'":
             paintCChar(state)
-        else if state.charat == '\\' and state.nextchar == None:
-            state.paint(1, flags.FLAG_PRAGMA)
+        else if state[0] == '\\' and state[1] == None:
+            state.paint(1, FLAG_PRAGMA)
             return 2
-        else if state.findKeywords(keywords, flags.FLAG_KEYWORD, state.cKeywordQualifier):
+        else if state.findKeywords(keywords, FLAG_KEYWORD, state.cKeywordQualifier):
             continue
-        else if state.findKeywords(types, flags.FLAG_TYPE, state.cKeywordQualifier):
+        else if state.findKeywords(types, FLAG_TYPE, state.cKeywordQualifier):
             continue
-        else if state.charat == '/' and state.nextchar == '/':
+        else if state[0] == '/' and state[1] == '/':
             state.paintComment()
             return None
-        else if state.charat == '/' and state.nextchar == '*':
+        else if state[0] == '/' and state[1] == '*':
             if paintCComment(state) == 1: return 3
             continue
         else:
-            state.paint(1, flags.FLAG_PRAGMA)
+            state.paint(1, FLAG_PRAGMA)
     return 0
 
 def paintCNumeral(state):
-    if state.charat == '0' and (state.nextchar == 'x' or state.nextchar == 'X'):
-        state.paint(2, flags.FLAG_NUMERAL)
-        while state.isxdigit(state.charat): state.paint(1, flags.FLAG_NUMERAL)
-    else if state.charat == '0' and state.nextchar == '.':
-        state.paint(2, flags.FLAG_NUMERAL)
-        while state.isdigit(state.charat): state.paint(1, flags.FLAG_NUMERAL)
-        if state.charat == 'f': state.paint(1, flags.FLAG_NUMERAL)
+    if state[0] == '0' and (state[1] == 'x' or state[1] == 'X'):
+        state.paint(2, FLAG_NUMERAL)
+        while state.isxdigit(state[0]): state.paint(1, FLAG_NUMERAL)
+    else if state[0] == '0' and state[1] == '.':
+        state.paint(2, FLAG_NUMERAL)
+        while state.isdigit(state[0]): state.paint(1, FLAG_NUMERAL)
+        if state[0] == 'f': state.paint(1, FLAG_NUMERAL)
         return 0
-    else if state.charat == '0':
-        state.paint(1, flags.FLAG_NUMERAL)
-        while state.charat in '01234567': state.paint(1, flags.FLAG_NUMERAL)
+    else if state[0] == '0':
+        state.paint(1, FLAG_NUMERAL)
+        while state[0] in '01234567': state.paint(1, FLAG_NUMERAL)
     else:
-        while state.isdigit(state.charat): state.paint(1, flags.FLAG_NUMERAL)
-        if state.charat == '.':
-            state.paint(1, flags.FLAG_NUMERAL)
-            while state.isdigit(state.charat): state.paint(1, flags.FLAG_NUMERAL)
-            if state.charat == 'f': state.paint(1, flags.FLAG_NUMERAL)
+        while state.isdigit(state[0]): state.paint(1, FLAG_NUMERAL)
+        if state[0] == '.':
+            state.paint(1, FLAG_NUMERAL)
+            while state.isdigit(state[0]): state.paint(1, FLAG_NUMERAL)
+            if state[0] == 'f': state.paint(1, FLAG_NUMERAL)
             return 0
-    while state.charat in 'uUlL': state.paint(1, flags.FLAG_NUMERAL)
+    while state[0] in 'uUlL': state.paint(1, FLAG_NUMERAL)
     return 0
 
 @highlighter('c',extensions=('.c','.h','.cpp','.hpp','.c++','.h++','.cc','.hh'))
 def syntax_c(state):
     let cond = state.state
     if cond <= 0:
-        if state.charat == '#':
+        if state[0] == '#':
             for i in range(state.i):
-                if state.charrel(-i-1) != ' ' and state.charrel(-i-1) != '\t':
+                if state[-i-1] != ' ' and state[-i-1] != '\t':
                     state.skip()
                     return 0
-            state.paint(1, flags.FLAG_PRAGMA)
-            while state.charat == ' ':
-                state.paint(1, flags.FLAG_PRAGMA)
-            if state.matchAndPaint("include", flags.FLAG_PRAGMA, state.cKeywordQualifier):
-                while state.charat == ' ':
-                    state.paint(1, flags.FLAG_PRAGMA)
-                if state.charat == '<':
-                    state.paint(1, flags.FLAG_STRING)
-                    while state.charat != '>' and state.charat != None:
-                        state.paint(1, flags.FLAG_STRING)
-                    if state.charat != None:
-                        state.paint(1, flags.FLAG_STRING)
-            else if state.matchAndPaint("if", flags.FLAG_PRAGMA, state.cKeywordQualifier):
-                if state.charat == ' ' and state.nextchar == '0' and state.charrel(2) == None:
+            state.paint(1, FLAG_PRAGMA)
+            while state[0] == ' ':
+                state.paint(1, FLAG_PRAGMA)
+            if state.matchAndPaint("include", FLAG_PRAGMA, state.cKeywordQualifier):
+                while state[0] == ' ':
+                    state.paint(1, FLAG_PRAGMA)
+                if state[0] == '<':
+                    state.paint(1, FLAG_STRING)
+                    while state[0] != '>' and state[0] != None:
+                        state.paint(1, FLAG_STRING)
+                    if state[0] != None:
+                        state.paint(1, FLAG_STRING)
+            else if state.matchAndPaint("if", FLAG_PRAGMA, state.cKeywordQualifier):
+                if state[0] == ' ' and state[1] == '0' and state[2] == None:
                     state.rewind(4)
-                    state.paint(-1, flags.FLAG_COMMENT)
+                    state.paint(-1, FLAG_COMMENT)
                     return 4
-            else if state.matchAndPaint("else", flags.FLAG_PRAGMA, state.cKeywordQualifier):
+            else if state.matchAndPaint("else", FLAG_PRAGMA, state.cKeywordQualifier):
                 # Do nothing?
             return paintCPragma(state)
-        else if state.charat == '/' and state.nextchar == '/':
+        else if state[0] == '/' and state[1] == '/':
             state.paintComment()
-        else if state.charat == '/' and state.nextchar == '*':
-            state.paint(2, flags.FLAG_COMMENT)
+        else if state[0] == '/' and state[1] == '*':
+            state.paint(2, FLAG_COMMENT)
             return paintCComment(state)
-        else if state.findKeywords(keywords, flags.FLAG_KEYWORD, state.cKeywordQualifier):
+        else if state.findKeywords(keywords, FLAG_KEYWORD, state.cKeywordQualifier):
             return 0
-        else if state.findKeywords(types, flags.FLAG_TYPE, state.cKeywordQualifier):
+        else if state.findKeywords(types, FLAG_TYPE, state.cKeywordQualifier):
             return 0
-        else if state.findKeywords(special, flags.FLAG_NUMERAL, state.cKeywordQualifier):
+        else if state.findKeywords(special, FLAG_NUMERAL, state.cKeywordQualifier):
             return 0
-        else if state.charat == '"':
+        else if state[0] == '"':
             paintCString(state)
             return 0
-        else if state.charat == "'":
+        else if state[0] == "'":
             paintCChar(state)
             return 0
-        else if not state.cKeywordQualifier(state.lastchar) and state.isdigit(state.charat):
+        else if not state.cKeywordQualifier(state[-1]) and state.isdigit(state[0]):
             paintCNumeral(state)
             return 0
-        else if state.charat != None:
+        else if state[0] != None:
             state.skip()
             return 0
     else if cond == 1:
@@ -196,25 +211,25 @@ def syntax_c(state):
             return 3
         return paintCPragma(state)
     else:
-        while state.charat == ' ' or state.charat == '\t': state.paint(1, flags.FLAG_COMMENT)
-        if state.charat == '#':
-            state.paint(1, flags.FLAG_COMMENT)
-            while state.charat == ' ' or state.charat == '\t': state.paint(1, flags.FLAG_COMMENT)
-            if state.matchAndPaint("if", flags.FLAG_COMMENT, state.cKeywordQualifier):
-                state.paint(-1, flags.FLAG_COMMENT)
+        while state[0] == ' ' or state[0] == '\t': state.paint(1, FLAG_COMMENT)
+        if state[0] == '#':
+            state.paint(1, FLAG_COMMENT)
+            while state[0] == ' ' or state[0] == '\t': state.paint(1, FLAG_COMMENT)
+            if state.matchAndPaint("if", FLAG_COMMENT, state.cKeywordQualifier):
+                state.paint(-1, FLAG_COMMENT)
                 return state.state + 1
-            else if state.matchAndPaint("else", flags.FLAG_COMMENT, state.cKeywordQualifier) or state.matchAndPaint("elif", flags.FLAG_COMMENT, state.cKeywordQualifier):
-                state.paint(-1, flags.FLAG_COMMENT)
+            else if state.matchAndPaint("else", FLAG_COMMENT, state.cKeywordQualifier) or state.matchAndPaint("elif", FLAG_COMMENT, state.cKeywordQualifier):
+                state.paint(-1, FLAG_COMMENT)
                 if state.state == 4: return 0
                 return state.state
-            else if state.matchAndPaint("endif", flags.FLAG_COMMENT, state.cKeywordQualifier):
-                state.paint(-1, flags.FLAG_COMMENT)
+            else if state.matchAndPaint("endif", FLAG_COMMENT, state.cKeywordQualifier):
+                state.paint(-1, FLAG_COMMENT)
                 if state.state == 4: return 0
                 return state.state - 1
             else:
-                state.paint(-1, flags.FLAG_COMMENT)
+                state.paint(-1, FLAG_COMMENT)
                 return state.state
         else:
-            state.paint(-1, flags.FLAG_COMMENT)
+            state.paint(-1, FLAG_COMMENT)
             return state.state
     return None
