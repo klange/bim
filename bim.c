@@ -4909,12 +4909,7 @@ int _prefix_command_run_script(char * cmd) {
 			dup2(out[1], STDOUT_FILENO);
 			dup2(in[0], STDIN_FILENO);
 			dup2(fileno(dev_null), STDERR_FILENO);
-			if (*cmd == '!') {
-				system(&cmd[1]); /* Yes we can just do this */
-			} else {
-				char * const args[] = {"python3","-c",&cmd[1],NULL};
-				execvp("python3",args);
-			}
+			system(&cmd[1]); /* Yes we can just do this */
 			exit(1);
 		} else if (child < 0) {
 			render_error("Failed to fork");
@@ -4988,12 +4983,7 @@ int _prefix_command_run_script(char * cmd) {
 		set_buffered();
 
 		/* Call the shell and wait for completion */
-		if (*cmd == '!') {
-			system(&cmd[1]);
-		} else {
-			setenv("PYCMD",&cmd[1],1);
-			system("python3 -c \"$PYCMD\"");
-		}
+		system(&cmd[1]);
 
 		/* Return to the editor, wait for user to press enter. */
 		set_unbuffered();
@@ -5008,18 +4998,6 @@ int _prefix_command_run_script(char * cmd) {
 	/* Done processing command */
 	return 0;
 }
-
-BIM_PREFIX_COMMAND(bang,"!","Executes shell commands.") {
-	(void)argc, (void)argv;
-	return _prefix_command_run_script(cmd);
-}
-
-#if 0
-BIM_PREFIX_COMMAND(tick,"`","Executes Python commands.") {
-	(void)argc, (void)argv;
-	return _prefix_command_run_script(cmd);
-}
-#endif
 
 int replace_text(int range_top, int range_bot, char divider, char * needle) {
 	char * c = needle;
@@ -5216,7 +5194,7 @@ BIM_COMMAND(q,"q","Close buffer") {
 	return 0;
 }
 
-BIM_COMMAND(qbang,"q!","Force close buffer") {
+BIM_COMMAND(qbang,"qf","Force close buffer") {
 	close_buffer();
 	update_title();
 	return 0;
@@ -5229,7 +5207,7 @@ BIM_COMMAND(qa,"qa","Try to close all buffers") {
 
 BIM_ALIAS("qall",qall,qa)
 
-BIM_COMMAND(qabang,"qa!","Force exit") {
+BIM_COMMAND(qabang,"qaf","Force exit") {
 	/* Forcefully exit editor */
 	while (buffers_len) {
 		buffer_close(buffers[0]);
@@ -5769,6 +5747,14 @@ BIM_COMMAND(keyname,"keyname","Press and key and get its name.") {
 	return 0;
 }
 
+int isSubstitutionSymbol(int c) {
+	if (c >= '!' && c <= '/') return 1;
+	if (c >= ':' && c <= '@') return 1;
+	if (c >= '[' && c <= '`') return 1;
+	if (c >= '{' && c <= '~') return 1;
+	return 0;
+}
+
 /**
  * Process a user command.
  */
@@ -5783,6 +5769,12 @@ int process_command(char * cmd) {
 	} else if (isdigit(*cmd)) {
 		goto_line(atoi(cmd));
 		return 0;
+	} else if (cmd[0] == '!') {
+		return _prefix_command_run_script(cmd);
+	} else if (cmd[0] == 's' && isSubstitutionSymbol(cmd[1])) {
+		return bim_command_repsome(cmd, 0, NULL);
+	} else if (cmd[0] == '%' && cmd[1] == 's') {
+		return bim_command_repall(cmd, 0, NULL);
 	}
 
 	int retval = process_krk_command(cmd, NULL);
@@ -9856,9 +9848,11 @@ struct CommandDef {
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
 	fprintf(stdout,"\n");
+	/* By resetting, we're at 0 frames. */
 	krk_resetStack();
+	krk_push(NONE_VAL());
 	int previousExitFrame = vm.exitOnFrame;
-	vm.exitOnFrame = vm.frameCount;
+	vm.exitOnFrame = 0;
 	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
 	vm.exitOnFrame = previousExitFrame;
 	if (krk_isInstanceOf(out,CommandDef)) {
@@ -9956,7 +9950,6 @@ static void loadKrkFile(const char * file) {
 
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	if (argc < 2) return 1;
-	fprintf(stdout,"\n");
 
 	/* In case we're running in a weird context? */
 	int previousExitFrame = vm.exitOnFrame;
