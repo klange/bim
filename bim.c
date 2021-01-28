@@ -122,6 +122,18 @@ char * name_from_key(enum Key keycode) {
 	return keyNameTmp;
 }
 
+#define S(c) (krk_copyString(c,sizeof(c)-1))
+
+#define xstr(s) str(s)
+#define str(s) #s
+
+static KrkClass * syntaxStateClass = NULL;
+
+struct SyntaxState {
+	KrkInstance inst;
+	struct syntax_state state;
+};
+
 /**
  * Theming data
  *
@@ -968,26 +980,45 @@ void recalculate_syntax(line_t * line, int line_no) {
 		}
 
 		/* Start from the line's stored in initial state */
-		struct syntax_state state;
-		state.env = env;
-		state.line = line;
-		state.line_no = line_no;
-		state.state = line->istate;
-		state.i = 0;
+		struct SyntaxState * s = (void*)krk_newInstance(syntaxStateClass);
+		krk_push(OBJECT_VAL(s));
+		s->state.env = env;
+		s->state.line = line;
+		s->state.line_no = line_no;
+		s->state.state = line->istate;
+		s->state.i = 0;
 
 		while (1) {
-			state.state = env->syntax->calculate(&state);
+			krk_push(OBJECT_VAL(s));
+			KrkValue result = krk_callSimple(OBJECT_VAL(env->syntax->krkFunc), 1, 0);
+			if (IS_NONE(result) && (vm.flags & KRK_HAS_EXCEPTION)) {
+				render_error("Exception occurred in plugin: %s", AS_INSTANCE(vm.currentException)->_class->name->chars);
+				krk_dumpTraceback();
+				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
+				int key = 0;
+				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+				env->syntax = NULL;
+				return;
+			} else if (!IS_NONE(result) && !IS_INTEGER(result)) {
+				fprintf(stderr, "Instead of an integer, got %s\n", krk_typeName(result));
+				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
+				int key = 0;
+				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+				env->syntax = NULL;
+				return;
+			}
+			s->state.state = IS_NONE(result) ? -1 : AS_INTEGER(result);
 
-			if (state.state != 0) {
+			if (s->state.state != 0) {
 				if (line_no == -1) return;
 				rehighlight_search(line);
 				if (!is_original) {
 					redraw_line(line_no);
 				}
-				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != state.state) {
+				if (line_no + 1 < env->line_count && env->lines[line_no+1]->istate != s->state.state) {
 					line_no++;
 					line = env->lines[line_no];
-					line->istate = state.state;
+					line->istate = s->state.state;
 					if (env->loading) return;
 					is_original = 0;
 					goto _next;
@@ -10425,57 +10456,6 @@ void load_bimrc(void) {
 	free(tmp);
 }
 
-#define S(c) (krk_copyString(c,sizeof(c)-1))
-
-#define xstr(s) str(s)
-#define str(s) #s
-
-static KrkClass * syntaxStateClass = NULL;
-
-struct SyntaxState {
-	KrkInstance inst;
-	struct syntax_state * state;
-};
-
-
-static int syn_krk(struct syntax_state * state) {
-	/* Assume env->syntax is us... */
-	void * krkFunc = env->syntax->krkFunc;
-	KrkInstance * s = krk_newInstance(syntaxStateClass); /* TODO state class */
-	krk_push(OBJECT_VAL(s));
-	((struct SyntaxState*)s)->state = state;
-
-	int key = 0;
-
-	/* Keep state on stack */
-	vm.watchdog = 10000;
-	int previousExitFrame = vm.exitOnFrame;
-	vm.exitOnFrame = vm.frameCount;
-	KrkValue result = krk_callSimple(OBJECT_VAL(krkFunc), 1, 0);
-	vm.exitOnFrame = previousExitFrame;
-
-	if (IS_NONE(result)) {
-		if (vm.flags & KRK_HAS_EXCEPTION) {
-			render_error("An exception occurred: %s", AS_INSTANCE(vm.currentException)->_class->name->chars);
-			fprintf(stderr,"\n\n\n");
-			krk_dumpTraceback();
-			fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
-			while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-			env->syntax = NULL;
-		}
-		return -1;
-	}
-	if (!IS_INTEGER(result)) {
-		fprintf(stderr, "Instead of an integer, got %s\n", krk_typeName(result));
-		
-		fprintf(stdout,"\n\n");
-		render_commandline_message("(waiting for keypress)");
-		while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-		quit("exiting");
-	}
-	return AS_INTEGER(result);
-}
-
 static KrkValue krk__bim_register_handler(int argc, KrkValue argv[]) {
 	if (!IS_STRING(argv[0]) || !IS_TUPLE(argv[1]) || !IS_BOOLEAN(argv[2]) || !IS_CLOSURE(argv[3])) {
 		krk_runtimeError(vm.exceptions.typeError, "Mismatched arguments: %s %s %s %s",
@@ -10500,7 +10480,7 @@ static KrkValue krk__bim_register_handler(int argc, KrkValue argv[]) {
 	add_syntax((struct syntax_definition) {
 		AS_CSTRING(argv[0]), /* name */
 		extensions, /* NULL-terminated array of extensions */
-		syn_krk, /* calculate function */
+		NULL, /* calculate function */
 		AS_BOOLEAN(argv[2]), /* spaces */
 		NULL, /* qualifier */
 		NULL, /* matcher */
@@ -10519,7 +10499,7 @@ int c_keyword_qualifier(int c) {
 	if (argc < 1 || !krk_isInstanceOf(argv[0],syntaxStateClass)) return krk_runtimeError(vm.exceptions.typeError, "expected state"); \
 	KrkInstance * _self = AS_INSTANCE(argv[0]); \
 	struct SyntaxState * self = (struct SyntaxState*)_self; \
-	struct syntax_state * state = self->state;
+	struct syntax_state * state = &self->state;
 
 static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[]) {
 	BIM_STATE();
@@ -10604,26 +10584,52 @@ static KrkValue bim_krk_state_skip(int argc, KrkValue argv[]) {
 	return NONE_VAL();
 }
 static KrkValue bim_krk_state_cKeywordQualifier(int argc, KrkValue argv[]) {
+	if (IS_INTEGER(argv[1])) return BOOLEAN_VAL(!!c_keyword_qualifier(AS_INTEGER(argv[1])));
 	if (!IS_STRING(argv[1])) return BOOLEAN_VAL(0);
 	if (AS_STRING(argv[1])->length > 1) return BOOLEAN_VAL(0);
 	return BOOLEAN_VAL(!!c_keyword_qualifier(AS_CSTRING(argv[1])[0]));
 }
+
+static int callQualifier(KrkValue qualifier, int codepoint) {
+	krk_push(qualifier);
+	krk_push(INTEGER_VAL(codepoint));
+	KrkValue result = krk_callSimple(krk_peek(1), 1, 1);
+	if (IS_BOOLEAN(result)) return AS_BOOLEAN(result);
+	return 0;
+}
+
 static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[]) {
 	BIM_STATE();
+	if (argc < 4 || !krk_isInstanceOf(argv[1], vm.baseClasses.listClass) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "invalid arguments to SyntaxState.findKeywords");
+
 	KrkValue qualifier = argv[3];
-	if (IS_BOUND_METHOD(qualifier) && AS_BOUND_METHOD(qualifier)->method->type == OBJ_NATIVE
-		&& ((KrkNative*)AS_BOUND_METHOD(qualifier)->method)->function == bim_krk_state_cKeywordQualifier) {
-		char ** keywordsAsCArray = malloc(sizeof(char*) * (AS_LIST(argv[1])->count+1));
-		keywordsAsCArray[AS_LIST(argv[1])->count] = NULL;
-		for (size_t i = 0; i < AS_LIST(argv[1])->count; ++i) {
-			keywordsAsCArray[i] = AS_CSTRING(AS_LIST(argv[1])->values[i]);
-			/* TODO type check */
+	int flag = AS_INTEGER(argv[2]);
+
+	if (callQualifier(qualifier, lastchar())) return BOOLEAN_VAL(0);
+	if (!callQualifier(qualifier, charat()))  return BOOLEAN_VAL(0);
+
+	for (size_t keyword = 0; keyword < AS_LIST(argv[1])->count; ++keyword) {
+		if (!IS_STRING(AS_LIST(argv[1])->values[keyword]))
+			return krk_runtimeError(vm.exceptions.typeError, "expected list of strings, found '%s'", krk_typeName(AS_LIST(argv[1])->values[keyword]));
+
+		KrkString * me = AS_STRING(AS_LIST(argv[1])->values[keyword]);
+		size_t d = 0;
+		if (me->type == KRK_STRING_ASCII) {
+			while (state->i + (int)d < state->line->actual &&
+			       d < me->codesLength &&
+			       state->line->text[state->i+d].codepoint == me->chars[d]) d++;
+		} else {
+			krk_unicodeString(me);
+			while (state->i + (int)d < state->line->actual &&
+			       d < me->codesLength &&
+			       state->line->text[state->i+d].codepoint == KRK_STRING_FAST(me,d)) d++;
 		}
-		long flag = AS_INTEGER(argv[2]);
-		int result = find_keywords(state, keywordsAsCArray, flag, c_keyword_qualifier);
-		return BOOLEAN_VAL(!!result);
-	} else {
-		/* Unsupported */
+		if (d == me->codesLength && (state->i + (int)d >= state->line->actual ||
+			!callQualifier(qualifier,state->line->text[state->i+d].codepoint))) {
+			paint((int)me->codesLength, flag);
+			return BOOLEAN_VAL(1);
+		}
 	}
 	return BOOLEAN_VAL(0);
 }
