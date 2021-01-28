@@ -9850,11 +9850,16 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	fprintf(stdout,"\n");
 	/* By resetting, we're at 0 frames. */
 	krk_resetStack();
+	/* Push something so we're not at the bottom of the stack when an
+	 * exception happens, or we'll get the normal interpreter behavior
+	 * and won't be able to examine the exception ourselves. */
 	krk_push(NONE_VAL());
-	int previousExitFrame = vm.exitOnFrame;
-	vm.exitOnFrame = 0;
+	/* If we don't set outSlots for the top frame a syntax error will
+	 * get printed by the interpreter and we can't catch it here. */
+	vm.frames[0].outSlots = 1;
+	/* Call the interpreter */
 	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
-	vm.exitOnFrame = previousExitFrame;
+	/* If the user typed just a command name, try to execute it. */
 	if (krk_isInstanceOf(out,CommandDef)) {
 		krk_push(out);
 		out = krk_callSimple(krk_peek(0),0,1);
@@ -9862,6 +9867,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	if (outVal) *outVal = out;
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
 	int hadOutput = 0;
+	/* If we got an exception during execution, print it now */
 	if (vm.flags & KRK_HAS_EXCEPTION) {
 		set_fg_color(COLOR_RED);
 		fflush(stdout);
@@ -9869,8 +9875,9 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		set_fg_color(COLOR_FG);
 		fflush(stdout);
 		hadOutput = 1;
+		krk_resetStack();
 	}
-	krk_resetStack();
+	/* Otherwise, we can look at the result here. */
 	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
 		krk_push(out);
 		KrkValue repr = krk_callSimple(OBJECT_VAL(krk_getType(out)->_reprer), 1, 0);
@@ -9881,6 +9888,9 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		krk_resetStack();
 		hadOutput = 1;
 	}
+	/* If we had either an exception or a non-zero, non-None result,
+	 * we want to wait for a key press before continuing, and avoid
+	 * clearing the screen if the user is going to enter another command. */
 	if (hadOutput) {
 		int c;
 		while ((c = bim_getch())== -1);
