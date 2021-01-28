@@ -124,9 +124,6 @@ char * name_from_key(enum Key keycode) {
 
 #define S(c) (krk_copyString(c,sizeof(c)-1))
 
-#define xstr(s) str(s)
-#define str(s) #s
-
 static KrkClass * syntaxStateClass = NULL;
 
 struct SyntaxState {
@@ -798,25 +795,6 @@ const char * flag_to_color(int _flag) {
 }
 
 /**
- * Find keywords from a list and paint them, assuming they aren't in the middle of other words.
- * Returns 1 if a keyword from the list was found, otherwise 0.
- */
-int find_keywords(struct syntax_state * state, char ** keywords, int flag, int (*keyword_qualifier)(int c)) {
-	if (keyword_qualifier(lastchar())) return 0;
-	if (!keyword_qualifier(charat())) return 0;
-	for (char ** keyword = keywords; *keyword; ++keyword) {
-		int d = 0;
-		while (state->i + d < state->line->actual && state->line->text[state->i+d].codepoint == (*keyword)[d]) d++;
-		if ((*keyword)[d] == '\0' && (state->i + d >= state->line->actual || !keyword_qualifier(state->line->text[state->i+d].codepoint))) {
-			paint((int)strlen(*keyword), flag);
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/**
  * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
  * so it can be used for prefix checking for things that need further special handling.
  */
@@ -839,45 +817,6 @@ int match_and_paint(struct syntax_state * state, const char * keyword, int flag,
 		slen++;
 	}
 	return 0;
-}
-
-/**
- * Paint a basic single-quote string.
- */
-void paint_single_string(struct syntax_state * state) {
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '\'') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '\'') {
-			paint(1, FLAG_STRING);
-			return;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
-}
-
-/**
- * Paint a simple double-quote string.
- */
-void paint_simple_string(struct syntax_state * state) {
-	/* Assumes you came in from a check of charat() == '"' */
-	paint(1, FLAG_STRING);
-	while (charat() != -1) {
-		if (charat() == '\\' && nextchar() == '"') {
-			paint(2, FLAG_ESCAPE);
-		} else if (charat() == '"') {
-			paint(1, FLAG_STRING);
-			return;
-		} else if (charat() == '\\') {
-			paint(2, FLAG_ESCAPE);
-		} else {
-			paint(1, FLAG_STRING);
-		}
-	}
 }
 
 /**
@@ -910,20 +849,6 @@ int paint_comment(struct syntax_state * state) {
 		else { paint(1, FLAG_COMMENT); }
 	}
 	return -1;
-}
-
-/**
- * Match a word forward and return whether it was matched.
- */
-int match_forward(struct syntax_state * state, char * c) {
-	int i = 0;
-	while (1) {
-		if (charrel(i) == -1 && !*c) return 1;
-		if (charrel(i) != *c) return 0;
-		c++;
-		i++;
-	}
-	return 0;
 }
 
 /**
@@ -980,7 +905,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 		}
 
 		/* Start from the line's stored in initial state */
-		struct SyntaxState * s = (void*)krk_newInstance(syntaxStateClass);
+		struct SyntaxState * s = (void*)krk_newInstance(env->syntax->krkClass);
 		krk_push(OBJECT_VAL(s));
 		s->state.env = env;
 		s->state.line = line;
@@ -3820,8 +3745,10 @@ void open_file(char * file) {
 		return;
 	}
 
-	render_commandline_message("Please wait...");
-	fflush(stdout);
+	if (global_config.has_terminal) {
+		render_commandline_message("Please wait...");
+		fflush(stdout);
+	}
 
 	if (env->line_no && env->lines[env->line_no-1] && env->lines[env->line_no-1]->actual == 0) {
 		/* Remove blank line from end */
@@ -9940,8 +9867,15 @@ void normal_mode(void) {
 
 BIM_PREFIX_COMMAND(tick,"`","(temporary) interpret a krk statement") {
 	fprintf(stdout,"\n");
+	int previousExitFrame = vm.exitOnFrame;
+	vm.exitOnFrame = 0;
 	KrkValue out = krk_interpret(cmd+1,0,"<bim>","<bim>");
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
+
+	if (vm.flags & KRK_HAS_EXCEPTION) {
+		krk_dumpTraceback();
+	}
+	vm.exitOnFrame = previousExitFrame;
 	krk_resetStack();
 
 	enter_command();
@@ -10456,41 +10390,61 @@ void load_bimrc(void) {
 	free(tmp);
 }
 
-static KrkValue krk__bim_register_handler(int argc, KrkValue argv[]) {
-	if (!IS_STRING(argv[0]) || !IS_TUPLE(argv[1]) || !IS_BOOLEAN(argv[2]) || !IS_CLOSURE(argv[3])) {
-		krk_runtimeError(vm.exceptions.typeError, "Mismatched arguments: %s %s %s %s",
-			krk_typeName(argv[0]),
-			krk_typeName(argv[1]),
-			krk_typeName(argv[2]),
-			krk_typeName(argv[3]));
-		return NONE_VAL();
+static int checkClass(KrkClass * _class, KrkClass * base) {
+	while (_class) {
+		if (_class == base) return 1;
+		_class = _class->base;
 	}
-	#if 0
-	fprintf(stderr, "Registering handler for %s → %s\n",
-		AS_CSTRING(argv[0]),
-		AS_CLOSURE(argv[3])->function->name->chars
-		);
-	#endif
-	char ** extensions = malloc(sizeof(char *) * (AS_TUPLE(argv[1])->values.count + 1)); /* +1 for NULL */
-	extensions[AS_TUPLE(argv[1])->values.count] = NULL;
-	for (size_t i = 0; i < AS_TUPLE(argv[1])->values.count; ++i) {
-		extensions[i] = AS_CSTRING(AS_TUPLE(argv[1])->values.values[i]);
+	return 0;
+}
+
+static KrkValue krk_bim_syntax_dict;
+static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[]) {
+	if (argc < 1 || !IS_CLASS(argv[0]) || !checkClass(AS_CLASS(argv[0]), syntaxStateClass))
+		return krk_runtimeError(vm.exceptions.typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(argv[0]));
+
+	KrkValue name = NONE_VAL(), extensions = NONE_VAL(), spaces = BOOLEAN_VAL(0), calculate = NONE_VAL();
+	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("name")), &name);
+	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("extensions")), &extensions);
+	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("spaces")), &spaces);
+	krk_tableGet(&AS_CLASS(argv[0])->methods, OBJECT_VAL(S("calculate")), &calculate);
+	if (!IS_STRING(name))
+		return krk_runtimeError(vm.exceptions.typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
+	if (!IS_TUPLE(extensions))
+		return krk_runtimeError(vm.exceptions.typeError, "%s.extensions must by tuple<str>", AS_CLASS(argv[0])->name->chars);
+	if (!IS_BOOLEAN(spaces))
+		return krk_runtimeError(vm.exceptions.typeError, "%s.spaces must be bool", AS_CLASS(argv[0])->name->chars);
+	if (!IS_CLOSURE(calculate))
+		return krk_runtimeError(vm.exceptions.typeError, "%s.calculate must be method, not '%s'", AS_CLASS(argv[0])->name->chars, krk_typeName(calculate));
+
+	/* Convert tuple of strings */
+	char ** ext = malloc(sizeof(char *) * (AS_TUPLE(extensions)->values.count + 1)); /* +1 for NULL */
+	ext[AS_TUPLE(extensions)->values.count] = NULL;
+	for (size_t i = 0; i < AS_TUPLE(extensions)->values.count; ++i) {
+		if (!IS_STRING(AS_TUPLE(extensions)->values.values[i])) {
+			free(ext);
+			return krk_runtimeError(vm.exceptions.typeError, "%s.extensions must by tuple<str>", AS_CLASS(argv[0])->name->chars);
+		}
+		ext[i] = AS_CSTRING(AS_TUPLE(extensions)->values.values[i]);
 	}
 
 	add_syntax((struct syntax_definition) {
-		AS_CSTRING(argv[0]), /* name */
-		extensions, /* NULL-terminated array of extensions */
+		AS_CSTRING(name), /* name */
+		ext, /* NULL-terminated array of extensions */
 		NULL, /* calculate function */
-		AS_BOOLEAN(argv[2]), /* spaces */
+		AS_BOOLEAN(spaces), /* spaces */
 		NULL, /* qualifier */
 		NULL, /* matcher */
-		AS_OBJECT(argv[3]) /* krkFunc */
+		AS_OBJECT(calculate), /* krkFunc */
+		AS_OBJECT(argv[0]),
 	});
 
-	/* Done */
+	/* And save it in the module stuff. */
+	krk_tableSet(AS_DICT(krk_bim_syntax_dict), name, argv[0]);
 
 	return NONE_VAL();
 }
+
 int c_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
@@ -10635,14 +10589,26 @@ static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[]) {
 }
 static KrkValue bim_krk_state_matchAndPaint(int argc, KrkValue argv[]) {
 	BIM_STATE();
+	if (argc < 4 || !IS_STRING(argv[1]) || !IS_INTEGER(argv[2]))
+		return krk_runtimeError(vm.exceptions.typeError, "invalid arguments to SyntaxState.matchAndPaint");
 	KrkValue qualifier = argv[3];
-	if (IS_BOUND_METHOD(qualifier) && AS_BOUND_METHOD(qualifier)->method->type == OBJ_NATIVE
-		&& ((KrkNative*)AS_BOUND_METHOD(qualifier)->method)->function == bim_krk_state_cKeywordQualifier) {
-		const char * keyword = AS_CSTRING(argv[1]);
-		long flag = AS_INTEGER(argv[2]);
-		return BOOLEAN_VAL(match_and_paint(state, keyword, flag, c_keyword_qualifier));
+	int flag = AS_INTEGER(argv[2]);
+	KrkString * me = AS_STRING(argv[1]);
+	size_t d = 0;
+	if (me->type == KRK_STRING_ASCII) {
+		while (state->i + (int)d < state->line->actual &&
+		       d < me->codesLength &&
+		       state->line->text[state->i+d].codepoint == me->chars[d]) d++;
 	} else {
-		/* Unsupported */
+		krk_unicodeString(me);
+		while (state->i + (int)d < state->line->actual &&
+		       d < me->codesLength &&
+		       state->line->text[state->i+d].codepoint == KRK_STRING_FAST(me,d)) d++;
+	}
+	if (d == me->codesLength && (state->i + (int)d >= state->line->actual ||
+		!callQualifier(qualifier,state->line->text[state->i+d].codepoint))) {
+		paint((int)me->codesLength, flag);
+		return BOOLEAN_VAL(1);
 	}
 	return BOOLEAN_VAL(0);
 }
@@ -10656,34 +10622,17 @@ static KrkValue bim_krk_state_commentBuzzwords(int argc, KrkValue argv[]) {
 	return BOOLEAN_VAL(common_comment_buzzwords(state));
 }
 
-const char bimBuiltins_krk[] =
-	"let handlers = {}\n"
-	"def highlighter(name,extensions=(),spaces=False):\n"
-	"    def _decorate(func):\n"
-	"        handlers[name] = (extensions,spaces,func)\n"
-	"        __bim_register_handler(name,extensions,spaces,func)\n"
-	"        return func\n"
-	"    return _decorate\n"
-	"\n"
-	"let flags = object()\n"
-	"flags.FLAG_NONE = " xstr(FLAG_NONE) "\n"
-	"flags.FLAG_KEYWORD = " xstr(FLAG_KEYWORD) "\n"
-	"flags.FLAG_STRING = " xstr(FLAG_STRING) "\n"
-	"flags.FLAG_COMMENT = " xstr(FLAG_COMMENT) "\n"
-	"flags.FLAG_TYPE = " xstr(FLAG_TYPE) "\n"
-	"flags.FLAG_PRAGMA = " xstr(FLAG_PRAGMA) "\n"
-	"flags.FLAG_NUMERAL = " xstr(FLAG_NUMERAL) "\n"
-	"flags.FLAG_ERROR = " xstr(FLAG_ERROR) "\n"
-	"flags.FLAG_DIFFPLUS = " xstr(FLAG_DIFFPLUS) "\n"
-	"flags.FLAG_DIFFMINUS = " xstr(FLAG_DIFFMINUS) "\n"
-	"flags.FLAG_NOTICE = " xstr(FLAG_NOTICE) "\n"
-	"flags.FLAG_BOLD = " xstr(FLAG_BOLD) "\n"
-	"flags.FLAG_LINK = " xstr(FLAG_LINK) "\n"
-	"flags.FLAG_ESCAPE = " xstr(FLAG_ESCAPE) "\n"
-	"\n";
-
-#undef str
-#undef xstr
+static KrkValue krk_bim_get_commands(int argc, KrkValue argv[]) {
+	KrkValue myList = krk_list_of(0, NULL);
+	krk_push(myList);
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		krk_writeValueArray(AS_LIST(myList), OBJECT_VAL(krk_copyString(c->name,strlen(c->name))));
+	}
+	for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
+		krk_writeValueArray(AS_LIST(myList), OBJECT_VAL(krk_copyString(c->name,strlen(c->name))));
+	}
+	return krk_pop();
+}
 
 /**
  * Run global initialization tasks
@@ -10725,15 +10674,18 @@ void initialize(void) {
 
 	krk_initVM(0); /* no debug flags */
 
-	KrkValue bimModule = krk_interpret(bimBuiltins_krk,1,"bim","bim");
-	krk_attachNamedValue(&vm.modules, "bim", bimModule);
-	krk_defineNative(&vm.builtins->fields,"__bim_register_handler",krk__bim_register_handler);
+	KrkInstance * bimModule = krk_newInstance(vm.moduleClass);
+	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
+	krk_defineNative(&bimModule->fields, "bindHighlighter", krk_bim_register_syntax);
+	krk_defineNative(&bimModule->fields, "getCommands", krk_bim_get_commands);
+	krk_bim_syntax_dict = krk_dict_of(0,NULL);
+	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 
 	KrkString * strSyntaxState = S("SyntaxState");
 	krk_push(OBJECT_VAL(strSyntaxState));
 	syntaxStateClass = krk_newClass(strSyntaxState, vm.objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_attachNamedObject(&AS_INSTANCE(bimModule)->fields, "SyntaxState", (KrkObj*)syntaxStateClass);
+	krk_attachNamedObject(&bimModule->fields, "SyntaxState", (KrkObj*)syntaxStateClass);
 	krk_pop(); /* strSyntaxState */
 	krk_defineNative(&syntaxStateClass->methods, ":state", bim_krk_state_getstate);
 	krk_defineNative(&syntaxStateClass->methods, ":i", bim_krk_state_index);
@@ -10754,6 +10706,20 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
 	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_charrel);
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_COMMENT", INTEGER_VAL(FLAG_COMMENT));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_TYPE", INTEGER_VAL(FLAG_TYPE));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_PRAGMA", INTEGER_VAL(FLAG_PRAGMA));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NUMERAL", INTEGER_VAL(FLAG_NUMERAL));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ERROR", INTEGER_VAL(FLAG_ERROR));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFPLUS", INTEGER_VAL(FLAG_DIFFPLUS));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFMINUS", INTEGER_VAL(FLAG_DIFFMINUS));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NOTICE", INTEGER_VAL(FLAG_NOTICE));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
+	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
 
 	krk_finalizeClass(syntaxStateClass);
 

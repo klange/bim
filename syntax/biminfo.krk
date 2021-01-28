@@ -1,13 +1,18 @@
-from bim import highlighter, flags
+from bim import SyntaxState, bindHighlighter
 
-@highlighter("biminfo",extensions=('.biminfo',))
-def syntax_biminfo(state):
-    if state.i == 0:
-        if state.charat == '#':
-            state.paint(-1, flags.FLAG_COMMENT)
-        else if state.charat == '>':
-            state.paint(1, flags.FLAG_KEYWORD)
-            while state.charat != ' ': state.paint(1, flags.FLAG_TYPE)
-            state.skip()
-            state.paint(-1, flags.FLAG_NUMERAL)
-    return None
+class BiminfoHighlighter(SyntaxState):
+    name = 'biminfo'
+    extensions = ('.biminfo',)
+    def calculate(self):
+        if self.i == 0:
+            if self[0] == '#':
+                self.paint(-1, self.FLAG_COMMENT)
+            else if self[0] == '>':
+                self.paint(1, self.FLAG_KEYWORD)
+                while self[0] != ' ':
+                    self.paint(1, self.FLAG_TYPE)
+                self.skip()
+                self.paint(-1, self.FLAG_NUMERAL)
+        return None
+
+bindHighlighter(BiminfoHighlighter)
