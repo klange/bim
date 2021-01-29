@@ -22,18 +22,53 @@ class KrkHighlighter(Highlighter):
         'True', 'False', 'None'
     ]
 
-    def paintTriple(self, strType):
+    exceptions = [
+        'Exception', 'TypeError', 'ArgumentError', 'IndexError', 'KeyError',
+        'AttributeError', 'NameError', 'ImportError', 'IOError', 'ValueError',
+        'KeyboardInterrupt', 'ZeroDivisionError', 'NotImplementedError', 'SyntaxError',
+    ]
+
+    def paintTriple(self, strType, isFormat=False):
         while self[0] != None:
             if self[0] == strType:
                 self.paint(1, self.FLAG_STRING)
                 if self[0] == strType and self[1] == strType:
                     self.paint(2, self.FLAG_STRING)
                     return 0
+            else if self[0] == '\\':
+                if self[1] == 'x':
+                    self.paint(4, self.FLAG_ESCAPE)
+                else if self[1] == 'u':
+                    self.paint(6, self.FLAG_ESCAPE)
+                else if self[1] == 'U':
+                    self.paint(10, self.FLAG_ESCAPE)
+                else if self[1] in '\\\'"abfnrtv[':
+                    self.paint(2, self.FLAG_ESCAPE)
+                else:
+                    self.paint(1, self.FLAG_STRING)
+            else if isFormat and self[0] == '{':
+                if self[1] == '}':
+                    self.paint(-1, self.FLAG_ERROR)
+                    return None
+                self.paint(1, self.FLAG_ESCAPE)
+                let x = 0
+                while self[0]:
+                    if self[0] == '{':
+                        x++
+                    else if self[0] == '}':
+                        if x == 0:
+                            self.paint(1, self.FLAG_ESCAPE)
+                            break
+                        x--
+                    else if self[0] == strType:
+                        self.paint(-1, self.FLAG_ERROR)
+                        return None
+                    self.paint(1, self.FLAG_NUMERAL)
             else:
                 self.paint(1, self.FLAG_STRING)
         return int(strType == "'") + 1
 
-    def paintString(self, strType):
+    def paintString(self, strType, isFormat=False):
         while self[0] != None:
             if self[0] == '\\' and self[1] == strType:
                 self.paint(2, self.FLAG_ESCAPE)
@@ -41,10 +76,37 @@ class KrkHighlighter(Highlighter):
                 self.paint(1, self.FLAG_STRING)
                 return 0
             else if self[0] == '\\':
-                if self[1] == None:
+                if self[1] == 'x':
+                    self.paint(4, self.FLAG_ESCAPE)
+                else if self[1] == 'u':
+                    self.paint(6, self.FLAG_ESCAPE)
+                else if self[1] == 'U':
+                    self.paint(10, self.FLAG_ESCAPE)
+                else if self[1] == None:
                     self.paint(1, self.FLAG_ESCAPE)
-                    return int(strType == "'") + 3
-                self.paint(2, self.FLAG_ESCAPE)
+                    return 3 if strType == '"' else 4
+                else if self[1] in '\\\'"abfnrtv[':
+                    self.paint(2, self.FLAG_ESCAPE)
+                else:
+                    self.paint(1, self.FLAG_STRING)
+            else if isFormat and self[0] == '{':
+                if self[1] == '}':
+                    self.paint(-1, self.FLAG_ERROR)
+                    return None
+                self.paint(1, self.FLAG_ESCAPE)
+                let x = 0
+                while self[0]:
+                    if self[0] == '{':
+                        x++
+                    else if self[0] == '}':
+                        if x == 0:
+                            self.paint(1, self.FLAG_ESCAPE)
+                            break
+                        x--
+                    else if self[0] == strType:
+                        self.paint(-1, self.FLAG_ERROR)
+                        return None
+                    self.paint(1, self.FLAG_NUMERAL)
             else:
                 self.paint(1, self.FLAG_STRING)
         return 0
@@ -82,16 +144,21 @@ class KrkHighlighter(Highlighter):
                 return 0
             else if self[0] == '"' or self[0] == "'":
                 let strType = self[0]
+                if self[-1] == 'f':
+                    self.rewind(1)
+                    self.paint(1, self.FLAG_KEYWORD)
                 if self[1] == strType and self[2] == strType:
                     self.paint(3, self.FLAG_STRING)
-                    return self.paintTriple(strType)
+                    return self.paintTriple(strType,self[-4]=='f')
                 self.paint(1, self.FLAG_STRING)
-                return self.paintString(strType)
+                return self.paintString(strType, self[-2] == 'f')
             else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.cKeywordQualifier):
                 return 0
             else if self[-1] != '.' and self.findKeywords(self.types, self.FLAG_TYPE, self.cKeywordQualifier):
                 return 0
             else if self.findKeywords(self.special, self.FLAG_NUMERAL, self.cKeywordQualifier):
+                return 0
+            else if self.findKeywords(self.exceptions, self.FLAG_PRAGMA, self.cKeywordQualifier):
                 return 0
             else if not self.cKeywordQualifier(self[-1]) and self.isdigit(self[0]):
                 self.paintNumeral()
