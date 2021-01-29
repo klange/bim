@@ -5450,7 +5450,15 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 	} else {
 		for (struct theme_def * d = themes; themes && d->name; ++d) {
 			if (!strcmp(argv[1], d->name)) {
-				d->load(d->name);
+				ptrdiff_t before = vm.stackTop - vm.stack;
+				KrkValue result = krk_callSimple(OBJECT_VAL(d->callable), 0, 0);
+				vm.stackTop = vm.stack + before;
+				if (IS_NONE(result) && (vm.flags & KRK_HAS_EXCEPTION)) {
+					render_error("Exception occurred in theme: %s", AS_INSTANCE(vm.currentException)->_class->name->chars);
+					krk_dumpTraceback();
+					int key = 0;
+					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+				}
 				redraw_all();
 				return 0;
 			}
@@ -9978,18 +9986,6 @@ static void show_usage(char * argv[]) {
 #undef _s
 }
 
-static void loadKrkFile(const char * file) {
-	int previousExitFrame = vm.exitOnFrame;
-	vm.exitOnFrame = vm.frameCount;
-	char tmp[256];
-	sprintf(tmp,"%s",file_basename((char*)file));
-	char * ext = strstr(tmp,".krk");
-	if (ext) *ext = '\0';
-	krk_runfile(file,1,tmp,(char*)file);
-	vm.exitOnFrame = previousExitFrame;
-	krk_resetStack();
-}
-
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	if (argc < 2) return 1;
 
@@ -10174,6 +10170,22 @@ static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[]) {
 	/* And save it in the module stuff. */
 	krk_tableSet(AS_DICT(krk_bim_syntax_dict), name, argv[0]);
 
+	return NONE_VAL();
+}
+
+static KrkValue krk_bim_theme_dict;
+static KrkValue krk_bim_define_theme(int argc, KrkValue argv[]) {
+	if (argc < 1 || !IS_CLOSURE(argv[0]))
+		return krk_runtimeError(vm.exceptions.typeError, "themes must be functions, not '%s'", krk_typeName(argv[0]));
+
+	KrkValue name = OBJECT_VAL(AS_CLOSURE(argv[0])->function->name);
+
+	add_colorscheme((struct theme_def) {
+		AS_CSTRING(name),
+		AS_OBJECT(argv[0]),
+	});
+
+	krk_tableSet(AS_DICT(krk_bim_theme_dict), name, argv[0]);
 	return NONE_VAL();
 }
 
@@ -10417,14 +10429,15 @@ static void makeClass(KrkInstance * module, KrkClass ** _class, const char * nam
 	krk_pop();
 }
 
-void run_directory(char * file) {
+void import_directory(char * file) {
 	DIR * dirp = opendir(file);
 	struct dirent * ent = readdir(dirp);
 	while (ent) {
-		if (str_ends_with(ent->d_name,".krk")) {
-			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1);
-			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1, "%s/%s", file, ent->d_name);
-			loadKrkFile(tmp);
+		if (str_ends_with(ent->d_name,".krk") && !str_ends_with(ent->d_name,"__init__.krk")) {
+			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1 + 7);
+			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", file, ent->d_name);
+			tmp[strlen(tmp)-4] = '\0';
+			krk_interpret(tmp,1,"<bim>",ent->d_name);
 			free(tmp);
 		}
 		ent = readdir(dirp);
@@ -10473,8 +10486,12 @@ void initialize(void) {
 
 	KrkInstance * bimModule = krk_newInstance(vm.moduleClass);
 	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
+	krk_attachNamedObject(&bimModule->fields, "__name__", (KrkObj*)S("bim"));
 	krk_defineNative(&bimModule->fields, "bindHighlighter", krk_bim_register_syntax);
 	krk_defineNative(&bimModule->fields, "getCommands", krk_bim_get_commands);
+	krk_bim_theme_dict = krk_dict_of(0,NULL);
+	krk_attachNamedValue(&bimModule->fields, "themes", krk_bim_theme_dict);
+	krk_defineNative(&bimModule->fields, "defineTheme", krk_bim_define_theme);
 	krk_bim_syntax_dict = krk_dict_of(0,NULL);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 
@@ -10536,8 +10553,8 @@ void initialize(void) {
 
 	krk_resetStack();
 
-	run_directory("syntax");
-	run_directory("themes");
+	import_directory("syntax");
+	import_directory("themes");
 
 	/* Load bimrc */
 	load_bimrc();
