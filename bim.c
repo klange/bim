@@ -5194,7 +5194,7 @@ BIM_COMMAND(q,"q","Close buffer") {
 	return 0;
 }
 
-BIM_COMMAND(qbang,"qf","Force close buffer") {
+BIM_COMMAND(qbang,"q!","Force close buffer") {
 	close_buffer();
 	update_title();
 	return 0;
@@ -5207,7 +5207,7 @@ BIM_COMMAND(qa,"qa","Try to close all buffers") {
 
 BIM_ALIAS("qall",qall,qa)
 
-BIM_COMMAND(qabang,"qaf","Force exit") {
+BIM_COMMAND(qabang,"qa!","Force exit") {
 	/* Forcefully exit editor */
 	while (buffers_len) {
 		buffer_close(buffers[0]);
@@ -5755,18 +5755,26 @@ int isSubstitutionSymbol(int c) {
 	return 0;
 }
 
+int alldigits(const char * c) {
+	while (*c) {
+		if (!isdigit(*c)) return 0;
+		c++;
+	}
+	return 1;
+}
+
 /**
  * Process a user command.
  */
 int process_krk_command(const char * cmd, KrkValue * outVal);
 int process_command(char * cmd) {
-	if (cmd[0] == '-' && isdigit(cmd[1])) {
+	if (cmd[0] == '-' && alldigits(&cmd[1])) {
 		goto_line(env->line_no-atoi(&cmd[1]));
 		return 0;
-	} else if (cmd[0] == '+' && isdigit(cmd[1])) {
+	} else if (cmd[0] == '+' && alldigits(&cmd[1])) {
 		goto_line(env->line_no+atoi(&cmd[1]));
 		return 0;
-	} else if (isdigit(*cmd)) {
+	} else if (alldigits(cmd)) {
 		goto_line(atoi(cmd));
 		return 0;
 	} else if (cmd[0] == '!') {
@@ -9869,6 +9877,30 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	int hadOutput = 0;
 	/* If we got an exception during execution, print it now */
 	if (vm.flags & KRK_HAS_EXCEPTION) {
+		if (krk_isInstanceOf(vm.currentException, vm.exceptions.syntaxError)) {
+			char * argv[3] = {NULL, NULL, NULL};
+			int argc = !!(*cmd);
+			char cmd_name[512] = {0};
+			for (char * c = (char*)cmd; *c; ++c) {
+				if (c-cmd == 511) break;
+				if (*c == ' ') {
+					cmd_name[c-cmd] = '\0';
+					argv[1] = c+1;
+					if (*argv[1]) argc++;
+					break;
+				}
+				cmd_name[c-cmd] = *c;
+			}
+
+			argv[0] = cmd_name;
+			argv[argc] = NULL;
+			for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+				if (!strcmp(argv[0], c->name)) {
+					krk_resetStack();
+					return c->command((char*)cmd, argc, argv);
+				}
+			}
+		}
 		set_fg_color(COLOR_RED);
 		fflush(stdout);
 		krk_dumpTraceback();
