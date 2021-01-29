@@ -10474,19 +10474,83 @@ static void makeClass(KrkInstance * module, KrkClass ** _class, const char * nam
 	krk_pop();
 }
 
-void import_directory(char * file) {
+void import_directory(char * dirName) {
+	char * dirpath = NULL;
+	char file[4096];
+	if (vm.binpath) {
+		char * tmp = strdup(vm.binpath);
+		dirpath = strdup(dirname(tmp));
+		free(tmp);
+		sprintf(file, "%s/%s", dirpath, dirName);
+	} else {
+		sprintf(file, "%s", dirName);
+	}
+
 	DIR * dirp = opendir(file);
+	if (!dirp && dirpath) {
+		/* Try ../share/bim/dirName */
+		fprintf(stderr, "Could not find startup files: %s\n", file);
+		sprintf(file, "%s/../share/bim/%s", dirpath, dirName);
+		dirp = opendir(file);
+	}
+	if (!dirp) {
+		fprintf(stderr, "Could not find startup files: %s\n", file);
+		exit(1);
+	}
+
+	if (dirpath) {
+		/* This is a dumb hack. */
+		char tmp[4096];
+		sprintf(tmp,
+			"import kuroko\n"
+			"if '%s/' not in kuroko.module_paths:\n"
+			" kuroko.module_paths.insert(0,'%s/')\n",
+			dirpath, dirpath);
+		krk_interpret(tmp,1,"<bim>","<bim>");
+	}
+
+	if (dirpath) free(dirpath);
 	struct dirent * ent = readdir(dirp);
 	while (ent) {
 		if (str_ends_with(ent->d_name,".krk") && !str_ends_with(ent->d_name,"__init__.krk")) {
-			char * tmp = malloc(strlen(file) + 1 + strlen(ent->d_name) + 1 + 7);
-			snprintf(tmp, strlen(file) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", file, ent->d_name);
+			char * tmp = malloc(strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7);
+			snprintf(tmp, strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", dirName, ent->d_name);
 			tmp[strlen(tmp)-4] = '\0';
 			krk_interpret(tmp,1,"<bim>",ent->d_name);
 			free(tmp);
 		}
 		ent = readdir(dirp);
 	}
+}
+
+static void findBim(char * argv[]) {
+	/* Try asking /proc */
+	char * binpath = realpath("/proc/self/exe", NULL);
+	if (!binpath) {
+		if (strchr(argv[0], '/')) {
+			binpath = realpath(argv[0], NULL);
+		} else {
+			/* Search PATH for argv[0] */
+			char * _path = strdup(getenv("PATH"));
+			char * path = _path;
+			while (path) {
+				char * next = strchr(path,':');
+				if (next) *next++ = '\0';
+
+				char tmp[4096];
+				sprintf(tmp, "%s/%s", path, argv[0]);
+				if (access(tmp, X_OK)) {
+					binpath = strdup(tmp);
+					break;
+				}
+				path = next;
+			}
+			free(_path);
+		}
+	}
+	if (binpath) {
+		vm.binpath = binpath;
+	} /* Else, give up at this point and just don't attach it at all. */
 }
 
 /**
@@ -11054,6 +11118,7 @@ _argument_error:
 }
 
 int main(int argc, char * argv[]) {
+	findBim(argv);
 	int opt;
 	while ((opt = getopt(argc, argv, "?c:C:u:RS:O:-:")) != -1) {
 		switch (opt) {

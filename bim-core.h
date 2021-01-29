@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <signal.h>
+#include <libgen.h>
 #include <locale.h>
 #include <wchar.h>
 #include <ctype.h>
