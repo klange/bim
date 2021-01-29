@@ -39,8 +39,11 @@ distclean: clean
 install: all
 	mkdir -p $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(bindir)/$(TARGET)
+	$(INSTALL_PROGRAM) libkuroko.so $(DESTDIR)$(bindir)/libkuroko.so
 	mkdir -p $(DESTDIR)$(datadir)/bim/themes
-	$(INSTALL_DATA) themes/*.bimscript $(DESTDIR)$(datadir)/bim/themes/
+	$(INSTALL_DATA) themes/*.krk $(DESTDIR)$(datadir)/bim/themes/
+	mkdir -p $(DESTDIR)$(datadir)/bim/syntax
+	$(INSTALL_DATA) syntax/*.krk $(DESTDIR)$(datadir)/bim/syntax/
 
 install-strip: all
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
