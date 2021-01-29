@@ -1639,7 +1639,6 @@ void add_indent(int new_line, int old_line, int ignore_brace) {
 					char_t c = {0};
 					c.codepoint = ' ';
 					c.display_width = 1;
-					c.flags = FLAG_SELECT;
 					env->lines[new_line] = line_insert(env->lines[new_line], c, env->col_no-1, new_line);
 					env->col_no++;
 				}
@@ -8088,9 +8087,14 @@ BIM_ACTION(adjust_indent, ARG_IS_CUSTOM | ACTION_IS_RW,
 					_redraw_line(start_point+i+1,1);
 				}
 			} else {
-				for (int j = 0; j < env->tabstop; ++j) {
-					if (env->lines[start_point + i]->text[0].codepoint == ' ') {
-						line_delete(env->lines[start_point + i],1,start_point+i);
+				if (env->lines[start_point + i]->text[0].codepoint == '\t') {
+					line_delete(env->lines[start_point + i],1,start_point+i);
+					_redraw_line(start_point+i+1,1);
+				} else {
+					for (int j = 0; j < env->tabstop; ++j) {
+						if (env->lines[start_point + i]->text[0].codepoint == ' ') {
+							line_delete(env->lines[start_point + i],1,start_point+i);
+						}
 					}
 				}
 				_redraw_line(start_point+i+1,1);

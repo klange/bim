@@ -1,6 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-class BashHighlighter(SyntaxState):
+class BashHighlighter(Highlighter):
     name = "bash"
     extensions = ('.sh','.bash','.bashrc')
 
@@ -144,4 +144,4 @@ class BashHighlighter(SyntaxState):
             return outState
         return None
 
-bindHighlighter(BashHighlighter)
+bind(BashHighlighter)

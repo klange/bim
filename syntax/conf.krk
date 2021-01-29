@@ -1,6 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-class ConfigHighlighter(SyntaxState):
+class ConfigHighlighter(Highlighter):
     name = "conf"
     extensions = ('.conf','.ini','.git/config','.cfg','.properties')
     spaces = True
@@ -22,4 +22,4 @@ class ConfigHighlighter(SyntaxState):
                     self.paint(1, self.FLAG_TYPE)
         return None
 
-bindHighlighter(ConfigHighlighter)
+bind(ConfigHighlighter)

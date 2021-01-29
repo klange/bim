@@ -1,6 +1,7 @@
-from bim import SyntaxState, bindHighlighter, getCommands
+from bim import getCommands
+from syntax import Highlighter, bind
 
-class KrkHighlighter(SyntaxState):
+class KrkHighlighter(Highlighter):
     name = 'krk'
     extensions = ('.krk',)
     spaces = True
@@ -108,7 +109,7 @@ class KrkHighlighter(SyntaxState):
             return self.paintString("'")
         return None
 
-bindHighlighter(KrkHighlighter)
+bind(KrkHighlighter)
 
 class BimcmdHighlighter(KrkHighlighter):
     name = 'bimcmd'
@@ -120,4 +121,4 @@ class BimcmdHighlighter(KrkHighlighter):
                 return 0
         return super().calculate()
 
-bindHighlighter(BimcmdHighlighter)
+bind(BimcmdHighlighter)

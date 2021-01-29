@@ -1,7 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-
-class CHighlighter(SyntaxState):
+class CHighlighter(Highlighter):
     name = 'c'
     extensions = ('.c','.h','.cpp','.hpp','.c++','.h++','.cc','.hh')
 
@@ -220,4 +219,4 @@ class CHighlighter(SyntaxState):
                 return self.state
         return None
 
-bindHighlighter(CHighlighter)
+bind(CHighlighter)

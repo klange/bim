@@ -1,0 +1,33 @@
+from bim import SyntaxState, bindHighlighter as bind
+
+class Highlighter(SyntaxState):
+
+    def paintSingleString():
+        self.paint(1, self.FLAG_STRING)
+        while self[0]:
+            if self[0] == '\\' and self[1] == "'":
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == "'":
+                self.paint(1, self.FLAG_STRING)
+                return
+            else if self[0] == '\\':
+                self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.paint(1, self.FLAG_STRING)
+
+    def paintSimpleString():
+        self.paint(1, self.FLAG_STRING)
+        while self[0]:
+            if self[0] == '\\' and self[1] == '"':
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == '"':
+                self.paint(1, self.FLAG_STRING)
+                return
+            else if self[0] == '\\':
+                self.paint(2, self.FLAG_ESCAPE)
+            else:
+                self.paint(1, self.FLAG_STRING)
+
+    def isalnum(c):
+        if isinstance(c,int) and c > 0: c = chr(c)
+        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'

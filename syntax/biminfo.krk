@@ -1,6 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-class BiminfoHighlighter(SyntaxState):
+class BiminfoHighlighter(Highlighter):
     name = 'biminfo'
     extensions = ('.biminfo',)
     def calculate(self):
@@ -15,4 +15,4 @@ class BiminfoHighlighter(SyntaxState):
                 self.paint(-1, self.FLAG_NUMERAL)
         return None
 
-bindHighlighter(BiminfoHighlighter)
+bind(BiminfoHighlighter)
