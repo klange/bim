@@ -724,6 +724,28 @@ buffer_t * buffer_close(buffer_t * buf) {
 		return NULL;
 	}
 
+	/* Cancel any background tasks for this env */
+	background_task_t * t = global_config.background_task;
+	background_task_t * last = NULL;
+	while (t) {
+		if (t->env == buf) {
+			if (last) {
+				last->next = t->next;
+			} else {
+				global_config.background_task = t->next;
+			}
+			if (!t->next) {
+				global_config.tail_task = last;
+			}
+			background_task_t * tmp = t->next;
+			free(t);
+			t = tmp;
+		} else {
+			last = t;
+			t = t->next;
+		}
+	}
+
 	update_biminfo(buf, 0);
 
 	/* Clean up lines used by old buffer */
@@ -3664,7 +3686,7 @@ static void render_syntax_async(background_task_t * task) {
 	env->syntax = task->_private_p;
 	int line_no = task->_private_i;
 
-	if (line_no < env->line_count) {
+	if (env->line_count && line_no < env->line_count) {
 		int tmp = env->loading;
 		env->loading = 1;
 		recalculate_syntax(env->lines[line_no], line_no);
@@ -5134,6 +5156,7 @@ BIM_COMMAND(e,"e","Open a file") {
 		SWAP(history_t *, env->history, new_env->history);
 
 		buffer_close(new_env); /* Should probably also free, this needs editing. */
+		schedule_complete_recalc();
 		redraw_all();
 	}
 	return 0;
