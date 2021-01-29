@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -DNO_SYSTEM_BINDS
+CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter
 LDFLAGS=-Wl,-rpath -Wl,'$$ORIGIN' -L.
 LDLIBS=-lkuroko -ldl
 

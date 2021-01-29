@@ -318,7 +318,7 @@ typedef struct _env {
 
 struct theme_def {
 	const char * name;
-	void (*load)(const char * name);
+	void * callable;
 };
 
 extern struct theme_def * themes;
