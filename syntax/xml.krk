@@ -1,4 +1,5 @@
 from syntax import Highlighter, bind
+from syntax.css import CSSHighlighter
 
 class XMLHighlighter(Highlighter):
     name = 'xml'
@@ -90,7 +91,14 @@ class HTMLHighlighter(XMLHighlighter):
     def paintCss():
         # TODO actually paint CSS
         while self[0] and not (self[0] == '<' and self[1] == '/' and self[2] == 's'):
-            self.paint(1, self.FLAG_ESCAPE)
+            self.set_state(0)
+            let css = CSSHighlighter(self)
+            let result = css.calculate()
+            if result == 0:
+                self.__init__(css)
+                continue
+            else if result == None:
+                return 6
         if (self[0] == '<' and self[1] == '/' and self[2] == 's'):
             return self.paintTag()
         return 6
@@ -101,6 +109,12 @@ class HTMLHighlighter(XMLHighlighter):
             return self.paintInsideStyleTag()
         else if self.state == 6:
             return self.paintCss()
+        else if self.state == 7:
+            self.set_state(1)
+            let css = CSSHighlighter(self)
+            if css.calculate() == 1: return 7
+            self.__init__(css)
+            return 6
 
 bind(HTMLHighlighter)
 
