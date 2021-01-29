@@ -10377,6 +10377,16 @@ static KrkValue bim_krk_state_commentBuzzwords(int argc, KrkValue argv[]) {
 	BIM_STATE();
 	return BOOLEAN_VAL(common_comment_buzzwords(state));
 }
+static KrkValue bim_krk_state_init(int argc, KrkValue argv[]) {
+	BIM_STATE();
+	if (argc < 2 || !krk_isInstanceOf(argv[1], syntaxStateClass)) {
+		return krk_runtimeError(vm.exceptions.typeError, "Can only initialize subhighlighter from an existing highlighter.");
+	}
+
+	*state = ((struct SyntaxState*)AS_INSTANCE(argv[1]))->state;
+
+	return argv[0];
+}
 
 static KrkValue krk_bim_get_commands(int argc, KrkValue argv[]) {
 	KrkValue myList = krk_list_of(0, NULL);
@@ -10565,6 +10575,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".set_state", bim_krk_state_setstate); /* TODO property? */
 	krk_defineNative(&syntaxStateClass->methods, ":i", bim_krk_state_index);
 	krk_defineNative(&syntaxStateClass->methods, ":lineno", bim_krk_state_lineno);
+	krk_defineNative(&syntaxStateClass->methods, ".__init__", bim_krk_state_init);
 	/* These ones take argumens so they're methods instead of dynamic fields */
 	krk_defineNative(&syntaxStateClass->methods, ".findKeywords", bim_krk_state_findKeywords);
 	krk_defineNative(&syntaxStateClass->methods, ".cKeywordQualifier", bim_krk_state_cKeywordQualifier);
