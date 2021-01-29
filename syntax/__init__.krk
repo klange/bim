@@ -28,6 +28,10 @@ class Highlighter(SyntaxState):
             else:
                 self.paint(1, self.FLAG_STRING)
 
+    def isalpha(c):
+        if isinstance(c,int) and c > 0: c = chr(c)
+        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
     def isalnum(c):
         if isinstance(c,int) and c > 0: c = chr(c)
         return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
