@@ -10186,7 +10186,7 @@ static KrkValue krk_bim_define_theme(int argc, KrkValue argv[]) {
 	});
 
 	krk_tableSet(AS_DICT(krk_bim_theme_dict), name, argv[0]);
-	return NONE_VAL();
+	return argv[0];
 }
 
 int c_keyword_qualifier(int c) {
@@ -10395,18 +10395,17 @@ static KrkValue bim_krk_action_call(int argc, KrkValue argv[]) {
 static KrkValue bim_krk_command_call(int argc, KrkValue argv[]) {
 	struct CommandDef * self = (void*)AS_OBJECT(argv[0]);
 
-	for (int i = 1; i < argc; ++i) {
-		if (!IS_STRING(argv[i])) {
-			return krk_runtimeError(vm.exceptions.typeError, "arguments to %s() must be str, not '%s'",
-				self->command->name, krk_typeName(argv[i]));
-		}
-	}
-
 	char ** args = malloc(sizeof(char*)*argc);
 	args[0] = strdup(self->command->name);
 
 	for (int i = 1; i < argc; ++i) {
-		args[i] = strdup(AS_CSTRING(argv[i]));
+		if (IS_STRING(argv[i])) {
+			args[i] = strdup(AS_CSTRING(argv[i]));
+		} else {
+			krk_push(argv[i]);
+			KrkValue asString = krk_callSimple(OBJECT_VAL(krk_getType(argv[i])->_tostr), 1, 0);
+			args[i] = strdup(AS_CSTRING(asString));
+		}
 	}
 
 	int result = self->command->command(args[0], argc, args);
@@ -10511,10 +10510,17 @@ void initialize(void) {
 	krk_defineNative(&CommandDef->methods, ".__call__", bim_krk_command_call);
 	krk_finalizeClass(CommandDef);
 
+	KrkInstance * global = krk_newInstance(vm.objectClass);
+	krk_attachNamedObject(&vm.builtins->fields, "global", (KrkObj*)global);
+
 	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 		struct CommandDef * commandObj = (void*)krk_newInstance(CommandDef);
 		commandObj->command = c;
-		krk_attachNamedObject(&vm.builtins->fields, c->name, (KrkObj*)commandObj);
+		if (strstr(c->name,"global.") == c->name) {
+			krk_attachNamedObject(&global->fields, c->name + 7, (KrkObj*)commandObj);
+		} else {
+			krk_attachNamedObject(&vm.builtins->fields, c->name, (KrkObj*)commandObj);
+		}
 	}
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.objectClass);

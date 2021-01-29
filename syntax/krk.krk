@@ -112,10 +112,10 @@ bindHighlighter(KrkHighlighter)
 
 class BimcmdHighlighter(KrkHighlighter):
     name = 'bimcmd'
-    extensions = ('.bimrc',)
+    extensions = ('.bim3rc',)
 
     def calculate(self):
-        if self.state <= 0 and self.i == 0:
+        if self.state <= 0 and self[-1] != '.':
             if self.findKeywords(getCommands(), self.FLAG_KEYWORD, self.cKeywordQualifier):
                 return 0
         return super().calculate()
