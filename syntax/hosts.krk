@@ -1,6 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-class HostsHighlighter(SyntaxState):
+class HostsHighlighter(Highlighter):
     name = 'hosts'
     extensions = ('hosts',)
 
@@ -14,4 +14,4 @@ class HostsHighlighter(SyntaxState):
                 self.paint(1, self.FLAG_TYPE)
         return None
 
-bindHighlighter(HostsHighlighter)
+bind(HostsHighlighter)

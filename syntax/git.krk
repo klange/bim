@@ -1,6 +1,6 @@
-from bim import SyntaxState, bindHighlighter
+from syntax import Highlighter, bind
 
-class GitcommitHighlighter(SyntaxState):
+class GitcommitHighlighter(Highlighter):
     name = 'gitcommit'
     extensions = ('COMMIT_EDITMSG',)
     def calculate():
@@ -16,9 +16,9 @@ class GitcommitHighlighter(SyntaxState):
             self.paint(-1, self.FLAG_NONE)
         return None
 
-bindHighlighter(GitcommitHighlighter)
+bind(GitcommitHighlighter)
 
-class GitrebaseHighlighter(SyntaxState):
+class GitrebaseHighlighter(Highlighter):
     name = 'gitrebase'
     extensions = ('git-rebase-todo',)
     commands = [
@@ -35,4 +35,4 @@ class GitrebaseHighlighter(SyntaxState):
             return None
         return None
 
-bindHighlighter(GitrebaseHighlighter)
+bind(GitrebaseHighlighter)
