@@ -15,7 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include "bim-core.h"
-#include "bim-syntax.h"
 #include "kuroko/src/kuroko.h"
 #include "kuroko/src/vm.h"
 #include "kuroko/src/debug.h"
@@ -259,7 +258,7 @@ int bim_getch_timeout(int timeout) {
 			global_config.background_task = task->next;
 			task->func(task);
 			free(task);
-			if (task->next == NULL) {
+			if (!global_config.background_task) {
 				global_config.tail_task = NULL;
 				redraw_statusbar();
 			}
@@ -10459,6 +10458,7 @@ static KrkValue bim_krk_command_call(int argc, KrkValue argv[]) {
 	for (int i = 0; i < argc; ++i) {
 		free(args[i]);
 	}
+	free(args);
 
 	return INTEGER_VAL(result);
 }
@@ -10475,11 +10475,13 @@ static void makeClass(KrkInstance * module, KrkClass ** _class, const char * nam
 }
 
 void import_directory(char * dirName) {
+	const char * extra = "";
 	char * dirpath = NULL;
 	char file[4096];
 	if (vm.binpath) {
 		char * tmp = strdup(vm.binpath);
 		dirpath = strdup(dirname(tmp));
+		extra = "/";
 		free(tmp);
 		sprintf(file, "%s/%s", dirpath, dirName);
 	} else {
@@ -10489,12 +10491,20 @@ void import_directory(char * dirName) {
 	DIR * dirp = opendir(file);
 	if (!dirp && dirpath) {
 		/* Try ../share/bim/dirName */
-		fprintf(stderr, "Could not find startup files: %s\n", file);
 		sprintf(file, "%s/../share/bim/%s", dirpath, dirName);
+		extra = "/../share/bim/";
 		dirp = opendir(file);
 	}
 	if (!dirp) {
-		fprintf(stderr, "Could not find startup files: %s\n", file);
+		/* Try one last fallback */
+		if (dirpath) free(dirpath);
+		dirpath = strdup("/usr/local/share/bim");
+		sprintf(file, "%s/%s", dirpath, dirName);
+		extra = "/";
+		dirp = opendir(file);
+	}
+	if (!dirp) {
+		fprintf(stderr, "Could not find startup files: %s\n", dirName);
 		exit(1);
 	}
 
@@ -10503,9 +10513,9 @@ void import_directory(char * dirName) {
 		char tmp[4096];
 		sprintf(tmp,
 			"import kuroko\n"
-			"if '%s/' not in kuroko.module_paths:\n"
-			" kuroko.module_paths.insert(0,'%s/')\n",
-			dirpath, dirpath);
+			"if '%s%s' not in kuroko.module_paths:\n"
+			" kuroko.module_paths.insert(0,'%s%s')\n",
+			dirpath, extra, dirpath, extra);
 		krk_interpret(tmp,1,"<bim>","<bim>");
 	}
 
@@ -10521,6 +10531,7 @@ void import_directory(char * dirName) {
 		}
 		ent = readdir(dirp);
 	}
+	closedir(dirp);
 }
 
 static void findBim(char * argv[]) {
