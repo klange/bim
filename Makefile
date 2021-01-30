@@ -31,7 +31,7 @@ libkuroko.so: kuroko/src/*.c kuroko/src/**.h
 	cp kuroko/libkuroko.so ./
 
 clean:
-	-rm -f $(TARGET) bim.o $(SYNTAXES)
+	-rm -f $(TARGET) $(OBJECTS)
 	$(MAKE) -C kuroko $@
 
 distclean: clean
