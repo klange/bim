@@ -2,6 +2,24 @@ from bim import SyntaxState, bindHighlighter as bind
 
 class Highlighter(SyntaxState):
 
+    comment_buzzwords = {
+        'TODO': SyntaxState.FLAG_NOTICE,
+        'XXX':  SyntaxState.FLAG_NOTICE,
+        'FIXME': SyntaxState.FLAG_ERROR,
+    }
+
+    def commentBuzzwords():
+        for k,v in self.comment_buzzwords.items():
+            if self.matchAndPaint(k,v,self.cKeywordQualifier): return 1
+        return 0
+
+    def paintComment():
+        while self[0]:
+            if self.commentBuzzwords():
+                continue
+            self.paint(1, self.FLAG_COMMENT)
+        return None
+
     def matchPrefix(prefix):
         let i = 0
         while True:
@@ -36,10 +54,3 @@ class Highlighter(SyntaxState):
             else:
                 self.paint(1, self.FLAG_STRING)
 
-    def isalpha(c):
-        if isinstance(c,int) and c > 0: c = chr(c)
-        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-    def isalnum(c):
-        if isinstance(c,int) and c > 0: c = chr(c)
-        return c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'

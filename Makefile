@@ -13,7 +13,7 @@ INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 INSTALL_DATA=$(INSTALL) -m 644
 
-SYNTAXES = $(patsubst %.c, %.o, $(sort $(wildcard syntax/*.c)))
+OBJECTS = $(patsubst %.c,%.o,$(sort $(wildcard *.c)))
 KUROKO = libkuroko.so
 HEADERS = $(wildcard bim-*.h)
 
@@ -24,7 +24,7 @@ all: $(TARGET)
 syntax/*.o: $(HEADERS)
 *.o: $(HEADERS)
 
-bim: bim.o $(SYNTAXES) $(KUROKO)
+bim: $(OBJECTS) $(KUROKO)
 
 libkuroko.so: kuroko/src/*.c kuroko/src/**.h
 	$(MAKE) -C kuroko

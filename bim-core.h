@@ -109,32 +109,6 @@ extern struct key_name_map KeyNames[];
 #define FLAG_SELECT    (1 << 5)
 #define FLAG_SEARCH    (1 << 6)
 
-/**
- * Line buffer definitions
- *
- * Lines are essentially resizable vectors of char_t structs,
- * which represent single codepoints in the file.
- */
-typedef struct {
-	uint32_t display_width:4;
-	uint32_t flags:7;
-	uint32_t codepoint:21;
-} __attribute__((packed)) char_t;
-
-/**
- * Lines have available and actual lengths, describing
- * how much space was allocated vs. how much is being
- * used at the moment.
- */
-typedef struct {
-	int available;
-	int actual;
-	int istate;
-	int is_current;
-	int rev_status;
-	char_t   text[];
-} line_t;
-
 typedef struct background_task {
 	struct _env * env;
 	void (*func)(struct background_task*);
@@ -228,94 +202,6 @@ typedef struct {
 #define OVERLAY_MODE_SEARCH   3
 #define OVERLAY_MODE_COMPLETE 4
 #define OVERLAY_MODE_FILESEARCH 5
-
-#define HISTORY_SENTINEL     0
-#define HISTORY_INSERT       1
-#define HISTORY_DELETE       2
-#define HISTORY_REPLACE      3
-#define HISTORY_REMOVE_LINE  4
-#define HISTORY_ADD_LINE     5
-#define HISTORY_REPLACE_LINE 6
-#define HISTORY_MERGE_LINES  7
-#define HISTORY_SPLIT_LINE   8
-
-#define HISTORY_BREAK        10
-
-typedef struct history {
-	struct history * previous;
-	struct history * next;
-	int type;
-	int line;
-	int col;
-	union {
-		struct {
-			int lineno;
-			int offset;
-			int codepoint;
-			int old_codepoint;
-		} insert_delete_replace;
-
-		struct {
-			int lineno;
-			line_t * contents;
-			line_t * old_contents;
-		} remove_replace_line;
-
-		struct {
-			int lineno;
-			int split;
-		} add_merge_split_lines;
-	} contents;
-} history_t;
-
-/**
- * Buffer data
- *
- * A buffer describes a file, and stores
- * its name as well as the editor state
- * (cursor offsets, etc.) and the actual
- * line buffers.
- */
-typedef struct _env {
-	unsigned int loading:1;
-	unsigned int tabs:1;
-	unsigned int modified:1;
-	unsigned int readonly:1;
-	unsigned int indent:1;
-	unsigned int checkgitstatusonwrite:1;
-	unsigned int crnl:1;
-	unsigned int numbers:1;
-	unsigned int gutter:1;
-	unsigned int slowop:1;
-
-	int highlighting_paren;
-	int maxcolumn;
-
-	short  mode;
-	short  tabstop;
-
-	char * file_name;
-	int    offset;
-	int    coffset;
-	int    line_no;
-	int    line_count;
-	int    line_avail;
-	int    col_no;
-	int    preferred_column;
-	struct syntax_definition * syntax;
-	line_t ** lines;
-
-	history_t * history;
-	history_t * last_save_history;
-
-	int width;
-	int left;
-
-	int start_line;
-	int sel_col;
-	int start_col;
-	int prev_line;
-} buffer_t;
 
 struct theme_def {
 	const char * name;

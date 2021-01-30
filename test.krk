@@ -1,0 +1,96 @@
+from fileio import open
+
+class History():
+
+class HistoryDelete():
+    def __init__(lineno, offset, codepoint):
+        self.(lineno,offset,codepoint) = lineno,offset,codepoint
+
+class HistoryInsert():
+    def __init__(lineno, offset, codepoint):
+        self.(lineno,offset,codepoint) = lineno,offset,codepoint
+
+class HistoryReplace():
+    def __init__(lineno, offset, newCodepoint, oldCodepoint):
+        self.(lineno,offset,newCodepoint,oldCodepoint) = lineno, offset, newCodepoint, oldCodepoint
+
+class HistoryRemoveLine():
+    def __init__(lineno, contents):
+        self.(lineno,contents) = lineno, contents
+
+class HistoryAddLine():
+    def __init__(lineno):
+        self.lineno = lineno
+
+class HistoryReplaceLine():
+    def __init__(lineno,oldContents,newContents):
+        self.(lineno,oldContents,newContents) = lineno, oldContents, newContents
+
+class HistoryMergeLines():
+    def __init__(lineno, split):
+        self.(lineno, split) = lineno, split
+
+class HistorySplitLine():
+    def __init__(lineno, split):
+        self.(lineno, split) = lineno, split
+
+class TextChar():
+    def __init__(fromStr):
+        self.codepoint = fromStr
+        self.width = 1
+        self.flags = 0
+
+class TextLine():
+    def __init__(fromText):
+        self.chars = []
+        self.istate = None
+        self.revStatus = None
+        for c in fromText:
+            self.chars.append(TextChar(c))
+
+    def replace(offset, c):
+        self.revStatus = 2
+        self.chars[offset] = c
+    def delete(offset):
+        self.revStatus = 2
+        self.chars.pop(offset)
+    def insert(offset, c):
+        self.revStatus = 2
+        self.chars.insert(offset, c)
+    def __len__():
+        return len(chars)
+
+class TextLines():
+    size = 0
+    def split():
+    def merge():
+    def replace():
+    def add():
+    def remove():
+
+class Buffer():
+    filename = ""
+    syntax = None
+    views = []
+    lines = None
+    def __init__(path):
+        self.filename = path
+        self.lines = TextLines()
+        with open(path) as f:
+            for line in f.readlines():
+                self.lines.add(TextLine(line))
+
+class View():
+    visible = False
+    buffer = None
+    x = 0
+    w = 0
+    t = 0
+    h = 0
+    def lineIsVisible(lineno):
+    def renderLine(line):
+
+class Cursor():
+    lineNo = 0
+    colNo = 0
+
