@@ -5814,6 +5814,32 @@ int process_command(char * cmd) {
 		return bim_command_repall(cmd, 0, NULL);
 	}
 
+	/* See if it's a bim command in the classic format */
+	{
+		char * argv[3] = {NULL, NULL, NULL};
+		int argc = !!(*cmd);
+		char cmd_name[512] = {0};
+		for (char * c = (char*)cmd; *c; ++c) {
+			if (c-cmd == 511) break;
+			if (*c == ' ') {
+				cmd_name[c-cmd] = '\0';
+				argv[1] = c+1;
+				if (*argv[1]) argc++;
+				break;
+			}
+			cmd_name[c-cmd] = *c;
+		}
+
+		argv[0] = cmd_name;
+		argv[argc] = NULL;
+		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+			if (!strcmp(argv[0], c->name)) {
+				krk_resetStack();
+				return c->command((char*)cmd, argc, argv);
+			}
+		}
+	}
+
 	int retval = process_krk_command(cmd, NULL);
 
 	return retval;
@@ -9912,28 +9938,6 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	/* If we got an exception during execution, print it now */
 	if (vm.flags & KRK_HAS_EXCEPTION) {
 		if (krk_isInstanceOf(vm.currentException, vm.exceptions.syntaxError)) {
-			char * argv[3] = {NULL, NULL, NULL};
-			int argc = !!(*cmd);
-			char cmd_name[512] = {0};
-			for (char * c = (char*)cmd; *c; ++c) {
-				if (c-cmd == 511) break;
-				if (*c == ' ') {
-					cmd_name[c-cmd] = '\0';
-					argv[1] = c+1;
-					if (*argv[1]) argc++;
-					break;
-				}
-				cmd_name[c-cmd] = *c;
-			}
-
-			argv[0] = cmd_name;
-			argv[argc] = NULL;
-			for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-				if (!strcmp(argv[0], c->name)) {
-					krk_resetStack();
-					return c->command((char*)cmd, argc, argv);
-				}
-			}
 		}
 		set_fg_color(COLOR_RED);
 		fflush(stdout);
