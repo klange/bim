@@ -10233,6 +10233,8 @@ static KrkValue bim_krk_state_setstate(int argc, KrkValue argv[]) {
 	BIM_STATE();
 	if (argc > 1 && IS_INTEGER(argv[1])) {
 		state->state = AS_INTEGER(argv[1]);
+	} else if (argc > 1 && IS_NONE(argv[1])) {
+		state->state = -1;
 	} else {
 		return krk_runtimeError(vm.exceptions.typeError, "expected int");
 	}

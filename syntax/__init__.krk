@@ -2,6 +2,14 @@ from bim import SyntaxState, bindHighlighter as bind
 
 class Highlighter(SyntaxState):
 
+    def matchPrefix(prefix):
+        let i = 0
+        while True:
+            if i == len(prefix): return True
+            if prefix[i] != self[i]: return False
+            if not self[i]: return False
+            i++
+
     def paintSingleString():
         self.paint(1, self.FLAG_STRING)
         while self[0]:

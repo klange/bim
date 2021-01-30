@@ -12,6 +12,24 @@ int main(int argc, char * argv[]) {
 }
 ```
 
+## Kuroko
+
+```krk
+from syntax import Highlighter
+
+class KrkHighlighter(Highlighter):
+    def foo():
+        self.bar()
+
+f'{test.string()}'
+
+'''It was the best of times,
+it was the blurst of times.'''
+
+and this is not actually valid code
+
+```
+
 ## Python
 
 ```py
@@ -82,6 +100,12 @@ index e9df28c..344ca40 100644
 <html>
 	<head>
 		<title>Hello, World!</title>
+		<style>
+			body {
+				color: #123456;
+				text-decoration: underline;
+			}
+		</style>
 	</head>
 	<body>
 		<p>Hello, world!</p>
