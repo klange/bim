@@ -10,13 +10,14 @@ Inspired by Vim (one might say a Bad Imitation) and featuring similar mode-based
 
 Bim is intended as the included text editor in ToaruOS, a hobby operating system built from scratch.
 
-Bim aims to be lightweight and featureful with no external dependencies, providing a modern editing experience in a single fully-encapsulated binary.
+Bim aims to be lightweight and featureful with no external dependencies, providing a modern editing experience in a lightweight, extensible package.
 
 ## Features
 
 - Vim-like modal interactions.
 - Arrow-key and traditional vi `hjkl` navigation.
 - Syntax highlighting (currently for C/C++, Python, Makefiles, Java, Rust, and a few others).
+- Integrated scripting environment with [Kuroko](https://github.com/kuroko-lang/kuroko).
 - Themes, including 256-color and 24-bit color support.
 - Indentation adjustment and naïve automatic indentation.
 - Multiple editor tabs.
@@ -49,13 +50,13 @@ If the terminal you are using has some quirks or does not play well with the def
 
 Capability features can be controlled with "quirks", either through the `quirk` command in a bimrc, or with the `-O` command line option.
 
-The format of the `quirk` command is `quirk ENVVAR teststr no... can...` where `ENVVAR` is the name of an environment variable and `teststr` is a string to check against which must be a prefix of the environment variable.
+The format of the `quirk` command is `quirk(envvar,teststr,'no...','can...',...)` where `ENVVAR` is the name of an environment variable and `teststr` is a string to check against which must be a prefix of the environment variable.
 
-For example, `quirk TERM xterm nounicode` will disable Unicode output on all terminals starting with "xterm" (including "xterm-256color").
+For example, `quirk('TERM','xterm','nounicode')` will disable Unicode output on all terminals starting with "xterm" (including "xterm-256color").
 
 You may also specifies quirks with the `$COLORTERM` environment variable, or the `$TERMINAL_EMULATOR` variable set by certain IDEs.
 
-Some example quirk configurations are provided in [docs/example.bimrc](docs/example.bimrc) and may be a good place to start if you are experiencing rendering issues.
+Some example quirk configurations are provided in [docs/example.bim3rc](docs/example.bim3rc) and may be a good place to start if you are experiencing rendering issues.
 
 Unicode/UTF-8 support is recommended and assumed by default. The `nounicode` quirk option will disable output of UTF-8 characters and render them as codepoint hints like `<U+1234>` instead.
 
@@ -101,15 +102,6 @@ Bim can also be used to generate HTML documents with syntax-highlighted source c
 
 Bim includes a handful of color schemes for the interface and syntax highlighting.
 
-To enable themes, place theme scripts in an acessible directory and call them with `rundir` or `runscript` from your `~/.bimrc` file.
-
-For example, you can install bim themes to `/usr/share/bim/themes` and add the following lines at the start of your bimrc:
-
-    rundir /usr/share/bim/themes
-    theme sunsmoke
-
-By default, themes are not installed along with bim. You can also embed themes in your bimrc directly.
-
 ### ANSI
 
 A plain 16-color theme. Can be configured for use on terminals with or without bright color support. Looks a bit like Irssi.
@@ -154,18 +146,11 @@ Based on selenized by Jan Warchoł
 
 ## Config File
 
-Bim will automatically run commands from `~/.bimrc` on startup.
+Bim will automatically run commands from `~/.bim3rc` on startup.
 
-A detailed bimrc example is available at [docs/example.bimrc](docs/example.bimrc).
+A detailed bimrc example is available at [docs/example.bim3rc](docs/example.bim3rc).
 
-Bim scripts can define functions which can be called with `call function_name`.
-Functions with names like `onload:...` will be automatically run when a file
-with the matching syntax is opened:
-
-    function onload:c
-        tabs
-        tabstop 4
-    end
+Bim scripts are written in [Kuroko](https://github.com/kuroko-lang/kuroko).
 
 ## Syntax Support
 
@@ -187,10 +172,9 @@ Not all syntax highlighters are complete or support all features of their respec
 
 ## Code Structure
 
-Bim's core functionality lives in `bim.c`. Syntax highlighter definitions are in `syntax` and use constructor methods to initialize and hook into the syntax database.
-Similarly, themes are in `themes`. A single-file "baked" version of Bim can be generated with `python3 docs/bake-bim.py`, which is suitable for distribution
-in ToaruOS and for when a "one-file" editor is desirable. Bim can be built without the `syntax` and `themes` files, as well; just run `c99 -o bim bim.c`.
-Baked versions of Bim may be smaller than regular Bim due to better optimizations of debugging information.
+Bim's core functionality lives in `bim.c`.
+
+Syntax highlighters and themes are written in Kuroko and found in the `syntax` and `themes` directories.
 
 ## Bim is not Vim
 
