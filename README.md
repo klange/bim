@@ -12,6 +12,8 @@ Bim is intended as the included text editor in ToaruOS, a hobby operating system
 
 Bim aims to be lightweight and featureful with no external dependencies, providing a modern editing experience in a lightweight, extensible package.
 
+_**NOTE:**_ This branch currently represents a preview of an in-progress rewrite of Bim currently dubbed "Bim 3", which is being rebuilt from the ground up around Kuroko to provide a fully integrated environment for writing plugins and extensions.
+
 ## Features
 
 - Vim-like modal interactions.
@@ -38,7 +40,9 @@ Bim aims to be lightweight and featureful with no external dependencies, providi
 
 ## Build Requirements
 
-Bim requires only a sufficiently Unix-like C library and a C99 compiler with certain GNU extensions (such as `__attribute__((constructor))`).
+Bim requires a sufficiently Unix-like C library and a C99 compiler with certain GNU extensions (such as `__attribute__((constructor))`).
+
+Additionally, in this and future versions, a system installation of [Kuroko](https://github.com/kuroko-lang/kuroko) is needed.
 
 Bim has been built successfully for a number of targets, including various BSDs, ToaruOS, Sortix, and others.
 
