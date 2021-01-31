@@ -123,7 +123,7 @@ class PythonHighlighter(Highlighter):
                     self.paintPyString('"')
                     return 0
             else if self[0] == "'":
-                if self[1] == '"' and self[2] == "'":
+                if self[1] == "'" and self[2] == "'":
                     self.paint(3, self.FLAG_STRING)
                     return self.paintPyTriple("'")
                 else if self[-1] == 'f':
