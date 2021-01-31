@@ -15,9 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include "bim-core.h"
-#include "kuroko/src/kuroko.h"
-#include "kuroko/src/vm.h"
-#include "kuroko/src/debug.h"
 
 global_config_t global_config = {
 	/* State */

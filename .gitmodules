@@ -1,3 +1,0 @@
-[submodule "kuroko"]
-	path = kuroko
-	url = git@github.com:kuroko-lang/kuroko
