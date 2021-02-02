@@ -33,6 +33,10 @@ class GnumakeHighlighter(Highlighter):
         while self[0]:
             if self[0] == '(':
                 i++
+                if self[-1] == '$':
+                    self.paint(1, self.FLAG_TYPE)
+                    self.findKeywords(self.functions, self.FLAG_KEYWORD, self.cKeywordQualifier)
+                    continue
             else if self[0] == ')':
                 i--
                 if i == 0:
