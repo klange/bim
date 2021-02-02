@@ -54,22 +54,44 @@ class GnumakeHighlighter(Highlighter):
                 return 0
             self.paint(1, self.FLAG_TYPE)
         return 0
+    def makeVar():
+        if self[1] == '(':
+            self.makeCloseParen()
+        else if self[1] == '{':
+            self.makeCloseBrace()
+        else:
+            self.paint(2, self.FLAG_TYPE)
+    def paintString():
+        let strType = self[0]
+        self.paint(1, self.FLAG_STRING)
+        while self[0]:
+            if self[0] == strType and self[-1] != '\\':
+                self.paint(1, self.FLAG_STRING)
+                return
+            else if self[0] == '\\' and (self[1] == strType or strType == '"'):
+                self.paint(2, self.FLAG_ESCAPE)
+            else if self[0] == '$':
+                self.makeVar()
+            else:
+                self.paint(1, self.FLAG_STRING)
     def variableOrComment(flag):
         while self[0]:
             if self[0] == '$':
-                if self[1] == '(':
-                    self.makeCloseParen()
-                else if self[1] == '{':
-                    self.makeCloseBrace()
-                else:
-                    self.paint(2, self.FLAG_TYPE)
+                self.makeVar()
             else if self[0] == '#':
                 self.paintComment()
+            else if self[0] == "'":
+                self.paintString()
+            else if self[0] == '"':
+                self.paintString()
             else:
                 self.paint(1, flag)
         return 0
     def calculate():
         if self.i == 0 and self[0] == '\t':
+            self.skip()
+            if self[0] == '@':
+                self.paint(1, self.FLAG_KEYWORD)
             self.variableOrComment(self.FLAG_NUMERAL)
         else:
             while self[0] == ' ': self.skip()
