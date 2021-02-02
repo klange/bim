@@ -65,6 +65,11 @@ class JavascriptHighlighter(Highlighter):
                     self.paint(1, self.FLAG_TYPE)
                 self.paint(1, self.FLAG_PRAGMA)
                 return 0
+            else if self[0] == '<':
+                self.paint(1, self.FLAG_TYPE)
+                while self[0] and (self[0] == '/' or self.cKeywordQualifier(self[0])):
+                    self.paint(1, self.FLAG_TYPE)
+                return 0
             else if self[0] == '>':
                 self.paint(1, self.FLAG_TYPE)
                 return 0
