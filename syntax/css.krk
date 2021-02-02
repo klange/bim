@@ -143,7 +143,7 @@ class CSSHighlighter(Highlighter):
                         while self.isdigit(self[0]): self.paint(1, self.FLAG_NUMERAL)
                         if self[0] == '.':
                             self.paint(1, self.FLAG_NUMERAL)
-                            while self.isdigit(self[0]): self.paint(1, self>FLAG_NUMERAL)
+                            while self.isdigit(self[0]): self.paint(1, self.FLAG_NUMERAL)
                         if self[0] == '%': self.paint(1, self.FLAG_NUMERAL)
                         else: self.matchSuffixes(self.suffixes)
                     else if self.matchAndPaint("!important", self.FLAG_PRAGMA, self.propertyQualifier):
