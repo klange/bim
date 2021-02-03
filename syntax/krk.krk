@@ -49,7 +49,7 @@ class KrkHighlighter(Highlighter):
                     self.paint(10, self.FLAG_ESCAPE)
                 else if self[1] == None and not isTriple:
                     self.paint(1, self.FLAG_ESCAPE)
-                    return 3 if strType == '"' else 4 + 10 if isFormat else 0
+                    return 3 if strType == '"' else (14 if isFormat else 4)
                 else if self[1] in '\\\'"abfnrtv[':
                     self.paint(2, self.FLAG_ESCAPE)
                 else:
@@ -74,7 +74,7 @@ class KrkHighlighter(Highlighter):
                     self.paint(1, self.FLAG_NUMERAL)
             else:
                 self.paint(1, self.FLAG_STRING)
-        if isTriple: return int(strType == "'") + 1 + 10 if isFormat else 0
+        if isTriple: return int(strType == "'") + (11 if isFormat else 1)
         return 0
 
     def paintNumeral(self):
