@@ -10,7 +10,7 @@ class XMLHighlighter(Highlighter):
                 self.paint(3, self.FLAG_COMMENT)
                 return 0
             else:
-                if self.commnetBuzzwords(): continue
+                if self.commentBuzzwords(): continue
                 self.paint(1, self.FLAG_COMMENT)
         return 4
     def paintTagString():
