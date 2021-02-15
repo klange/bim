@@ -85,7 +85,7 @@ class KrkHighlighter(Highlighter):
         else if self[0] == '0' and (self[1] == 'o' or self[1] == 'O'):
             self.paint(2, self.FLAG_NUMERAL)
             while self[0] in '01234567':
-                self.flag(1, self.FLAG_NUMERAL)
+                self.paint(1, self.FLAG_NUMERAL)
         else if self[0] == '0' and (self[1] == 'b' or self[1] == 'B'):
             self.paint(2, self.FLAG_NUMERAL)
             while self[0] == '0' or self[0] == '1':
