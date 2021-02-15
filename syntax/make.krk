@@ -24,7 +24,7 @@ class GnumakeHighlighter(Highlighter):
         ".NOTPARALLEL", ".ONESHELL", ".POSIX",
     ]
     def commandQualifier(c):
-        if isinstance(c,int) and c > 0: c = chr(c)
+        if isinstance(c,int): c = chr(c) if c > 0 else '\x00'
         return self.isalnum(c) or c in '_-.'
     def makeCloseParen():
         self.paint(2, self.FLAG_TYPE)
