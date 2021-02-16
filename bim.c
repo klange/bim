@@ -6605,7 +6605,12 @@ void find_match_backwards(int from_line, int from_col, int * out_line, int * out
 void rehighlight_search(line_t * line) {
 	if (!global_config.search) return;
 	int j = 0;
+	while (j < line->actual) {
+		line->text[j].flags &= ~(FLAG_SEARCH);
+		j++;
+	}
 	int ignorecase = smart_case(global_config.search);
+	j = 0;
 	while (j < line->actual) {
 		int matchlen = 0;
 		if (subsearch_matches(line, j, global_config.search, ignorecase, &matchlen)) {
