@@ -1,5 +1,6 @@
 from bim import getCommands
 from syntax import Highlighter, bind
+from syntax.doxygen import tryDoxygenComment
 
 class KrkHighlighter(Highlighter):
     name = 'krk'
@@ -99,10 +100,16 @@ class KrkHighlighter(Highlighter):
                     self.paint(1, self.FLAG_NUMERAL)
         return 0
 
+    def paintDoxyComment(self):
+        while self[0] is not None:
+            if tryDoxygenComment(self): continue
+            else if self.commentBuzzwords(): continue
+            else: self.paint(1, self.FLAG_COMMENT)
+
     def calculate(self):
         if self.state <= 0:
             if self[0] == '#':
-                self.paintComment()
+                self.paintDoxyComment()
             else if self[0] == '@':
                 self.paint(1, self.FLAG_TYPE)
                 while self.cKeywordQualifier(self[0]):

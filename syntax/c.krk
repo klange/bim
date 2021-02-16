@@ -1,4 +1,5 @@
 from syntax import Highlighter, bind
+from syntax.doxygen import tryDoxygenComment
 
 class CHighlighter(Highlighter):
     name = 'c'
@@ -83,6 +84,7 @@ class CHighlighter(Highlighter):
         let last = None
         while self[0] != None:
             if self.commentBuzzwords(): continue
+            if tryDoxygenComment(self): continue
             else if last == '*' and self[0] == '/':
                 self.paint(1, self.FLAG_COMMENT)
                 return 0

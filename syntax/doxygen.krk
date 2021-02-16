@@ -1,0 +1,19 @@
+let doxygen_keywords_at = [
+    "@author","@see","@since","@return","@throws",
+    "@version","@exception","@deprecated",
+]
+
+def tryDoxygenComment(b):
+    if b[0] == '@':
+        def qualifier(c):
+            if isinstance(c,int) and c > 0: c = chr(c)
+            return b.isalnum(c) or c in '_@'
+        if not b.findKeywords(doxygen_keywords_at, b.FLAG_ESCAPE, qualifier):
+            if b.matchAndPaint('@param', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_TYPE)
+            else:
+                b.paint(1, b.FLAG_COMMENT)
+        return True
+    return False
+
