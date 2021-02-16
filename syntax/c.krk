@@ -160,7 +160,8 @@ class CHighlighter(Highlighter):
                             self.paint(1, self.FLAG_STRING)
                 else if self.matchAndPaint("if", self.FLAG_PRAGMA, self.cKeywordQualifier):
                     if self[0] == ' ' and self[1] == '0' and self[2] == None:
-                        self.rewind(4)
+                        self.paint(2, self.FLAG_COMMENT)
+                        self.rewind(6)
                         self.paint(-1, self.FLAG_COMMENT)
                         return 4
                 else if self.matchAndPaint("else", self.FLAG_PRAGMA, self.cKeywordQualifier):
