@@ -1,6 +1,8 @@
 let doxygen_keywords_at = [
-    "@author","@see","@since","@return","@throws",
-    "@version","@exception","@deprecated",
+    "@author","@brief","@class","@short","@retval",
+    "@see","@since","@return","@throws","@bug",
+    "@version","@deprecated","@deprecated",
+    "@attention","@def","@note",
 ]
 
 def tryDoxygenComment(b):
@@ -12,6 +14,9 @@ def tryDoxygenComment(b):
             if b.matchAndPaint('@param', b.FLAG_ESCAPE, qualifier):
                 while b[0] == ' ': b.skip()
                 while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_TYPE)
+            elif b.matchAndPaint('@exception', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_PRAGMA)
             else:
                 b.paint(1, b.FLAG_COMMENT)
         return True

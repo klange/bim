@@ -16,7 +16,7 @@ class KrkHighlighter(Highlighter):
     types = [
         'self','super','len','str','int','float','dir','repr','list','dict','range',
         'object','exception','isinstance','type','print','tuple','bool','any','all',
-        'hex','ord','chr'
+        'hex','ord','chr','bytes','set',
     ]
 
     special = [
