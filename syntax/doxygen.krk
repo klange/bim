@@ -1,8 +1,7 @@
 let doxygen_keywords_at = [
     "@author","@brief","@class","@short","@retval",
-    "@see","@since","@return","@throws","@bug",
-    "@version","@deprecated","@deprecated",
-    "@attention","@def","@note",
+    "@since","@return","@returns","@throws","@bug",
+    "@version","@deprecated","@attention","@note",
 ]
 
 def tryDoxygenComment(b):
@@ -17,6 +16,18 @@ def tryDoxygenComment(b):
             elif b.matchAndPaint('@exception', b.FLAG_ESCAPE, qualifier):
                 while b[0] == ' ': b.skip()
                 while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_PRAGMA)
+            elif b.matchAndPaint('@def', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b[0] and b[0] != ' ': b.paint(1, b.FLAG_TYPE)
+            elif b.matchAndPaint('@see', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b[0] and b[0] != ' ': b.paint(1, b.FLAG_LINK)
+            elif b.matchAndPaint('@p', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_TYPE)
+            elif b.matchAndPaint('@c', b.FLAG_ESCAPE, qualifier):
+                while b[0] == ' ': b.skip()
+                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_NONE)
             else:
                 b.paint(1, b.FLAG_COMMENT)
         return True
