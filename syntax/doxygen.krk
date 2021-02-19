@@ -5,31 +5,26 @@ let doxygen_keywords_at = [
 ]
 
 def tryDoxygenComment(b):
+    let doxygen_word_commands = {
+        '@param': b.FLAG_ESCAPE,
+        '@exception': b.FLAG_PRAGMA,
+        '@def': b.FLAG_TYPE,
+        '@see': b.FLAG_LINK,
+        '@p': b.FLAG_TYPE,
+        '@c': b.FLAG_NONE,
+        '@file': b.FLAG_LINK,
+    }
     if b[0] == '@':
         def qualifier(c):
             if isinstance(c,int) and c > 0: c = chr(c)
             return b.isalnum(c) or c in '_@'
         if not b.findKeywords(doxygen_keywords_at, b.FLAG_ESCAPE, qualifier):
-            if b.matchAndPaint('@param', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_TYPE)
-            elif b.matchAndPaint('@exception', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_PRAGMA)
-            elif b.matchAndPaint('@def', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b[0] and b[0] != ' ': b.paint(1, b.FLAG_TYPE)
-            elif b.matchAndPaint('@see', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b[0] and b[0] != ' ': b.paint(1, b.FLAG_LINK)
-            elif b.matchAndPaint('@p', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_TYPE)
-            elif b.matchAndPaint('@c', b.FLAG_ESCAPE, qualifier):
-                while b[0] == ' ': b.skip()
-                while b.cKeywordQualifier(b[0]): b.paint(1, b.FLAG_NONE)
-            else:
-                b.paint(1, b.FLAG_COMMENT)
+            for keyword, flag in doxygen_word_commands.items():
+                if b.matchAndPaint(keyword, b.FLAG_ESCAPE, qualifier):
+                    while b[0] == ' ': b.skip()
+                    while b[0] and b[0] != ' ': b.paint(1, flag)
+                    return True
+            b.paint(1, b.FLAG_COMMENT)
         return True
     return False
 
