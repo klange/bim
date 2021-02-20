@@ -86,7 +86,9 @@ class CSSHighlighter(Highlighter):
         "first-child","nth-child","not","last-child",
     ]
     def propertyQualifier(c):
-        if isinstance(c,int) and c > 0: c = chr(c)
+        if isinstance(c,int):
+            if c <= 0: return False
+            c = chr(c)
         return self.isalnum(c) or c in '-@*!'
     suffixes = [
         'pt','px','pc','em','cm','mm',

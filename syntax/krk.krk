@@ -7,6 +7,8 @@ class KrkHighlighter(Highlighter):
     extensions = ('.krk',)
     spaces = True
 
+    doxygenDocstrings = False
+
     keywords = [
         'and','class','def','else','export','for','if','in','import','let','not',
         'or','return','while','try','except','raise','continue','break','as','from',
@@ -16,7 +18,7 @@ class KrkHighlighter(Highlighter):
     types = [
         'self','super','len','str','int','float','dir','repr','list','dict','range',
         'object','exception','isinstance','type','print','tuple','bool','any','all',
-        'hex','ord','chr','bytes','set',
+        'hex','ord','chr','bytes','set','getattr',
     ]
 
     special = [
@@ -73,6 +75,8 @@ class KrkHighlighter(Highlighter):
                         self.paint(-1, self.FLAG_ERROR)
                         return None
                     self.paint(1, self.FLAG_NUMERAL)
+            else if self.doxygenDocstrings and isTriple and tryDoxygenComment(self, self.FLAG_STRING):
+                continue
             else:
                 self.paint(1, self.FLAG_STRING)
         if isTriple: return int(strType == "'") + (11 if isFormat else 1)
