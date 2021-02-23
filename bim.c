@@ -953,7 +953,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callSimple(OBJECT_VAL(env->syntax->krkFunc), 1, 0);
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
-			if (IS_NONE(result) && (krk_currentThread.flags & KRK_HAS_EXCEPTION)) {
+			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 				krk_dumpTraceback();
 				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
@@ -5475,7 +5475,7 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 				ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 				KrkValue result = krk_callSimple(OBJECT_VAL(d->callable), 0, 0);
 				krk_currentThread.stackTop = krk_currentThread.stack + before;
-				if (IS_NONE(result) && (krk_currentThread.flags & KRK_HAS_EXCEPTION)) {
+				if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 					render_error("Exception occurred in theme: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 					krk_dumpTraceback();
 					int key = 0;
@@ -9942,7 +9942,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
 	int hadOutput = 0;
 	/* If we got an exception during execution, print it now */
-	if (krk_currentThread.flags & KRK_HAS_EXCEPTION) {
+	if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
 		if (krk_isInstanceOf(krk_currentThread.currentException, vm.exceptions->syntaxError)) {
 		}
 		set_fg_color(COLOR_RED);
