@@ -143,22 +143,8 @@ class KrkHighlighter(Highlighter):
             else if self[0] != None:
                 self.skip()
                 return 0
-        else if self.state == 1:
-            return self.paintString('"', True)
-        else if self.state == 2:
-            return self.paintString("'", True)
-        else if self.state == 3:
-            return self.paintString('"', False)
-        else if self.state == 4:
-            return self.paintString("'", False)
-        else if self.state == 11:
-            return self.paintString('"', True, True)
-        else if self.state == 12:
-            return self.paintString("'", True, True)
-        else if self.state == 13:
-            return self.paintString('"', False, True)
-        else if self.state == 14:
-            return self.paintString("'", False, True)
+        else if self.state >= 1:
+            return self.paintString("'\""[self.state % 2], (self.state % 10) > 2, self.state > 10)
         return None
 
 bind(KrkHighlighter)
