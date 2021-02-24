@@ -908,6 +908,14 @@ int syntax_space = 0;
 struct syntax_definition * syntaxes = NULL;
 
 void add_syntax(struct syntax_definition def) {
+	/* See if a name match already exists for this def. */
+	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
+		if (!strcmp(def.name,s->name)) {
+			*s = def;
+			return;
+		}
+	}
+
 	if (syntax_space == 0) {
 		syntax_space = 4;
 		syntaxes = calloc(sizeof(struct syntax_definition), syntax_space);
@@ -10178,7 +10186,7 @@ static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[], int hasKw) {
 	if (!IS_STRING(name))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
 	if (!IS_TUPLE(extensions))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must by tuple<str>", AS_CLASS(argv[0])->name->chars);
+		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must be tuple<str>", AS_CLASS(argv[0])->name->chars);
 	if (!IS_BOOLEAN(spaces))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.spaces must be bool", AS_CLASS(argv[0])->name->chars);
 	if (!IS_CLOSURE(calculate))
@@ -10577,6 +10585,33 @@ static void findBim(char * argv[]) {
 	if (binpath) {
 		vm.binpath = binpath;
 	} /* Else, give up at this point and just don't attach it at all. */
+}
+
+BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
+	/* Unload everything syntax-y */
+	KrkValue result = krk_interpret(
+		"if True:\n"
+		" import kuroko\n"
+		" for mod in kuroko.modules():\n"
+		"  if mod.startswith('syntax.') or mod.startswith('themes.'):\n"
+		"   kuroko.unload(mod)\n", 1, "<bim>", "<bim>");
+
+	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
+		krk_dumpTraceback();
+		return 1;
+	}
+
+	/* Reload everything */
+	krk_resetStack();
+	krk_startModule("<bim-syntax>");
+	import_directory("syntax");
+	krk_startModule("<bim-themes>");
+	import_directory("themes");
+	krk_startModule("<bim-repl>");
+	/* Re-run the RC file */
+	load_bimrc();
+	krk_resetStack();
+	return 0;
 }
 
 /**
