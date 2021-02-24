@@ -9943,7 +9943,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	 * get printed by the interpreter and we can't catch it here. */
 	krk_currentThread.frames[0].outSlots = 1;
 	/* Call the interpreter */
-	KrkValue out = krk_interpret(cmd,0,"<bim>","<bim>");
+	KrkValue out = krk_interpret(cmd,"<bim>");
 	/* If the user typed just a command name, try to execute it. */
 	if (krk_isInstanceOf(out,CommandDef)) {
 		krk_push(out);
@@ -10039,7 +10039,7 @@ BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	/* In case we're running in a weird context? */
 	int previousExitFrame = krk_currentThread.exitOnFrame;
 	krk_currentThread.exitOnFrame = krk_currentThread.frameCount;
-	krk_runfile(argv[1],1,"<bim>",argv[1]);
+	krk_runfile(argv[1],argv[1]);
 	krk_currentThread.exitOnFrame = previousExitFrame;
 
 	redraw_all();
@@ -10539,7 +10539,7 @@ void import_directory(char * dirName) {
 			"if '%s%s' not in kuroko.module_paths:\n"
 			" kuroko.module_paths.insert(0,'%s%s')\n",
 			dirpath, extra, dirpath, extra);
-		krk_interpret(tmp,1,"<bim>","<bim>");
+		krk_interpret(tmp,"<bim>");
 	}
 
 	if (dirpath) free(dirpath);
@@ -10549,7 +10549,7 @@ void import_directory(char * dirName) {
 			char * tmp = malloc(strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7);
 			snprintf(tmp, strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", dirName, ent->d_name);
 			tmp[strlen(tmp)-4] = '\0';
-			krk_interpret(tmp,1,"<bim>",ent->d_name);
+			krk_interpret(tmp,ent->d_name);
 			free(tmp);
 		}
 		ent = readdir(dirp);
@@ -10594,7 +10594,7 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 		" import kuroko\n"
 		" for mod in kuroko.modules():\n"
 		"  if mod.startswith('syntax.') or mod.startswith('themes.'):\n"
-		"   kuroko.unload(mod)\n", 1, "<bim>", "<bim>");
+		"   kuroko.unload(mod)\n", "<bim>");
 
 	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 		krk_dumpTraceback();
