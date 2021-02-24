@@ -19,6 +19,7 @@ def tryDoxygenComment(b,defaultflag=b.FLAG_COMMENT):
         '@section': b.FLAG_BOLD,
         '@subsection': b.FLAG_BOLD,
         '@package': b.FLAG_TYPE,
+        '@ref': b.FLAG_LINK,
     }
     if b[0] == '@':
         def qualifier(c):
