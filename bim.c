@@ -707,24 +707,7 @@ _done:
 	return 0;
 }
 
-/**
- * Close a buffer
- */
-buffer_t * buffer_close(buffer_t * buf) {
-	int i;
-
-	/* Locate the buffer in the buffer list */
-	for (i = 0; i < buffers_len; i++) {
-		if (buf == buffers[i])
-			break;
-	}
-
-	/* This buffer doesn't exist? */
-	if (i == buffers_len) {
-		return NULL;
-	}
-
-	/* Cancel any background tasks for this env */
+void cancel_background_tasks(buffer_t * buf) {
 	background_task_t * t = global_config.background_task;
 	background_task_t * last = NULL;
 	while (t) {
@@ -745,6 +728,27 @@ buffer_t * buffer_close(buffer_t * buf) {
 			t = t->next;
 		}
 	}
+}
+
+/**
+ * Close a buffer
+ */
+buffer_t * buffer_close(buffer_t * buf) {
+	int i;
+
+	/* Locate the buffer in the buffer list */
+	for (i = 0; i < buffers_len; i++) {
+		if (buf == buffers[i])
+			break;
+	}
+
+	/* This buffer doesn't exist? */
+	if (i == buffers_len) {
+		return NULL;
+	}
+
+	/* Cancel any background tasks for this env */
+	cancel_background_tasks(buf);
 
 	update_biminfo(buf, 0);
 
@@ -916,6 +920,8 @@ void add_syntax(struct syntax_definition def) {
 	syntax_count++;
 }
 
+void redraw_all(void);
+
 /**
  * Calculate syntax highlighting for the given line, and lines after
  * if their initial syntax state has changed by this recalculation.
@@ -955,19 +961,13 @@ void recalculate_syntax(line_t * line, int line_no) {
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
+				render_commandline_message("\n");
 				krk_dumpTraceback();
-				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
-				int key = 0;
-				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-				env->syntax = NULL;
-				return;
+				goto _syntaxError;
 			} else if (!IS_NONE(result) && !IS_INTEGER(result)) {
-				fprintf(stderr, "Instead of an integer, got %s\n", krk_typeName(result));
-				fprintf(stderr,"\n\nThis syntax highlighter will be disabled in this environment.\n\n");
-				int key = 0;
-				while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
-				env->syntax = NULL;
-				return;
+				render_error("Instead of an integer, got %s", krk_typeName(result));
+				render_commandline_message("\n");
+				goto _syntaxError;
 			}
 			s->state.state = IS_NONE(result) ? -1 : AS_INTEGER(result);
 
@@ -991,6 +991,14 @@ void recalculate_syntax(line_t * line, int line_no) {
 _next:
 		(void)0;
 	}
+
+_syntaxError:
+	krk_resetStack();
+	fprintf(stderr,"This syntax highlighter will be disabled in this environment.");
+	env->syntax = NULL;
+	cancel_background_tasks(env);
+	pause_for_key();
+	redraw_all();
 }
 
 /**
@@ -3681,8 +3689,6 @@ void run_onload(buffer_t * env) {
 static void render_syntax_async(background_task_t * task) {
 	buffer_t * old_env = env;
 	env = task->env;
-	struct syntax_definition * old_syn = env->syntax;
-	env->syntax = task->_private_p;
 	int line_no = task->_private_i;
 
 	if (env->line_count && line_no < env->line_count) {
@@ -3694,8 +3700,6 @@ static void render_syntax_async(background_task_t * task) {
 			redraw_line(line_no);
 		}
 	}
-
-	env->syntax = old_syn;
 	env = old_env;
 }
 
@@ -3712,7 +3716,6 @@ static void schedule_complete_recalc(void) {
 		background_task_t * task = malloc(sizeof(background_task_t));
 		task->env  = env;
 		task->_private_i = i;
-		task->_private_p = env->syntax;
 		task->func = render_syntax_async;
 		task->next = NULL;
 		if (global_config.tail_task) {
@@ -10705,6 +10708,9 @@ void initialize(void) {
 	/* Load bimrc */
 	load_bimrc();
 	krk_resetStack();
+
+	/* Disable default traceback printing */
+	vm.globalFlags |= KRK_GLOBAL_CLEAN_OUTPUT;
 
 	/* Initialize space for buffers */
 	buffers_avail = 4;
