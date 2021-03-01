@@ -144,7 +144,7 @@ class KrkHighlighter(Highlighter):
                 self.skip()
                 return 0
         else if self.state >= 1:
-            return self.paintString("'\""[self.state % 2], (self.state % 10) > 2, self.state > 10)
+            return self.paintString("'\""[self.state % 2], (self.state % 10) <= 2, self.state > 10)
         return None
 
 bind(KrkHighlighter)
