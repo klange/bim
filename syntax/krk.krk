@@ -12,7 +12,7 @@ class KrkHighlighter(Highlighter):
     keywords = [
         'and','class','def','else','export','for','if','in','import','let','not',
         'or','return','while','try','except','raise','continue','break','as','from',
-        'elif', 'lambda', 'pass', 'with', 'is', 'del'
+        'elif', 'lambda', 'pass', 'with', 'is', 'del', 'assert', 'yield'
     ]
 
     types = [
@@ -29,6 +29,7 @@ class KrkHighlighter(Highlighter):
         'Exception', 'TypeError', 'ArgumentError', 'IndexError', 'KeyError',
         'AttributeError', 'NameError', 'ImportError', 'IOError', 'ValueError',
         'KeyboardInterrupt', 'ZeroDivisionError', 'NotImplementedError', 'SyntaxError',
+        'AssertionError',
     ]
 
     def paintString(self, strType, isTriple, isFormat=False):
