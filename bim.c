@@ -10178,11 +10178,11 @@ static KrkValue krk_bim_register_syntax(int argc, KrkValue argv[], int hasKw) {
 	if (argc < 1 || !IS_CLASS(argv[0]) || !checkClass(AS_CLASS(argv[0]), syntaxStateClass))
 		return krk_runtimeError(vm.exceptions->typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(argv[0]));
 
-	KrkValue name = NONE_VAL(), extensions = NONE_VAL(), spaces = BOOLEAN_VAL(0), calculate = NONE_VAL();
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("name")), &name);
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("extensions")), &extensions);
-	krk_tableGet(&AS_CLASS(argv[0])->fields, OBJECT_VAL(S("spaces")), &spaces);
-	krk_tableGet(&AS_CLASS(argv[0])->methods, OBJECT_VAL(S("calculate")), &calculate);
+	KrkValue name = krk_valueGetAttribute_default(argv[0], "name", NONE_VAL());
+	KrkValue extensions = krk_valueGetAttribute_default(argv[0], "extensions", NONE_VAL());
+	KrkValue spaces = krk_valueGetAttribute_default(argv[0], "spaces", BOOLEAN_VAL(0));
+	KrkValue calculate = krk_valueGetAttribute_default(argv[0], "calculate", NONE_VAL());
+
 	if (!IS_STRING(name))
 		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
 	if (!IS_TUPLE(extensions))
@@ -10713,20 +10713,20 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
 	krk_defineNative(&syntaxStateClass->methods, ".__get__", bim_krk_state_get);
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_COMMENT", INTEGER_VAL(FLAG_COMMENT));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_TYPE", INTEGER_VAL(FLAG_TYPE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_PRAGMA", INTEGER_VAL(FLAG_PRAGMA));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NUMERAL", INTEGER_VAL(FLAG_NUMERAL));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ERROR", INTEGER_VAL(FLAG_ERROR));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFPLUS", INTEGER_VAL(FLAG_DIFFPLUS));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_DIFFMINUS", INTEGER_VAL(FLAG_DIFFMINUS));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_NOTICE", INTEGER_VAL(FLAG_NOTICE));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
-	krk_attachNamedValue(&syntaxStateClass->fields, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_COMMENT", INTEGER_VAL(FLAG_COMMENT));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_TYPE", INTEGER_VAL(FLAG_TYPE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_PRAGMA", INTEGER_VAL(FLAG_PRAGMA));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NUMERAL", INTEGER_VAL(FLAG_NUMERAL));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ERROR", INTEGER_VAL(FLAG_ERROR));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_DIFFPLUS", INTEGER_VAL(FLAG_DIFFPLUS));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_DIFFMINUS", INTEGER_VAL(FLAG_DIFFMINUS));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NOTICE", INTEGER_VAL(FLAG_NOTICE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
 
 	krk_finalizeClass(syntaxStateClass);
 
