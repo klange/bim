@@ -209,6 +209,7 @@ typedef struct {
 	unsigned int smart_complete:1;
 	unsigned int has_terminal:1;
 	unsigned int search_wraps:1;
+	unsigned int had_error:1;
 
 	int cursor_padding;
 	int split_percent;

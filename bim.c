@@ -19,6 +19,7 @@
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 #include <kuroko/debug.h>
+#include <kuroko/util.h>
 
 global_config_t global_config = {
 	/* State */
@@ -74,6 +75,7 @@ global_config_t global_config = {
 	.smart_complete = 0,
 	.has_terminal = 0,
 	.search_wraps = 1,
+	.had_error = 0,
 	/* Integer config values */
 	.cursor_padding = 4,
 	.split_percent = 50,
@@ -3177,6 +3179,7 @@ void render_error(char * message, ...) {
 
 		/* Draw the message */
 		printf("%s", buf);
+		global_config.had_error = 1;
 	} else {
 		printf("bim: error during startup: %s\n", buf);
 	}
@@ -9932,7 +9935,7 @@ struct CommandDef {
 
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
-	fprintf(stdout,"\n");
+	fprintf(stdout, "\n");
 	/* By resetting, we're at 0 frames. */
 	krk_resetStack();
 	/* Push something so we're not at the bottom of the stack when an
@@ -9992,7 +9995,8 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		}
 	}
 	global_config.break_from_selection = 1;
-	redraw_all();
+	if (!global_config.had_error) redraw_all();
+	global_config.had_error = 0;
 	return retval;
 }
 
@@ -10614,6 +10618,37 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	return 0;
 }
 
+static KrkValue krk_bim_getDocumentText(int argc, KrkValue argv[], int hasKw) {
+	struct StringBuilder sb = {0};
+
+	int i, j;
+	for (i = 0; i < env->line_count; ++i) {
+		line_t * line = env->lines[i];
+		for (j = 0; j < line->actual; j++) {
+			char_t c = line->text[j];
+			if (c.codepoint == 0) {
+				pushStringBuilder(&sb, 0);
+			} else {
+				char tmp[8] = {0};
+				int len = to_eight(c.codepoint, tmp);
+				pushStringBuilderStr(&sb, tmp, len);
+			}
+		}
+		pushStringBuilder(&sb, '\n');
+	}
+
+	return finishStringBuilder(&sb);
+}
+
+static KrkValue krk_bim_renderError(int argc, KrkValue argv[], int hasKw) {
+	if (argc != 1 || !IS_STRING(argv[0])) return TYPE_ERROR(str,argv[0]);
+	if (AS_STRING(argv[0])->length == 0)
+		redraw_commandline();
+	else
+		render_error(AS_CSTRING(argv[0]));
+	return NONE_VAL();
+}
+
 /**
  * Run global initialization tasks
  */
@@ -10664,6 +10699,9 @@ void initialize(void) {
 	krk_defineNative(&bimModule->fields, "defineTheme", krk_bim_define_theme);
 	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
+
+	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
+	krk_defineNative(&bimModule->fields, "renderError", krk_bim_renderError);
 
 	makeClass(bimModule, &ActionDef, "Action", vm.baseClasses->objectClass);
 	ActionDef->allocSize = sizeof(struct ActionDef);
