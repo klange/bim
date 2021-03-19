@@ -3877,15 +3877,18 @@ void open_file(char * file) {
 		for (int i = 0; i < env->line_count; ++i) {
 			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
 				/* Count spaces at beginning */
-				int c = 0;
+				int c = 0, diff;
 				while (c < env->lines[i]->actual && env->lines[i]->text[c].codepoint == ' ') c++;
 				if (c > lastCount) {
-					int diff = c - lastCount;
-					if (diff == 1) one++;
-					if (diff == 2) two++;
-					if (diff == 3) three++;
-					if (diff == 4) four++;
+					diff = c - lastCount;
+				} else if (c < lastCount) {
+					diff = lastCount - c;
 				}
+				if (diff == 1) one++;
+				if (diff == 2) two++;
+				if (diff == 3) three++;
+				if (diff == 4) four++;
+				lastCount = c;
 			}
 		}
 		if (four > three && four > two && four > one) {
