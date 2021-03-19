@@ -3873,24 +3873,26 @@ void open_file(char * file) {
 
 	if (spaces) {
 		int one = 0, two = 0, three = 0, four = 0; /* If you use more than that, I don't like you. */
+		int lastCount = 0;
 		for (int i = 0; i < env->line_count; ++i) {
 			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
 				/* Count spaces at beginning */
 				int c = 0;
 				while (c < env->lines[i]->actual && env->lines[i]->text[c].codepoint == ' ') c++;
-				if (c) {
-					one += 1;
-					two += ((c % 2) == 0);
-					three += ((c % 3) == 0);
-					four += ((c % 4) == 0);
+				if (c > lastCount) {
+					int diff = c - lastCount;
+					if (diff == 1) one++;
+					if (diff == 2) two++;
+					if (diff == 3) three++;
+					if (diff == 4) four++;
 				}
 			}
 		}
-		if (four && (four > three) && (four >= two)) {
+		if (four > three && four > two && four > one) {
 			env->tabstop = 4;
-		} else if (three && (three > two) && (three >= one)) {
+		} else if (three > two && three > one) {
 			env->tabstop = 3;
-		} else if (two && (two > (one / 2))) {
+		} else if (two > one) {
 			env->tabstop = 2;
 		} else {
 			env->tabstop = 1;
