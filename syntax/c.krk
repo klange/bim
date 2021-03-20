@@ -37,7 +37,7 @@ class CHighlighter(Highlighter):
         while self[0] != None:
             if last != '\\' and self[0] == '"':
                 self.paint(1, self.FLAG_STRING)
-                return
+                return 0
             else if self[0] == '\\' and not self[1]:
                 self.paint(1, self.FLAG_ESCAPE)
                 return 4
