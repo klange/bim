@@ -4909,9 +4909,7 @@ int convert_to_html(void) {
 		recalculate_tabs(env->lines[i]);
 	}
 	env->syntax = match_syntax(".htm");
-	for (int i = 0; i < env->line_count; ++i) {
-		recalculate_syntax(env->lines[i],i);
-	}
+	schedule_complete_recalc();
 
 	return 0;
 }
@@ -11318,6 +11316,9 @@ int main(int argc, char * argv[]) {
 					initialize();
 					global_config.go_to_line = 0;
 					open_file(argv[optind]);
+					for (int i = 0; i < env->line_count; ++i) {
+						recalculate_syntax(env->lines[i], i);
+					}
 					convert_to_html();
 					/* write to stdout */
 					output_file(env, stdout);
