@@ -9760,7 +9760,10 @@ void normal_mode(void) {
 
 		if (env->mode == MODE_NORMAL) {
 			place_cursor_actual();
-			int key = bim_getkey(DEFAULT_KEY_WAIT);
+			int key = 0;
+			do {
+				key = bim_getkey(DEFAULT_KEY_WAIT);
+			} while (key == KEY_TIMEOUT);
 			if (handle_nav_buffer(key)) {
 				if (!handle_action(NORMAL_MAP, key))
 					if (!handle_action(NAVIGATION_MAP, key))
