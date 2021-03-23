@@ -10646,6 +10646,7 @@ static KrkValue krk_bim_getDocumentText(int argc, KrkValue argv[], int hasKw) {
 }
 
 static KrkValue krk_bim_renderError(int argc, KrkValue argv[], int hasKw) {
+	static const char * _method_name = "renderError";
 	if (argc != 1 || !IS_STRING(argv[0])) return TYPE_ERROR(str,argv[0]);
 	if (AS_STRING(argv[0])->length == 0)
 		redraw_commandline();
@@ -10710,7 +10711,7 @@ void initialize(void) {
 
 	makeClass(bimModule, &ActionDef, "Action", vm.baseClasses->objectClass);
 	ActionDef->allocSize = sizeof(struct ActionDef);
-	krk_defineNative(&ActionDef->methods, ".__call__", bim_krk_action_call);
+	krk_defineNative(&ActionDef->methods, "__call__", bim_krk_action_call);
 	krk_finalizeClass(ActionDef);
 
 	for (struct action_def * a = mappable_actions; mappable_actions && a->name; ++a) {
@@ -10721,7 +10722,7 @@ void initialize(void) {
 
 	makeClass(bimModule, &CommandDef, "Command", vm.baseClasses->objectClass);
 	CommandDef->allocSize = sizeof(struct CommandDef);
-	krk_defineNative(&CommandDef->methods, ".__call__", bim_krk_command_call);
+	krk_defineNative(&CommandDef->methods, "__call__", bim_krk_command_call);
 	krk_finalizeClass(CommandDef);
 
 	KrkInstance * global = krk_newInstance(vm.baseClasses->objectClass);
@@ -10739,23 +10740,23 @@ void initialize(void) {
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, ":state", bim_krk_state_getstate);
-	krk_defineNative(&syntaxStateClass->methods, ".set_state", bim_krk_state_setstate); /* TODO property? */
-	krk_defineNative(&syntaxStateClass->methods, ":i", bim_krk_state_index);
-	krk_defineNative(&syntaxStateClass->methods, ":lineno", bim_krk_state_lineno);
-	krk_defineNative(&syntaxStateClass->methods, ".__init__", bim_krk_state_init);
+	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->isDynamicProperty = 1;
+	krk_defineNative(&syntaxStateClass->methods, "set_state", bim_krk_state_setstate); /* TODO property? */
+	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->isDynamicProperty = 1;
+	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->isDynamicProperty = 1;
+	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	/* These ones take argumens so they're methods instead of dynamic fields */
-	krk_defineNative(&syntaxStateClass->methods, ".findKeywords", bim_krk_state_findKeywords);
-	krk_defineNative(&syntaxStateClass->methods, ".cKeywordQualifier", bim_krk_state_cKeywordQualifier);
-	krk_defineNative(&syntaxStateClass->methods, ".isdigit", bim_krk_state_isdigit);
-	krk_defineNative(&syntaxStateClass->methods, ".isxdigit", bim_krk_state_isxdigit);
-	krk_defineNative(&syntaxStateClass->methods, ".paint", bim_krk_state_paint);
-	krk_defineNative(&syntaxStateClass->methods, ".paintComment", bim_krk_state_paintComment);
-	krk_defineNative(&syntaxStateClass->methods, ".skip", bim_krk_state_skip);
-	krk_defineNative(&syntaxStateClass->methods, ".matchAndPaint", bim_krk_state_matchAndPaint);
-	krk_defineNative(&syntaxStateClass->methods, ".commentBuzzwords", bim_krk_state_commentBuzzwords);
-	krk_defineNative(&syntaxStateClass->methods, ".rewind", bim_krk_state_rewind);
-	krk_defineNative(&syntaxStateClass->methods, ".__getitem__", bim_krk_state_get);
+	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
+	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier);
+	krk_defineNative(&syntaxStateClass->methods, "isdigit", bim_krk_state_isdigit);
+	krk_defineNative(&syntaxStateClass->methods, "isxdigit", bim_krk_state_isxdigit);
+	krk_defineNative(&syntaxStateClass->methods, "paint", bim_krk_state_paint);
+	krk_defineNative(&syntaxStateClass->methods, "paintComment", bim_krk_state_paintComment);
+	krk_defineNative(&syntaxStateClass->methods, "skip", bim_krk_state_skip);
+	krk_defineNative(&syntaxStateClass->methods, "matchAndPaint", bim_krk_state_matchAndPaint);
+	krk_defineNative(&syntaxStateClass->methods, "commentBuzzwords", bim_krk_state_commentBuzzwords);
+	krk_defineNative(&syntaxStateClass->methods, "rewind", bim_krk_state_rewind);
+	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
