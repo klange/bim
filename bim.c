@@ -11243,6 +11243,7 @@ int main(int argc, char * argv[]) {
 				global_config.go_to_line = 0;
 				open_file(optarg);
 				for (int i = 0; i < env->line_count; ++i) {
+					recalculate_syntax(env->lines[i], i);
 					if (opt == 'C') {
 						draw_line_number(i);
 					}
