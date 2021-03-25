@@ -3877,7 +3877,7 @@ void open_file(char * file) {
 		for (int i = 0; i < env->line_count; ++i) {
 			if (env->lines[i]->actual > 1 && !line_is_comment(env->lines[i])) {
 				/* Count spaces at beginning */
-				int c = 0, diff;
+				int c = 0, diff = 0;
 				while (c < env->lines[i]->actual && env->lines[i]->text[c].codepoint == ' ') c++;
 				if (c > lastCount) {
 					diff = c - lastCount;
@@ -10258,6 +10258,11 @@ int c_keyword_qualifier(int c) {
 
 static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
+	if (argc > 1 && IS_INTEGER(argv[1])) {
+		state->state = AS_INTEGER(argv[1]);
+	} else if (argc > 1 && IS_NONE(argv[1])) {
+		state->state = -1;
+	}
 	return INTEGER_VAL(state->state);
 }
 static KrkValue bim_krk_state_setstate(int argc, KrkValue argv[], int hasKw) {
@@ -10339,6 +10344,11 @@ static int callQualifier(KrkValue qualifier, int codepoint) {
 	if (IS_BOOLEAN(result)) return AS_BOOLEAN(result);
 	return 0;
 }
+
+#define KRK_STRING_FAST(string,offset)  (uint32_t)\
+	(string->type <= 1 ? ((uint8_t*)string->codes)[offset] : \
+	(string->type == 2 ? ((uint16_t*)string->codes)[offset] : \
+	((uint32_t*)string->codes)[offset]))
 
 static KrkValue bim_krk_state_findKeywords(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
@@ -10741,10 +10751,10 @@ void initialize(void) {
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->isDynamicProperty = 1;
 	krk_defineNative(&syntaxStateClass->methods, "set_state", bim_krk_state_setstate); /* TODO property? */
-	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->isDynamicProperty = 1;
-	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->isDynamicProperty = 1;
+	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
+	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
 	/* These ones take argumens so they're methods instead of dynamic fields */
 	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
