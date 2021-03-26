@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS=-g -flto -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter
+CFLAGS=-g -O3 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -Wno-unused-result
 LDLIBS=-lkuroko -ldl -lpthread
 
 prefix=/usr/local
