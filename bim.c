@@ -3697,6 +3697,25 @@ int line_matches(line_t * line, char * string) {
 
 void run_onload(buffer_t * env) {
 	/* TODO */
+	KrkValue onLoad;
+	if (krk_tableGet_fast(&krk_currentThread.module->fields, S("onload"), &onLoad)) {
+		krk_push(onLoad);
+		krk_push(krk_dict_of(0,NULL,0));
+
+		if (env->file_name) {
+			krk_attachNamedObject(AS_DICT(krk_peek(0)), "filename",
+				(KrkObj*)krk_copyString(env->file_name,strlen(env->file_name)));
+		}
+
+		if (env->syntax && env->syntax->krkClass) {
+			krk_attachNamedObject(AS_DICT(krk_peek(0)), "highlighter",
+				(KrkObj*)env->syntax->krkClass);
+		}
+
+		
+		krk_callSimple(onLoad, 1, 1);
+		krk_resetStack();
+	}
 }
 
 static void render_syntax_async(background_task_t * task) {
