@@ -3892,7 +3892,7 @@ void open_file(char * file) {
 		env->tabs = env->syntax->prefers_spaces;
 	}
 
-	if (spaces) {
+	if (spaces > tabs) {
 		int one = 0, two = 0, three = 0, four = 0; /* If you use more than that, I don't like you. */
 		int lastCount = 0;
 		for (int i = 0; i < env->line_count; ++i) {
