@@ -6820,7 +6820,7 @@ _finish:
 	/* Leave command mode */
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
 
-	draw_search_match(global_config.search, global_config.search_direction);
+	if (global_config.search) draw_search_match(global_config.search, global_config.search_direction);
 }
 
 /**
