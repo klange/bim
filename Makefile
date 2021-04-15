@@ -1,6 +1,7 @@
 TARGET=bim
-CFLAGS=-g -O3 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -Wno-unused-result
-LDLIBS=-lkuroko -ldl -lpthread
+CFLAGS=-g -O2 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -Wno-unused-result
+LDFLAGS=-rdynamic
+LDLIBS=-l:libkuroko.a -ldl -lpthread
 
 prefix=/usr/local
 exec_prefix=$(prefix)
