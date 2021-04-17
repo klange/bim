@@ -6313,7 +6313,7 @@ _accept_candidate:
 				}
 			} else {
 				for (char * c = printed_candidate; *c; ++c) {
-					if (c[0] == '.' && c[1] != '\0') {
+					if ((c[0] == '.' || c[0] == '(') && c[1] != '\0') {
 						printed_candidate = c+1;
 					}
 				}
