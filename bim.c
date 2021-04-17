@@ -9866,8 +9866,8 @@ void normal_mode(void) {
 				continue;
 			} else if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
 				if (refresh) {
-					render_command_input_buffer();
 					redraw_tabbar();
+					render_command_input_buffer();
 					refresh = 0;
 				}
 				int key = bim_getkey(DEFAULT_KEY_WAIT);
