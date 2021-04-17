@@ -968,8 +968,9 @@ void recalculate_syntax(line_t * line, int line_no) {
 
 		while (1) {
 			ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
+			krk_push(OBJECT_VAL(env->syntax->krkFunc));
 			krk_push(OBJECT_VAL(s));
-			KrkValue result = krk_callSimple(OBJECT_VAL(env->syntax->krkFunc), 1, 0);
+			KrkValue result = krk_callStack(1);
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
@@ -3704,8 +3705,7 @@ void run_onload(buffer_t * env) {
 				(KrkObj*)env->syntax->krkClass);
 		}
 
-		
-		krk_callSimple(onLoad, 1, 1);
+		krk_callStack(1);
 		krk_resetStack();
 	}
 }
@@ -5503,7 +5503,8 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 		for (struct theme_def * d = themes; themes && d->name; ++d) {
 			if (!strcmp(argv[1], d->name)) {
 				ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
-				KrkValue result = krk_callSimple(OBJECT_VAL(d->callable), 0, 0);
+				krk_push(OBJECT_VAL(d->callable));
+				KrkValue result = krk_callStack(0);
 				krk_currentThread.stackTop = krk_currentThread.stack + before;
 				if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 					render_error("Exception occurred in theme: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
@@ -10167,7 +10168,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	/* If the user typed just a command name, try to execute it. */
 	if (krk_isInstanceOf(out,CommandDef)) {
 		krk_push(out);
-		out = krk_callSimple(krk_peek(0),0,1);
+		out = krk_callStack(0);
 	}
 	if (outVal) *outVal = out;
 	int retval = (IS_INTEGER(out)) ? AS_INTEGER(out) : 0;
@@ -10187,7 +10188,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	/* Otherwise, we can look at the result here. */
 	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
 		krk_push(out);
-		KrkValue repr = krk_callSimple(OBJECT_VAL(krk_getType(out)->_reprer), 1, 0);
+		KrkValue repr = krk_callDirect(krk_getType(out)->_reprer, 1);
 		if (IS_STRING(repr)) {
 			fprintf(stdout, " => %s\n", AS_CSTRING(repr));
 			clear_to_end();
@@ -10555,7 +10556,7 @@ static int callQualifier(KrkValue qualifier, int codepoint) {
 	if (IS_NATIVE(qualifier) && AS_NATIVE(qualifier)->function == bim_krk_state_cKeywordQualifier) return AS_BOOLEAN(!!c_keyword_qualifier(codepoint));
 	krk_push(qualifier);
 	krk_push(INTEGER_VAL(codepoint));
-	KrkValue result = krk_callSimple(krk_peek(1), 1, 1);
+	KrkValue result = krk_callStack(1);
 	if (IS_BOOLEAN(result)) return AS_BOOLEAN(result);
 	return 0;
 }
@@ -10706,7 +10707,7 @@ static KrkValue bim_krk_command_call(int argc, KrkValue argv[], int hasKw) {
 			args[i] = strdup(AS_CSTRING(argv[i]));
 		} else {
 			krk_push(argv[i]);
-			KrkValue asString = krk_callSimple(OBJECT_VAL(krk_getType(argv[i])->_tostr), 1, 0);
+			KrkValue asString = krk_callDirect(krk_getType(argv[i])->_tostr, 1);
 			args[i] = strdup(AS_CSTRING(asString));
 		}
 	}
