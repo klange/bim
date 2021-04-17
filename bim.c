@@ -3018,11 +3018,6 @@ void render_commandline_message(char * message, ...) {
 	/* varargs setup */
 	va_list args;
 	va_start(args, message);
-	char buf[1024];
-
-	/* Process format string */
-	vsnprintf(buf, 1024, message, args);
-	va_end(args);
 
 	/* Hide cursor while rendering */
 	hide_cursor();
@@ -3034,7 +3029,8 @@ void render_commandline_message(char * message, ...) {
 	paint_line(COLOR_BG);
 	set_colors(COLOR_FG, COLOR_BG);
 
-	printf("%s", buf);
+	vprintf(message, args);
+	va_end(args);
 
 	/* Clear the rest of the status bar */
 	clear_to_end();
@@ -3134,11 +3130,6 @@ void render_status_message(char * message, ...) {
 	/* varargs setup */
 	va_list args;
 	va_start(args, message);
-	char buf[1024];
-
-	/* Process format string */
-	vsnprintf(buf, 1024, message, args);
-	va_end(args);
 
 	/* Hide cursor while rendering */
 	hide_cursor();
@@ -3150,7 +3141,9 @@ void render_status_message(char * message, ...) {
 	paint_line(COLOR_STATUS_BG);
 	set_colors(COLOR_STATUS_FG, COLOR_STATUS_BG);
 
-	printf("%s", buf);
+	/* Process format string */
+	vprintf(message, args);
+	va_end(args);
 
 	/* Clear the rest of the status bar */
 	clear_to_end();
@@ -3163,11 +3156,6 @@ void render_error(char * message, ...) {
 	/* varargs setup */
 	va_list args;
 	va_start(args, message);
-	char buf[1024];
-
-	/* Process format string */
-	vsnprintf(buf, 1024, message, args);
-	va_end(args);
 
 	if (env) {
 		/* Hide cursor while rendering */
@@ -3180,10 +3168,14 @@ void render_error(char * message, ...) {
 		set_colors(COLOR_ERROR_FG, COLOR_ERROR_BG);
 
 		/* Draw the message */
-		printf("%s", buf);
+		vprintf(message, args);
+		va_end(args);
 		global_config.had_error = 1;
 	} else {
-		printf("bim: error during startup: %s\n", buf);
+		printf("bim: error during startup: ");
+		vprintf(message, args);
+		va_end(args);
+		printf("\n");
 	}
 
 }
