@@ -5876,11 +5876,18 @@ int process_command(char * cmd) {
 	return retval;
 }
 
+struct Candidate {
+	char * text;
+	int type;
+};
+
 /**
  * Wrap strcmp for use with qsort.
  */
-int compare_str(const void * a, const void * b) {
-	return strcmp(*(const char **)a, *(const char **)b);
+int compare_candidate(const void * a, const void * b) {
+	const struct Candidate *_a = a;
+	const struct Candidate *_b = b;
+	return strcmp(_a->text, _b->text);
 }
 
 /**
@@ -5922,7 +5929,7 @@ void command_tab_complete(char * buffer) {
 
 	int candidate_count= 0;
 	int candidate_space = 4;
-	char ** candidates = malloc(sizeof(char*)*candidate_space);
+	struct Candidate * candidates = malloc(sizeof(struct Candidate)*candidate_space);
 
 	/* Accept whitespace before first argument */
 	while (*b == ' ') b++;
@@ -5945,34 +5952,38 @@ void command_tab_complete(char * buffer) {
 	 * candidates list, expanding as necessary,
 	 * if it matches for the current argument.
 	 */
-#define add_candidate(candidate) \
+#define add_candidate(candidate,candtype) \
 	do { \
 		char * _arg = args[arg]; \
 		int r = strncmp(_arg, candidate, strlen(_arg)); \
 		if (!r) { \
 			int skip = 0; \
 			for (int i = 0; i < candidate_count; ++i) { \
-				if (!strcmp(candidates[i],candidate)) { skip = 1; break; } \
+				if (!strcmp(candidates[i].text,candidate)) { skip = 1; break; } \
 			} \
 			if (skip) break; \
 			if (candidate_count == candidate_space) { \
 				candidate_space *= 2; \
-				candidates = realloc(candidates,sizeof(char *) * candidate_space); \
+				candidates = realloc(candidates,sizeof(struct Candidate) * candidate_space); \
 			} \
-			candidates[candidate_count] = strdup(candidate); \
+			candidates[candidate_count].text = strdup(candidate); \
+			candidates[candidate_count].type = candtype; \
 			candidate_count++; \
 		} \
 	} while (0)
+#define Candidate_Normal 0
+#define Candidate_Command 1
+#define Candidate_Builtin 2
 
 	int _candidates_are_files = 0;
 
 	if (arg == 0 || (arg == 1 && !strcmp(args[0], "help"))) {
 		/* Complete command names */
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
-			add_candidate(c->name);
+			add_candidate(c->name,Candidate_Command);
 		}
 		for (struct command_def * c = prefix_commands; prefix_commands && c->name; ++c) {
-			add_candidate(c->name);
+			add_candidate(c->name,Candidate_Command);
 		}
 
 		goto _try_kuroko;
@@ -5980,9 +5991,9 @@ void command_tab_complete(char * buffer) {
 
 	if (arg == 1 && !strcmp(args[0], "syntax")) {
 		/* Complete syntax options */
-		add_candidate("none");
+		add_candidate("none", Candidate_Builtin);
 		for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
-			add_candidate(s->name);
+			add_candidate(s->name, Candidate_Builtin);
 		}
 		goto _accept_candidate;
 	}
@@ -5990,21 +6001,21 @@ void command_tab_complete(char * buffer) {
 	if (arg == 1 && (!strcmp(args[0], "theme") || !strcmp(args[0], "colorscheme"))) {
 		/* Complete color theme names */
 		for (struct theme_def * s = themes; themes && s->name; ++s) {
-			add_candidate(s->name);
+			add_candidate(s->name, Candidate_Builtin);
 		}
 		goto _accept_candidate;
 	}
 
 	if (arg == 1 && (!strcmp(args[0], "setcolor"))) {
 		for (struct ColorName * c = color_names; c->name; ++c) {
-			add_candidate(c->name);
+			add_candidate(c->name, Candidate_Builtin);
 		}
 		goto _accept_candidate;
 	}
 
 	if (arg == 1 && (!strcmp(args[0], "action"))) {
 		for (struct action_def * a = mappable_actions; a->name; ++a) {
-			add_candidate(a->name);
+			add_candidate(a->name, Candidate_Builtin);
 		}
 		goto _accept_candidate;
 	}
@@ -6025,21 +6036,21 @@ void command_tab_complete(char * buffer) {
 
 		if (arg == 1) {
 			for (struct mode_names * m = mode_names; m->name; ++m) {
-				add_candidate(m->name);
+				add_candidate(m->name, Candidate_Builtin);
 			}
 		} else if (arg == 2) {
 			for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
-				add_candidate(KeyNames[i].name);
+				add_candidate(KeyNames[i].name, Candidate_Builtin);
 			}
 		} else if (arg == 3) {
 			for (struct action_def * a = mappable_actions; a->name; ++a) {
-				add_candidate(a->name);
+				add_candidate(a->name, Candidate_Builtin);
 			}
-			add_candidate("none");
+			add_candidate("none", Candidate_Builtin);
 		} else if (arg == 4) {
 			for (char * c = "racnwmb"; *c; ++c) {
 				char tmp[] = {*c,'\0'};
-				add_candidate(tmp);
+				add_candidate(tmp, Candidate_Builtin);
 			}
 		}
 		goto _accept_candidate;
@@ -6130,7 +6141,7 @@ void command_tab_complete(char * buffer) {
 					}
 				}
 				if (!skip) {
-					add_candidate(s);
+					add_candidate(s, Candidate_Normal);
 				}
 			}
 			ent = readdir(dirp);
@@ -6199,7 +6210,12 @@ _try_kuroko:
 					/* If we hit None, we found something invalid (or literally hit a None
 					 * object, but really the difference is minimal in this case: Nothing
 					 * useful to tab complete from here. */
-					goto _cleanup;
+					if (!isGlobal) goto _cleanup;
+					/* Does this match a builtin? */
+					if (!krk_tableGet_fast(&vm.builtins->fields,
+						krk_copyString(space[count-n].start,space[count-n].literalWidth), &next) || IS_NONE(next)) {
+						goto _cleanup;
+					}
 				}
 				isGlobal = 0;
 				root = next;
@@ -6211,6 +6227,15 @@ _try_kuroko:
 			isGlobal = isGlobal && (length != 0);
 
 			/* Take the last symbol name from the chain and get its member list from dir() */
+			static char * syn_krk_keywords[] = {
+				"and","class","def","else","for","if","in","import","del",
+				"let","not","or","return","while","try","except","raise",
+				"continue","break","as","from","elif","lambda","with","is",
+				"pass","assert","yield","finally","async","await",
+				NULL
+			};
+
+			KrkInstance * fakeKeywordsObject = NULL;
 
 			for (;;) {
 				KrkValue dirList = krk_dirObject(1,(KrkValue[]){root},0);
@@ -6241,7 +6266,13 @@ _try_kuroko:
 					if (!memcmp(s->chars, space[count-base].start, length)) {
 						char * tmp = malloc(strlen(args[arg]) + s->length + 1);
 						sprintf(tmp,"%s%s", args[arg], s->chars + length);
-						add_candidate(tmp);
+						int type = Candidate_Normal;
+						if (IS_OBJECT(root) && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
+							type = Candidate_Builtin;
+						} else if (IS_OBJECT(root) && AS_OBJECT(root) == (KrkObj*)fakeKeywordsObject) {
+							type = Candidate_Command;
+						}
+						add_candidate(tmp, type);
 						free(tmp);
 					}
 				}
@@ -6254,14 +6285,7 @@ _try_kuroko:
 					root = OBJECT_VAL(vm.builtins);
 					continue;
 				} else if (isGlobal && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
-					static char * syn_krk_keywords[] = {
-						"and","class","def","else","for","if","in","import","del",
-						"let","not","or","return","while","try","except","raise",
-						"continue","break","as","from","elif","lambda","with","is",
-						"pass","assert","yield","finally","async","await",
-						NULL
-					};
-					KrkInstance * fakeKeywordsObject = krk_newInstance(vm.baseClasses->objectClass);
+					fakeKeywordsObject = krk_newInstance(vm.baseClasses->objectClass);
 					root = OBJECT_VAL(fakeKeywordsObject);
 					krk_push(root);
 					for (char ** keyword = syn_krk_keywords; *keyword; keyword++) {
@@ -6291,20 +6315,20 @@ _accept_candidate:
 
 		/* Fill out the rest of the command */
 		char * cstart = (buffer) + (start - buf);
-		for (unsigned int i = 0; i < strlen(candidates[0]); ++i) {
-			*cstart = candidates[0][i];
+		for (unsigned int i = 0; i < strlen(candidates[0].text); ++i) {
+			*cstart = candidates[0].text[i];
 			cstart++;
 		}
 		*cstart = '\0';
 	} else {
 		/* Sort candidates */
-		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_str);
+		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_candidate);
 		/* Print candidates in status bar */
-		char * tmp = malloc(global_config.term_width+1);
+		char * tmp = malloc(global_config.term_width+1 + candidate_count * 100);
 		memset(tmp, 0, global_config.term_width+1);
 		int offset = 0;
 		for (int i = 0; i < candidate_count; ++i) {
-			char * printed_candidate = candidates[i];
+			char * printed_candidate = candidates[i].text;
 			if (_candidates_are_files) {
 				for (char * c = printed_candidate; *c; ++c) {
 					if (c[0] == '/' && c[1] != '\0') {
@@ -6326,6 +6350,13 @@ _accept_candidate:
 				strcat(tmp, " ");
 				offset++;
 			}
+			const char * colorString = color_string(
+				candidates[i].type == Candidate_Normal ? COLOR_STATUS_FG :
+					candidates[i].type == Candidate_Command ? COLOR_KEYWORD :
+						candidates[i].type == Candidate_Builtin ? COLOR_TYPE : COLOR_STATUS_FG,
+				COLOR_STATUS_BG);
+			/* Does not affect offset */
+			strcat(tmp, colorString);
 			strcat(tmp, printed_candidate);
 			offset += strlen(printed_candidate);
 		}
@@ -6336,9 +6367,9 @@ _accept_candidate:
 		char * cstart = (buffer) + (start - buf);
 		for (int i = 0; i < 1023 /* max length of command */; i++) {
 			for (int j = 1; j < candidate_count; ++j) {
-				if (candidates[0][i] != candidates[j][i]) goto _reject;
+				if (candidates[0].text[i] != candidates[j].text[i]) goto _reject;
 			}
-			*cstart = candidates[0][i];
+			*cstart = candidates[0].text[i];
 			cstart++;
 		}
 		/* End of longest common substring */
@@ -6384,7 +6415,7 @@ _reject:
 
 	/* Free candidates */
 	for (int i = 0; i < candidate_count; ++i) {
-		free(candidates[i]);
+		free(candidates[i].text);
 	}
 
 done:
