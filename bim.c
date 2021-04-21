@@ -2775,14 +2775,24 @@ int display_width_of_string(const char * str) {
 	return out;
 }
 
-int statusbar_append_status(int *remaining_width, char * output, char * base, ...) {
+int statusbar_append_status(int *remaining_width, size_t *filled, char * output, char * base, ...) {
 	va_list args;
 	va_start(args, base);
-	char tmp[100]; /* should be big enough */
+	char tmp[100] = {0}; /* should be big enough */
 	vsnprintf(tmp, 100, base, args);
 	va_end(args);
 
 	int width = display_width_of_string(tmp) + 2;
+
+	size_t totalWidth = strlen(tmp);
+	totalWidth += strlen(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	totalWidth += strlen(color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+	totalWidth += strlen(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	totalWidth += 3;
+
+	if (totalWidth + *filled >= 1023) {
+		return 0;
+	}
 
 	if (width < *remaining_width) {
 		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
@@ -2792,6 +2802,7 @@ int statusbar_append_status(int *remaining_width, char * output, char * base, ..
 		strcat(output,color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
 		strcat(output,"]");
 		(*remaining_width) -= width;
+		(*filled) += totalWidth;
 		return width;
 	} else {
 		return 0;
@@ -2799,7 +2810,7 @@ int statusbar_append_status(int *remaining_width, char * output, char * base, ..
 }
 
 int statusbar_build_right(char * right_hand) {
-	char tmp[1024];
+	char tmp[1024] = {0};
 	sprintf(tmp, " Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 	int out = display_width_of_string(tmp);
 	char * s = right_hand;
@@ -2840,15 +2851,16 @@ void redraw_statusbar(void) {
 
 
 	/* Pre-render the right hand side of the status bar */
-	char right_hand[1024];
+	char right_hand[1024] = {0};
 	int right_width = statusbar_build_right(right_hand);
 
 	char status_bits[1024] = {0}; /* Sane maximum */
+	size_t filled = 0;
 	int status_bits_width = 0;
 
 	int remaining_width = global_config.term_width - right_width;
 
-#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, status_bits, __VA_ARGS__); } while (0)
+#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, &filled, status_bits, __VA_ARGS__); } while (0)
 	if (env->syntax) {
 		ADD("%s",env->syntax->name);
 	}
