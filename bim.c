@@ -2790,7 +2790,7 @@ int statusbar_append_status(int *remaining_width, size_t *filled, char * output,
 	totalWidth += strlen(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
 	totalWidth += 3;
 
-	if (totalWidth + *filled >= 1023) {
+	if (totalWidth + *filled >= 2047) {
 		return 0;
 	}
 
@@ -2854,7 +2854,7 @@ void redraw_statusbar(void) {
 	char right_hand[1024] = {0};
 	int right_width = statusbar_build_right(right_hand);
 
-	char status_bits[1024] = {0}; /* Sane maximum */
+	char status_bits[2048] = {0}; /* Sane maximum */
 	size_t filled = 0;
 	int status_bits_width = 0;
 
