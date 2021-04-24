@@ -807,7 +807,7 @@ buffer_t * buffer_close(buffer_t * buf) {
  * Convert syntax highlighting flag to color code
  */
 const char * flag_to_color(int _flag) {
-	int flag = _flag & 0xF;
+	int flag = _flag & FLAG_MASK_COLORS;
 	switch (flag) {
 		case FLAG_KEYWORD:
 			return COLOR_KEYWORD;
@@ -829,7 +829,7 @@ const char * flag_to_color(int _flag) {
 			return COLOR_FG;
 		case FLAG_BOLD:
 			return COLOR_BOLD;
-		case FLAG_LINK:
+		case FLAG_LINK_COLOR:
 			return COLOR_LINK;
 		case FLAG_ESCAPE:
 			return COLOR_ESCAPE;
@@ -1837,7 +1837,7 @@ void place_cursor(int x, int y) {
 char * color_string(const char * fg, const char * bg) {
 	static char output[100];
 	char * t = output;
-	t += sprintf(t,"\033[22;23;24;");
+	t += sprintf(t,"\033[22;23;");
 	if (*bg == '@') {
 		int _bg = atoi(bg+1);
 		if (_bg < 10) {
@@ -1880,7 +1880,7 @@ void set_colors(const char * fg, const char * bg) {
  * (See set_colors above)
  */
 void set_fg_color(const char * fg) {
-	printf("\033[22;23;24;");
+	printf("\033[22;23;");
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
 		if (_fg < 10) {
@@ -2262,7 +2262,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 	int j = 0; /* Offset in terminal cells */
 
 	const char * last_color = NULL;
-	int was_selecting = 0, was_searching = 0;
+	int was_selecting = 0, was_searching = 0, was_underlining = 0;
 
 	/* Set default text colors */
 	set_colors(COLOR_FG, line->is_current ? COLOR_ALT_BG : COLOR_BG);
@@ -2283,6 +2283,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 			/* If we should be drawing by now... */
 			if (j >= offset) {
+				if (was_underlining) printf("\033[24m");
 				/* Fill remainder with -'s */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
 				printf("-");
@@ -2318,6 +2319,7 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			if (j - offset + c.display_width >= width) {
 				/* We draw this with special colors so it isn't ambiguous */
 				set_colors(COLOR_ALT_FG, COLOR_ALT_BG);
+				if (was_underlining) printf("\033[24m");
 
 				/* If it's wide, draw ---> as needed */
 				while (j - offset < width - 1) {
@@ -2333,8 +2335,10 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 
 			/* Syntax highlighting */
 			const char * color = flag_to_color(c.flags);
+
 			if (c.flags & FLAG_SELECT) {
-				set_colors(COLOR_SELECTFG, COLOR_SELECTBG);
+				if ((c.flags & FLAG_MASK_COLORS) == FLAG_NONE) color = COLOR_SELECTFG;
+				set_colors(color, COLOR_SELECTBG);
 				was_selecting = 1;
 			} else if ((c.flags & FLAG_SEARCH) || (c.flags == FLAG_NOTICE)) {
 				set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
@@ -2352,6 +2356,14 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 					set_fg_color(color);
 					last_color = color;
 				}
+			}
+
+			if ((c.flags & FLAG_UNDERLINE) && !was_underlining) {
+				printf("\033[4m");
+				was_underlining = 1;
+			} else if (!(c.flags & FLAG_UNDERLINE) && was_underlining) {
+				printf("\033[24m");
+				was_underlining = 0;
 			}
 
 			if ((env->mode == MODE_COL_SELECTION || env->mode == MODE_COL_INSERT) &&
@@ -2441,6 +2453,8 @@ void render_line(line_t * line, int width, int offset, int line_no) {
 			i++;
 		}
 	}
+
+	if (was_underlining) printf("\033[24m");
 
 	/**
 	 * Determine what color the rest of the line should be.
@@ -11015,6 +11029,9 @@ void initialize(void) {
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_BOLD", INTEGER_VAL(FLAG_BOLD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_LINK", INTEGER_VAL(FLAG_LINK));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_ESCAPE", INTEGER_VAL(FLAG_ESCAPE));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_EXTRA", INTEGER_VAL(FLAG_EXTRA));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_SPECIAL", INTEGER_VAL(FLAG_SPECIAL));
+	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_UNDERLINE", INTEGER_VAL(FLAG_UNDERLINE));
 
 	_bim_state_chars = krk_newTuple(95);
 	krk_attachNamedObject(&syntaxStateClass->methods, "__chars__", (KrkObj*)_bim_state_chars);
