@@ -6144,6 +6144,7 @@ void command_tab_complete(char * buffer) {
 				}
 
 				/* Build the complete argument name to tab complete */
+				int type = Candidate_Normal;
 				char s[1024] = {0};
 				if (last_slash == tmp) {
 					strcat(s,"/");
@@ -6158,6 +6159,7 @@ void command_tab_complete(char * buffer) {
 				 */
 				if (S_ISDIR(statbuf.st_mode)) {
 					strcat(s,"/");
+					type = Candidate_Command;
 				}
 
 				int skip = 0;
@@ -6168,7 +6170,7 @@ void command_tab_complete(char * buffer) {
 					}
 				}
 				if (!skip) {
-					add_candidate(s, Candidate_Normal);
+					add_candidate(s, type);
 				}
 			}
 			ent = readdir(dirp);
