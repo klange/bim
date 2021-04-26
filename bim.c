@@ -3699,7 +3699,7 @@ BIM_ACTION(open_file_from_line, 0,
 }
 
 int line_matches(line_t * line, char * string) {
-	uint32_t c, state = 0;
+	uint32_t c = 0, state = 0;
 	int i = 0;
 	while (*string) {
 		if (!decode(&state, &c, *string)) {
@@ -4848,7 +4848,7 @@ int convert_to_html(void) {
 	add_string("\n");
 	add_string("			}\n");
 	for (int i = 1; i <= env->tabstop; ++i) {
-		char tmp[10];
+		char tmp[20];
 		sprintf(tmp, ".tab%d", i);
 		add_string("			");
 		add_string(tmp);
