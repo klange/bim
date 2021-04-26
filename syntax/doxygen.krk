@@ -33,6 +33,10 @@ def _make_dox():
         '@warning':    Highlighter.FLAG_NOTICE,
     }
 
+    let doxygen_emphasis_commands = [
+        '@a', '@e', '@em',
+    ]
+
     def doxygen_qualifier(c):
         if isinstance(c,int):
             if c > 0: c = chr(c)
@@ -55,6 +59,11 @@ def _make_dox():
                         while b[0] == ' ': b.skip()
                         while b[0]: b.paint(1, flag)
                         return True
+                if b.findKeywords(doxygen_emphasis_commands, b.FLAG_ESCAPE, doxygen_qualifier):
+                    while b[0] == ' ': b.skip()
+                    while b[0] and b[0] != ' ':
+                        b.paint(1, defaultflag | b.FLAG_UNDERLINE)
+                    return True
                 b.paint(1, defaultflag)
             return True
         return False
