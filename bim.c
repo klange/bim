@@ -10534,6 +10534,25 @@ static KrkValue bim_krk_state_get(int argc, KrkValue argv[], int hasKw) {
 	size_t len = to_eight(charRel, tmp);
 	return OBJECT_VAL(krk_copyString(tmp,len));
 }
+static KrkValue bim_krk_state_getslice(int argc, KrkValue argv[], int hasKw) {
+	BIM_STATE();
+	struct StringBuilder sb = {0};
+	if (!(IS_INTEGER(argv[1]) || IS_NONE(argv[1]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
+	if (!(IS_INTEGER(argv[2]) || IS_NONE(argv[2]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
+	int start = IS_NONE(argv[1]) ? 0 : AS_INTEGER(argv[1]);
+	int end   = IS_NONE(argv[2]) ? (krk_integer_type)(state->line->actual - state->i) : AS_INTEGER(argv[2]);
+	if (end < start) end = start;
+
+	for (int i = start; i < end; ++i) {
+		int charRel = charrel(i);
+		if (charRel == -1) break;
+		char tmp[8] = {0};
+		size_t len = to_eight(charRel, tmp);
+		pushStringBuilderStr(&sb, tmp, len);
+	}
+
+	return finishStringBuilder(&sb);
+}
 static KrkValue bim_krk_state_isdigit(int argc, KrkValue argv[], int hasKw) {
 	if (IS_NONE(argv[1])) return BOOLEAN_VAL(0);
 	if (!IS_STRING(argv[1])) {
@@ -11015,6 +11034,7 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, "commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, "rewind", bim_krk_state_rewind);
 	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
+	krk_defineNative(&syntaxStateClass->methods, "__getslice__", bim_krk_state_getslice);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
