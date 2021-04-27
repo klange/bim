@@ -177,6 +177,8 @@ class BimcmdHighlighter(KrkHighlighter):
                         while self[0] == ' ': self.skip()
                         let filePath = self[0:]
                         if filePath:
+                            if filePath.startswith('~/'):
+                                filePath = filePath.replace('~',os.environ.get('HOME','~'),1)
                             try:
                                 os.stat(filePath)
                                 self.paint(-1, self.FLAG_DIFFPLUS)
