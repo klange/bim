@@ -36,7 +36,7 @@ class GasHighlighter(Highlighter):
         'eax','ebx','ecx','edx','ax','bx','cx','dx','ah','al','bh','bl','ch','cl','dh','dl',
         'edi','esi','esp','ebp','di','si','sp','bp','sph','spl','bph','bpl',
         'cs','ds','es','fs','gs','ss','ip','eip','rip','eflags',
-        'cr0','cr1','cr2','cr3',
+        'cr0','cr1','cr2','cr3','cr4',
     ]]
 
     instructions = [
