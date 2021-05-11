@@ -41,7 +41,7 @@ class CHighlighter(Highlighter):
             else if self[0] == '\\' and not self[1]:
                 self.paint(1, self.FLAG_ESCAPE)
                 return 4
-            else if self[0] == '\\' and self[1] in 'nr\\':
+            else if self[0] == '\\' and self[1] in 'abfnrtv?\\':
                 self.paint(2, self.FLAG_ESCAPE)
                 last = None
             else if self[0] == '\\' and self[1] in '01234567':
