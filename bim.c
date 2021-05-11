@@ -4794,6 +4794,7 @@ int convert_to_html(void) {
 	html_convert_color(COLOR_BG);
 	add_string("\n");
 	add_string("			}\n");
+	add_string("			.ul { text-decoration: underline; }\n");
 	for (int i = 0; i < 15; ++i) {
 		/* For each of the relevant flags... */
 		char tmp[20];
@@ -4903,7 +4904,9 @@ int convert_to_html(void) {
 				if (opened) add_string("</span>");
 				opened = 1;
 				char tmp[100];
-				sprintf(tmp, "<span class=\"s%d\">", c.flags & 0x1F);
+				sprintf(tmp, "<span class=\"s%d%s\">",
+					c.flags & FLAG_MASK_COLORS,
+					(c.flags & FLAG_UNDERLINE) ? " ul" : "");
 				add_string(tmp);
 				last_flag = (c.flags & 0x1F);
 			}
