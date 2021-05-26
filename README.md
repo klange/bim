@@ -201,4 +201,4 @@ Bim is still primarily developed alongside ToaruOS. This repository is a mirror 
 
 ## Community
 
-If you're using Bim, want to contribute to development, or have ideas for new features, join us in `#bim` on Freenode.
+If you're using Bim, want to contribute to development, or have ideas for new features, join us in `#bim` on Libera.
