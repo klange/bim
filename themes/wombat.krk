@@ -5,7 +5,8 @@ from themes import ansi
 @defineTheme
 def wombat():
     if checkprop('can_256color'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","5;230")
     setcolor("text-bg","5;235")
     setcolor("alternate-fg","5;244")

@@ -4,7 +4,8 @@ from themes import ansi
 @defineTheme
 def citylights():
     if checkprop('can_24bit'):
-        return ansi()
+        colorscheme("ansi")
+        return
     setcolor("text-fg","2;151;178;198")
     setcolor("text-bg","2;29;37;44")
     setcolor("alternate-fg","2;45;55;65")
