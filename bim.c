@@ -5887,7 +5887,8 @@ int process_command(char * cmd) {
 			if (c-cmd == 511) break;
 			if (*c == ' ') {
 				cmd_name[c-cmd] = '\0';
-				argv[1] = c+1;
+				while (*c == ' ') c++;
+				argv[1] = c;
 				if (*argv[1]) argc++;
 				break;
 			}
