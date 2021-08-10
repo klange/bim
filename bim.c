@@ -10809,6 +10809,14 @@ void import_directory(char * dirName) {
 		dirp = opendir(file);
 	}
 	if (!dirp) {
+		/* Try /usr/share/bim */
+		if (dirpath) free(dirpath);
+		dirpath = strdup("/usr/share/bim");
+		sprintf(file, "%s/%s", dirpath, dirName);
+		extra = "/";
+		dirp = opendir(file);
+	}
+	if (!dirp) {
 		/* Try one last fallback */
 		if (dirpath) free(dirpath);
 		dirpath = strdup("/usr/local/share/bim");
