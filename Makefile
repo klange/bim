@@ -5,7 +5,7 @@ LDFLAGS=-rdynamic
 ifeq (Darwin,$(shell uname -s))
   LDLIBS=/usr/local/lib/libkuroko.a -ldl -lpthread
 else
-  LDLIBS=./libkuroko.a -ldl -lpthread
+  LDLIBS=-l:libkuroko.a -ldl -lpthread
 endif
 
 prefix=/usr/local
