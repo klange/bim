@@ -10,9 +10,7 @@ Inspired by Vim (one might say a Bad Imitation) and featuring similar mode-based
 
 Bim is intended as the included text editor in ToaruOS, a hobby operating system built from scratch.
 
-Bim aims to be lightweight and featureful with no external dependencies, providing a modern editing experience in a lightweight, extensible package.
-
-_**NOTE:**_ This branch currently represents a preview of an in-progress rewrite of Bim currently dubbed "Bim 3", which is being rebuilt from the ground up around Kuroko to provide a fully integrated environment for writing plugins and extensions.
+Bim aims to be lightweight and featureful with no external* dependencies, providing a modern editing experience in a lightweight, extensible package.
 
 ## Features
 
@@ -45,6 +43,30 @@ Bim requires a sufficiently Unix-like C library and a C99 compiler with certain 
 Additionally, in this and future versions, a system installation of [Kuroko](https://github.com/kuroko-lang/kuroko) is needed.
 
 Bim has been built successfully for a number of targets, including various BSDs, ToaruOS, Sortix, and others.
+
+### Installation
+
+First, install Kuroko:
+
+```bash
+git clone https://github.com/kuroko-lang/kuroko
+cd kuroko
+make && sudo make install # You can obtain deb packages, or build one with 'fpm' with 'make deb'
+```
+
+Then build Bim:
+
+```bash
+git clone https://github.com/klange/bim
+cd bim
+make && sudo make install
+```
+
+Then install the example config:
+
+```bash
+cp docs/example.bim3rc ~/.bim3rc
+```
 
 ### Terminal Support
 
