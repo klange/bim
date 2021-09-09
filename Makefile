@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS=-g -O2 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell bash docs/git-tag) -Wno-unused-parameter -Wno-unused-result
+CFLAGS=-g -O2 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell docs/git-tag) -Wno-unused-parameter -Wno-unused-result
 LDFLAGS=-rdynamic
 
 ifeq (Darwin,$(shell uname -s))
