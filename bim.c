@@ -3845,6 +3845,7 @@ void open_file(char * file) {
 		if (!f && errno != ENOENT) {
 			render_error("%s: %s", file, strerror(errno));
 			pause_for_key();
+			close_buffer();
 			return;
 		}
 		env->file_name = strdup(file);
