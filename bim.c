@@ -974,12 +974,12 @@ void recalculate_syntax(line_t * line, int line_no) {
 			struct termios old, new;
 			tcgetattr(global_config.tty_in, &old);
 			new = old; new.c_lflag |= ISIG;
-			tcsetattr(global_config.tty_in, TCSAFLUSH, &new);
+			tcsetattr(global_config.tty_in, TCSANOW, &new);
 			ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 			krk_push(OBJECT_VAL(env->syntax->krkFunc));
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callStack(1);
-			tcsetattr(global_config.tty_in, TCSAFLUSH, &old);
+			tcsetattr(global_config.tty_in, TCSANOW, &old);
 			krk_currentThread.stackTop = krk_currentThread.stack + before;
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
