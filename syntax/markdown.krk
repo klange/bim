@@ -67,6 +67,24 @@ class MarkdownHighlighter(Highlighter):
                     while self[0] and self[0] != ')':
                         self.paint(1, self.FLAG_NUMERAL)
                 return 0
+            else if self[0] == '*' and self[1] == '*' and self.isalnum(self[2]) and not self.isalnum(self[-1]):
+                self.paint(2, self.FLAG_BOLD)
+                while self[0] and not (self[0] == '*' and self[1] == '*'):
+                    self.paint(1, self.FLAG_BOLD)
+                if self[0] == '*' and self[1] == '*':
+                    self.paint(2, self.FLAG_BOLD)
+            else if self[0] == '*' and self.isalnum(self[1]) and not self.isalnum(self[-1]):
+                self.paint(1, self.FLAG_COMMENT) # uh
+                while self[0] and self[0] != '*':
+                    self.paint(1, self.FLAG_COMMENT)
+                if self[0] == '*':
+                    self.paint(1, self.FLAG_COMMENT)
+            else if self[0] == '_' and self.isalnum(self[1]) and not self.isalnum(self[-1]):
+                self.paint(1, self.FLAG_COMMENT)
+                while self[0] and self[0] != '_':
+                    self.paint(1, self.FLAG_COMMENT)
+                if self[0] == '_':
+                    self.paint(1, self.FLAG_COMMENT)
             else if self[0]:
                 self.skip()
                 return 0
