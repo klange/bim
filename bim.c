@@ -10536,17 +10536,6 @@ static KrkValue bim_krk_state_getstate(int argc, KrkValue argv[], int hasKw) {
 	}
 	return INTEGER_VAL(state->state);
 }
-static KrkValue bim_krk_state_setstate(int argc, KrkValue argv[], int hasKw) {
-	BIM_STATE();
-	if (argc > 1 && IS_INTEGER(argv[1])) {
-		state->state = AS_INTEGER(argv[1]);
-	} else if (argc > 1 && IS_NONE(argv[1])) {
-		state->state = -1;
-	} else {
-		return krk_runtimeError(vm.exceptions->typeError, "expected int");
-	}
-	return NONE_VAL();
-}
 static KrkValue bim_krk_state_index(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
 	return INTEGER_VAL(state->i);
@@ -11065,12 +11054,10 @@ void initialize(void) {
 
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
-	krk_defineNative(&syntaxStateClass->methods, "set_state", bim_krk_state_setstate); /* TODO property? */
 	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	krk_defineNative(&syntaxStateClass->methods, "i", bim_krk_state_index)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	krk_defineNative(&syntaxStateClass->methods, "lineno", bim_krk_state_lineno)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
 	krk_defineNative(&syntaxStateClass->methods, "__init__", bim_krk_state_init);
-	/* These ones take argumens so they're methods instead of dynamic fields */
 	krk_defineNative(&syntaxStateClass->methods, "findKeywords", bim_krk_state_findKeywords);
 	krk_defineNative(&syntaxStateClass->methods, "cKeywordQualifier", bim_krk_state_cKeywordQualifier)->flags |= KRK_NATIVE_FLAGS_IS_STATIC_METHOD;
 	krk_defineNative(&syntaxStateClass->methods, "isdigit", bim_krk_state_isdigit);
