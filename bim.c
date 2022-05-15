@@ -10850,25 +10850,54 @@ void import_directory(char * dirName) {
 	}
 
 	if (dirpath) {
-		/* This is a dumb hack. */
-		char tmp[4096];
-		sprintf(tmp,
-			"import kuroko\n"
-			"if '%s%s' not in kuroko.module_paths:\n"
-			" kuroko.module_paths.insert(0,'%s%s')\n",
-			dirpath, extra, dirpath, extra);
-		krk_interpret(tmp,"<bim>");
+		/* get kuroko.module_paths */
+		krk_push(krk_valueGetAttribute(OBJECT_VAL(vm.system), "module_paths"));
+		/* calculate dirpath + extra */
+		krk_push(OBJECT_VAL(krk_copyString(dirpath,strlen(dirpath))));
+		krk_push(OBJECT_VAL(krk_copyString(extra,strlen(extra))));
+		krk_addObjects();
+		extern FUNC_SIG(list,insert);
+		FUNC_NAME(list,insert)(3,(KrkValue[]){krk_peek(1),INTEGER_VAL(0),krk_peek(0)},0);
+		krk_pop();
+		krk_pop();
 	}
 
 	if (dirpath) free(dirpath);
 	struct dirent * ent = readdir(dirp);
 	while (ent) {
 		if (str_ends_with(ent->d_name,".krk") && !str_ends_with(ent->d_name,"__init__.krk")) {
-			char * tmp = malloc(strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7);
-			snprintf(tmp, strlen(dirName) + 1 + strlen(ent->d_name) + 1 + 7, "import %s.%s", dirName, ent->d_name);
-			tmp[strlen(tmp)-4] = '\0';
-			krk_interpret(tmp,ent->d_name);
-			free(tmp);
+			/* put "dir.file" onto the stack */
+			krk_push(OBJECT_VAL(krk_copyString(dirName,strlen(dirName))));
+			krk_push(OBJECT_VAL(S(".")));
+			krk_addObjects();
+			krk_push(OBJECT_VAL(krk_copyString(ent->d_name,strlen(ent->d_name)-4)));
+			krk_addObjects();
+
+			/* import that */
+			krk_doRecursiveModuleLoad(AS_STRING(krk_peek(0)));
+
+			if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
+				krk_dumpTraceback();
+				render_error("The above exception was encountered while loading '%s/%s'.", dirName, ent->d_name);
+
+				if (global_config.has_terminal) {
+					/* Prompt to continue */
+					render_commandline_message("Continue loading modules? (y/N) ");
+					int key;
+					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+					if (key != 'y') {
+						krk_resetStack();
+						break;
+					}
+				} else {
+					render_error("Press ENTER to continue loading.");
+					int c;
+					while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
+				}
+			}
+
+			/* reset the stack */
+			krk_resetStack();
 		}
 		ent = readdir(dirp);
 	}
