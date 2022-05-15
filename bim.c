@@ -10557,32 +10557,41 @@ static KrkValue bim_krk_state_lineno(int argc, KrkValue argv[], int hasKw) {
 }
 static KrkValue bim_krk_state_get(int argc, KrkValue argv[], int hasKw) {
 	BIM_STATE();
-	long arg = AS_INTEGER(argv[1]);
-	int charRel = charrel(arg);
-	if (charRel == -1) return NONE_VAL();
-	if (charRel >= 32 && charRel <= 126) return _bim_state_chars->values.values[charRel - 32];
-	char tmp[8] = {0};
-	size_t len = to_eight(charRel, tmp);
-	return OBJECT_VAL(krk_copyString(tmp,len));
-}
-static KrkValue bim_krk_state_getslice(int argc, KrkValue argv[], int hasKw) {
-	BIM_STATE();
-	struct StringBuilder sb = {0};
-	if (!(IS_INTEGER(argv[1]) || IS_NONE(argv[1]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
-	if (!(IS_INTEGER(argv[2]) || IS_NONE(argv[2]))) return krk_runtimeError(vm.exceptions->typeError, "Bad index");
-	int start = IS_NONE(argv[1]) ? 0 : AS_INTEGER(argv[1]);
-	int end   = IS_NONE(argv[2]) ? (krk_integer_type)(state->line->actual - state->i) : AS_INTEGER(argv[2]);
-	if (end < start) end = start;
 
-	for (int i = start; i < end; ++i) {
-		int charRel = charrel(i);
-		if (charRel == -1) break;
+	/* non-slice item */
+	if (IS_INTEGER(argv[1])) {
+		long arg = AS_INTEGER(argv[1]);
+		int charRel = charrel(arg);
+		if (charRel == -1) return NONE_VAL();
+		if (charRel >= 32 && charRel <= 126) return _bim_state_chars->values.values[charRel - 32];
 		char tmp[8] = {0};
 		size_t len = to_eight(charRel, tmp);
-		pushStringBuilderStr(&sb, tmp, len);
-	}
+		return OBJECT_VAL(krk_copyString(tmp,len));
+	} else if (IS_slice(argv[1])) {
+		struct StringBuilder sb = {0};
 
-	return finishStringBuilder(&sb);
+		extern int krk_extractSlicer(const char * _method_name, KrkValue slicerVal, krk_integer_type count, krk_integer_type *start, krk_integer_type *end, krk_integer_type *step);
+		krk_integer_type start, end, step;
+		if (krk_extractSlicer("__getitem__", argv[1], state->line->actual - state->i, &start, &end, &step)) {
+			return NONE_VAL();
+		}
+
+		krk_integer_type i = start;
+
+		while ((step < 0) ? (i > end) : (i < end)) {
+			int charRel = charrel(i);
+			if (charRel == -1) break;
+			char tmp[8] = {0};
+			size_t len = to_eight(charRel, tmp);
+			pushStringBuilderStr(&sb, tmp, len);
+			i += step;
+		}
+
+		return finishStringBuilder(&sb);
+	} else {
+		return krk_runtimeError(vm.exceptions->typeError, "%s() expects %s, not '%s'",
+			"__getitem__", "int or slice", krk_typeName(argv[1]));
+	}
 }
 static KrkValue bim_krk_state_isdigit(int argc, KrkValue argv[], int hasKw) {
 	if (IS_NONE(argv[1])) return BOOLEAN_VAL(0);
@@ -11073,7 +11082,6 @@ void initialize(void) {
 	krk_defineNative(&syntaxStateClass->methods, "commentBuzzwords", bim_krk_state_commentBuzzwords);
 	krk_defineNative(&syntaxStateClass->methods, "rewind", bim_krk_state_rewind);
 	krk_defineNative(&syntaxStateClass->methods, "__getitem__", bim_krk_state_get);
-	krk_defineNative(&syntaxStateClass->methods, "__getslice__", bim_krk_state_getslice);
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_NONE", INTEGER_VAL(FLAG_NONE));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_KEYWORD", INTEGER_VAL(FLAG_KEYWORD));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_STRING", INTEGER_VAL(FLAG_STRING));
