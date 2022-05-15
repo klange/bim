@@ -11031,13 +11031,19 @@ void initialize(void) {
 	global_config.tab_indicator = strdup(">");
 	global_config.space_indicator = strdup("-");
 
-#if 0
-	krk_initVM(KRK_GLOBAL_CALLGRIND); /* no debug flags */
-	vm.callgrindFile = fopen("callgrind.out","w");
-#else
-	krk_initVM(0); /* no debug flags */
-#endif
+	/* Initialize Kuroko runtime context */
+	krk_initVM(0);
 
+	/**
+	 * Build the 'bim' module:
+	 * @c bindHighlighter Applied to syntax highlighter classes to register them.
+	 * @c getCommands     Returns a list of bim command objects.
+	 * @c themes          dict, theme names to theme functions.
+	 * @c defineTheme     Applied to theme functions to register them.
+	 * @c highlighters    dict, syntax highlighter names to highlighter classes.
+	 * @c getDocumentText Return a string with the full contents of the current buffer.
+	 * @c renderError     Binding to render_error.
+	 */
 	KrkInstance * bimModule = krk_newInstance(vm.baseClasses->moduleClass);
 	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
 	krk_attachNamedObject(&bimModule->fields, "__name__", (KrkObj*)S("bim"));
@@ -11048,10 +11054,14 @@ void initialize(void) {
 	krk_defineNative(&bimModule->fields, "defineTheme", krk_bim_define_theme);
 	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
-
 	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
 	krk_defineNative(&bimModule->fields, "renderError", krk_bim_renderError);
 
+	/**
+	 * Class representing a BIM_ACTION.
+	 * Actions end up in __builtins__, which is dirty, but done for config reasons.
+	 * Calling an action executes it.
+	 */
 	makeClass(bimModule, &ActionDef, "Action", vm.baseClasses->objectClass);
 	ActionDef->allocSize = sizeof(struct ActionDef);
 	krk_defineNative(&ActionDef->methods, "__call__", bim_krk_action_call);
@@ -11063,11 +11073,15 @@ void initialize(void) {
 		krk_attachNamedObject(&vm.builtins->fields, a->name, (KrkObj*)actionObj);
 	}
 
+	/* Class representing a BIM_COMMAND. Works the same as actions. */
 	makeClass(bimModule, &CommandDef, "Command", vm.baseClasses->objectClass);
 	CommandDef->allocSize = sizeof(struct CommandDef);
 	krk_defineNative(&CommandDef->methods, "__call__", bim_krk_command_call);
 	krk_finalizeClass(CommandDef);
 
+	/* For silly legacy config reasons, we have a special 'global' namespace
+	 * that we just shove into __builtins__. This contains all of the command
+	 * objects that are bound with names starting with "global.", naturally. */
 	KrkInstance * global = krk_newInstance(vm.baseClasses->objectClass);
 	krk_attachNamedObject(&vm.builtins->fields, "global", (KrkObj*)global);
 
@@ -11081,6 +11095,36 @@ void initialize(void) {
 		}
 	}
 
+	/**
+	 * SyntaxState is the base class for syntax highlighters.
+	 *
+	 * @class SyntaxState
+	 *  @e Properties
+	 *   @b state  Read-write access to the underlying state number (used for passing context between lines)
+	 *   @b i      Read access to the offset into the line.
+	 *   @b lineno Read access to the line number of the line being highlighted.
+	 *
+	 *  @e Methods
+	 *   @b findKeywords()     Takes a list of keywords and highlights with a given flag based on a qualifier.
+	 *   @b isdigit()          Determines if the argument character is a "digit" (0-9)
+	 *   @b isxdigit()         Determines if the argument character is a "hex digit" (0-9, a-f, A-F)
+	 *   @b paint()            Paints a number of character cells a given color and advances the highlighter.
+	 *   @b paintComment()     Paints an end-of-line comment, with buzzword handling. Legacy convenience function.
+	 *   @b skip()             Moves the highlighter forward one character cell without painting.
+	 *   @b matchAndPaint()    Similar to @c findKeywords but only highlights one thing.
+	 *   @b commentBuzzwords() Detects and automatically highlights common comment buzzwords. Legacy convenience function.
+	 *   @b rewind()           Rewinds the highlighter, moving it back to a previous character cell.
+	 *   @b __getitem__()      Index into character cells of the current line from the highlighter.
+	 *                         Note, negative indexes will reference cells before the 'cursor', but this
+	 *                         does not apply to slicing, which treats the rest of the line (starting at the
+	 *                         cursor) as a single string, thus -1 is the last character of the line.
+	 *                         Indexing returns @c None rather than raising an IndexError if the requested
+	 *                         character is out of range, similar to behavior of the C @c charrel interface.
+	 *  @e Flags
+	 *   These flags supply the C FLAG_ constants. Unfortunately, this is kinda slow, and
+	 *   it would be nice to have some sort of compile-time constant available so that these
+	 *   don't have to imply attribute lookups at runtime...
+	 */
 	makeClass(bimModule, &syntaxStateClass, "SyntaxState", vm.baseClasses->objectClass);
 	syntaxStateClass->allocSize = sizeof(struct SyntaxState);
 	krk_defineNative(&syntaxStateClass->methods, "state", bim_krk_state_getstate)->flags |= KRK_NATIVE_FLAGS_IS_DYNAMIC_PROPERTY;
@@ -11116,6 +11160,7 @@ void initialize(void) {
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_SPECIAL", INTEGER_VAL(FLAG_SPECIAL));
 	krk_attachNamedValue(&syntaxStateClass->methods, "FLAG_UNDERLINE", INTEGER_VAL(FLAG_UNDERLINE));
 
+	/* This is a dumb cache of characters to avoid recreating them all the time */
 	_bim_state_chars = krk_newTuple(95);
 	krk_attachNamedObject(&syntaxStateClass->methods, "__chars__", (KrkObj*)_bim_state_chars);
 	for (int c = 0; c < 95; ++c) {
