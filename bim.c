@@ -10244,6 +10244,7 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 	}
 	/* Otherwise, we can look at the result here. */
 	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
+		krk_attachNamedValue(&vm.builtins->fields, "_", out);
 		krk_push(out);
 		KrkValue repr = krk_callDirect(krk_getType(out)->_reprer, 1);
 		if (IS_STRING(repr)) {
