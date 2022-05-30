@@ -1,12 +1,21 @@
 TARGET=bim
-CFLAGS=-g -O2 -std=c99 -Wvla -pedantic -Wall -Wextra -I. $(shell docs/git-tag) -Wno-unused-parameter -Wno-unused-result
-LDFLAGS=-rdynamic
+CFLAGS ?=-g -O2 -std=gnu11 -Wvla -pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unused-result
+LDFLAGS ?=-rdynamic
+
+CFLAGS += $(shell docs/git-tag)
 
 ifeq (Darwin,$(shell uname -s))
-  LDLIBS=/usr/local/lib/libkuroko.a -ldl -lpthread
+  LDLIBS=/usr/local/lib/libkuroko.a
 else
-  LDLIBS=-l:libkuroko.a -ldl -lpthread
+  LDLIBS=-l:libkuroko.a
 endif
+
+ifeq (klange,$(shell echo $$USER))
+  CFLAGS +=  -I../kuroko/src
+  LDLIBS=../kuroko/libkuroko.a
+endif
+
+LDLIBS +=  -ldl -lpthread
 
 prefix=/usr/local
 exec_prefix=$(prefix)
@@ -18,20 +27,15 @@ INSTALL=install
 INSTALL_PROGRAM=$(INSTALL)
 INSTALL_DATA=$(INSTALL) -m 644
 
-SYNTAXES = $(patsubst %.c, %.o, $(sort $(wildcard syntax/*.c)))
-HEADERS = $(wildcard bim-*.h)
-
 .PHONY: all clean distclean install install-strip uninstall
 
 all: $(TARGET)
 
-syntax/*.o: $(HEADERS)
-*.o: $(HEADERS)
-
+*.o: bim.h
 bim: bim.o
 
 clean:
-	-rm -f $(TARGET) bim.o $(SYNTAXES)
+	-rm -f $(TARGET) bim.o
 
 distclean: clean
 
@@ -51,7 +55,7 @@ uninstall:
 
 .PHONY: tags
 tags:
-	ctags --c-kinds=+lx bim.c bim-*.h syntax/*
+	ctags --c-kinds=+lx bim.c bim.h syntax/*
 	# Action definitions create functions with the same name
 	ctags --langdef=bim --language-force=bim --regex-bim='/^BIM_ACTION.([a-zA-Z_]*),/\1/f/' --append bim.c
 	# Command definitions are prefixed with bim_command_
