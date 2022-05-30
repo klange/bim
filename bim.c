@@ -10873,14 +10873,14 @@ void import_directory(char * dirName) {
 	if (dirpath) {
 		/* get kuroko.module_paths */
 		krk_push(krk_valueGetAttribute(OBJECT_VAL(vm.system), "module_paths"));
+		krk_push(krk_valueGetAttribute(krk_peek(0), "insert"));
+		krk_push(INTEGER_VAL(0));
 		/* calculate dirpath + extra */
 		krk_push(OBJECT_VAL(krk_copyString(dirpath,strlen(dirpath))));
 		krk_push(OBJECT_VAL(krk_copyString(extra,strlen(extra))));
 		krk_addObjects();
-		extern FUNC_SIG(list,insert);
-		FUNC_NAME(list,insert)(3,(KrkValue[]){krk_peek(1),INTEGER_VAL(0),krk_peek(0)},0);
-		krk_pop();
-		krk_pop();
+		krk_callStack(2); /* result value is popped */
+		krk_pop(); /* should just be the list */
 	}
 
 	if (dirpath) free(dirpath);
