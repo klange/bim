@@ -11020,7 +11020,12 @@ static KrkValue krk_bim_renderError(int argc, const KrkValue argv[], int hasKw) 
  */
 void initialize(void) {
 	/* Force empty locale */
+#ifdef __APPLE__
+	/* TODO figure out a better way to do this; maybe just LC_CTYPE? */
+	setlocale(LC_ALL, "en_US.UTF-8");
+#else
 	setlocale(LC_ALL, "");
+#endif
 
 	/* Set up default key mappings */
 #define CLONE_MAP(map) do { \
