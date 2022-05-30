@@ -846,7 +846,7 @@ const char * flag_to_color(int _flag) {
  * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
  * so it can be used for prefix checking for things that need further special handling.
  */
-int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
+static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
 	if (keyword_qualifier(lastchar())) return 0;
 	if (!keyword_qualifier(charat())) return 0;
 	int i = state->i;
@@ -870,7 +870,7 @@ int match_and_paint(struct syntax_state * state, const char * keyword, int flag,
 /**
  * This is a basic character matcher for "keyword" characters.
  */
-int simple_keyword_qualifier(int c) {
+static int simple_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
@@ -879,7 +879,7 @@ int simple_keyword_qualifier(int c) {
  * Since there are a lot of comment highlighters, this is provided
  * as a common function that can be used by multiple highlighters.
  */
-int common_comment_buzzwords(struct syntax_state * state) {
+static int common_comment_buzzwords(struct syntax_state * state) {
 	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
 	else if (match_and_paint(state, "XXX", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
 	else if (match_and_paint(state, "FIXME", FLAG_ERROR, simple_keyword_qualifier)) { return 1; }
@@ -891,7 +891,7 @@ int common_comment_buzzwords(struct syntax_state * state) {
  * (Some languages have comments that can continue with a \ - don't use this!)
  * Assumes you've already painted your comment start characters.
  */
-int paint_comment(struct syntax_state * state) {
+static int paint_comment(struct syntax_state * state) {
 	while (charat() != -1) {
 		if (common_comment_buzzwords(state)) continue;
 		else { paint(1, FLAG_COMMENT); }
@@ -902,7 +902,7 @@ int paint_comment(struct syntax_state * state) {
 /**
  * Find and return a highlighter by name, or return NULL if none was found.
  */
-struct syntax_definition * find_syntax_calculator(const char * name) {
+static struct syntax_definition * find_syntax_calculator(const char * name) {
 	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
 		if (!strcmp(s->name, name)) {
 			return s;
@@ -10515,7 +10515,7 @@ static KrkValue krk_bim_define_theme(int argc, const KrkValue argv[], int hasKw)
 	return argv[0];
 }
 
-int c_keyword_qualifier(int c) {
+static int c_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
