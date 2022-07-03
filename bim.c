@@ -11309,7 +11309,7 @@ void dump_commands(void) {
 	printf("|-------------|-----------------|\n");
 	offsets = malloc(sizeof(int) * flex_prefix_commands_count);
 	for (int i = 0; i < flex_prefix_commands_count; ++i) offsets[i] = i;
-	qsort(offsets, flex_prefix_commands_count, sizeof(int), sort_regular_commands);
+	qsort(offsets, flex_prefix_commands_count, sizeof(int), sort_prefix_commands);
 	for (int i = 0; i < flex_prefix_commands_count; ++i) {
 		printf("| `:%s...` | %s |\n", !strcmp(prefix_commands[offsets[i]].name, "`") ? "`(backtick)`" : 
 			prefix_commands[offsets[i]].name, prefix_commands[offsets[i]].description);
