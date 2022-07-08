@@ -26,10 +26,14 @@ class MarkdownHighlighter(Highlighter):
         ('krk', 1000, KrkHighlighter),
     ]
     def nest(name, state, highlighter):
-        self << 0 if self.state < 1 else self.state - state
+        self << (0 if self.state < 1 else self.state - state)
         let sub = highlighter(self)
         while True:
-            sub << sub.calculate()
+            let next = sub.calculate()
+            if next is None:
+                sub << -1
+                break
+            sub << next
             if sub.state != 0: break
         if not sub.state or sub.state == -1: return state
         return sub.state + state
