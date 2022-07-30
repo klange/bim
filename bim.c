@@ -10321,15 +10321,8 @@ static void show_usage(char * argv[]) {
 
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	if (argc < 2) return 1;
-
-	/* In case we're running in a weird context? */
-	int previousExitFrame = krk_currentThread.exitOnFrame;
-	krk_currentThread.exitOnFrame = krk_currentThread.frameCount;
 	krk_runfile(argv[1],argv[1]);
-	krk_currentThread.exitOnFrame = previousExitFrame;
-
 	redraw_all();
-
 	return 0;
 }
 
@@ -10441,13 +10434,7 @@ void load_bimrc(void) {
 		return;
 	}
 
-	char * args[] = {"runkrk", tmp, NULL};
-	if (bim_command_runkrk("runkrk", 2, args)) {
-		/* Wait */
-		render_error("Errors were encountered when loading bimrc. Press ENTER to continue.");
-		int c;
-		while ((c = bim_getch(), c != ENTER_KEY && c != LINE_FEED));
-	}
+	krk_runfile(tmp,tmp);
 	free(tmp);
 }
 
