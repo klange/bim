@@ -6216,23 +6216,10 @@ void command_tab_complete(char * buffer) {
 	}
 
 	/* Hacky port of the kuroko repl completer */
-	{
 _try_kuroko:
-		for (int i = 0; args[arg][i]; ++i) {
-			if (args[arg][i] == ' ') {
-				while (args[arg][i] == ' ') {
-					args[arg][i] = '\0';
-					i++;
-				}
-				start = &args[arg][i];
-				arg++;
-				add_arg(start);
-				i = 0;
-			}
-		}
-
-		KrkScanner scanner = krk_initScanner(args[arg]);
-		KrkToken * space = malloc(sizeof(KrkToken) * (strlen(args[arg]) + 2));
+	{
+		KrkScanner scanner = krk_initScanner(buffer);
+		KrkToken * space = malloc(sizeof(KrkToken) * (strlen(buffer) + 2));
 		int count = 0;
 		do {
 			space[count++] = krk_scanToken(&scanner);
@@ -6284,6 +6271,17 @@ _try_kuroko:
 				isGlobal = 0;
 				root = next;
 				n -= 2; /* To skip every other dot. */
+			}
+
+			if (isGlobal && n < count && (space[count-n-1].type == TOKEN_IMPORT || space[count-n-1].type == TOKEN_FROM)) {
+				KrkInstance * modules = krk_newInstance(vm.baseClasses->objectClass);
+				root = OBJECT_VAL(modules);
+				krk_push(root);
+				for (size_t i = 0; i < vm.modules.capacity; ++i) {
+					KrkTableEntry * entry = &vm.modules.entries[i];
+					if (IS_KWARGS(entry->key)) continue;
+					krk_attachNamedValue(&modules->fields, AS_CSTRING(entry->key), NONE_VAL());
+				}
 			}
 
 			/* Now figure out what we're completing - did we already have a partial symbol name? */
