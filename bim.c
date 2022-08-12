@@ -4568,16 +4568,62 @@ BIM_ACTION(leave_insert, 0,
 		redraw_commandline();
 }
 
+struct MatchQualifier {
+	int (*matchFunc)(struct MatchQualifier*,uint32_t,int);
+	union {
+		uint32_t matchChar;
+		struct {
+			uint32_t * start;
+			uint32_t * end;
+		} matchSquares;
+	};
+};
+
 /**
  * Helper for handling smart case sensitivity.
  */
-int search_matches(uint32_t a, uint32_t b, int mode) {
+int match_char(struct MatchQualifier * self, uint32_t b, int mode) {
 	if (mode == 0) {
-		return a == b;
+		return self->matchChar == b;
 	} else if (mode == 1) {
-		return tolower(a) == tolower(b);
+		return tolower(self->matchChar) == tolower(b);
 	}
 	return 0;
+}
+
+int match_squares(struct MatchQualifier * self, uint32_t c, int mode) {
+	uint32_t * start = self->matchSquares.start;
+	uint32_t * end = self->matchSquares.end;
+	uint32_t * t = start;
+	int good = 1;
+	if (*t == '^') { t++; good = 0; }
+	while (t != end) {
+		uint32_t test = *t++;
+		if (test == '\\' && *t && strchr("\\]",*t)) {
+			test = *t++;
+		} else if (test == '\\' && *t == 't') {
+			test = '\t'; t++;
+		}
+
+		if (*t == '-') {
+			t++;
+			if (t == end) return 0;
+			uint32_t right = *t++;
+			if (right == '\\' && *t && strchr("\\]",*t)) {
+				right = *t++;
+			} else if (right == '\\' && *t == 't') {
+				right = '\t'; t++;
+			}
+			if (mode ? (tolower(c) >= tolower(test) && tolower(c) <= tolower(right)) : (c >= test && c <= right)) return good;
+		} else {
+			if (mode ? (tolower(c) == tolower(test)) : (c == test)) return good;
+		}
+	}
+	return !good;
+}
+
+int match_dot(struct MatchQualifier * self, uint32_t c, int mode) {
+	return 1;
 }
 
 int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *len) {
@@ -4597,59 +4643,77 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			match++;
 			continue;
 		}
+		if (k == line->actual) break;
+
+		struct MatchQualifier matcher = {match_char, .matchChar=*match};
 		if (*match == '.') {
-			if (match[1] == '*') {
-				int greedy = !(match[2] == '?');
-				/* Short-circuit chained .*'s */
-				if (match[greedy ? 2 : 3] == '.' && match[greedy ? 3 : 4] == '*') {
-					int _len;
-					if (subsearch_matches(line, k, &match[greedy ? 2 : 3], ignorecase, &_len)) {
-						if (len) *len = _len + k - j;
-						return 1;
-					}
-					return 0;
-				}
-				int _j = greedy ? line->actual : k;
-				int _break = -1;
-				int _len = -1;
-				if (!match[greedy ? 2 : 3]) {
-					_len = greedy ? (line->actual - _j) : 0;
-					_break = _j;
-				} else {
-					while (_j < line->actual + 1 && _j >= k) {
-						int len;
-						if (subsearch_matches(line, _j, &match[greedy ? 2 : 3], ignorecase, &len)) {
-							_break = _j;
-							_len = len;
-							break;
-						}
-						_j += (greedy ? -1 : 1);
-					}
-				}
-				if (_break != -1) {
-					if (len) *len = (_break - j) + _len;
+			matcher.matchFunc = match_dot;
+			match++;
+		} else if (*match == '\\' && strchr("$^/\\.[?]*+",match[1]) != NULL) {
+			matcher.matchChar = match[1];
+			match += 2;
+		} else if (*match == '\\' && match[1] == 't') {
+			matcher.matchChar = '\t';
+			match += 2;
+		} else if (*match == '[') {
+			uint32_t * s = match+1;
+			uint32_t * e = s;
+			while (*e && *e != ']') {
+				if (*e == '\\' && e[1] == ']') e++;
+				e++;
+			}
+			if (!*e) break; /* fail match on unterminated [] sequence */
+			match = e + 1;
+			matcher.matchFunc = match_squares;
+			matcher.matchSquares.start = s;
+			matcher.matchSquares.end = e;
+		} else {
+			match++;
+		}
+		if (*match == '?') {
+			/* Optional */
+			match++;
+			if (matcher.matchFunc(&matcher, line->text[k].codepoint, ignorecase)) k++;
+			continue;
+		} else if (*match == '+' || *match == '*') {
+			/* Must match at least one */
+			if (*match == '+') {
+				if (!matcher.matchFunc(&matcher, line->text[k].codepoint, ignorecase)) break;
+				k++;
+			}
+			/* Match any */
+			match++;
+			int greedy = 1;
+			if (*match == '?') {
+				/* non-greedy */
+				match++;
+				greedy = 0;
+			}
+
+			int _j = k;
+			while (_j < line->actual + 1) {
+				int _len;
+				if (!greedy && subsearch_matches(line, _j, match, ignorecase, &_len)) {
+					if (len) *len = _len + _j - j;
 					return 1;
 				}
-				return 0;
-			} else {
-				if (k >= line->actual) return 0;
-				match++;
-				k++;
-				continue;
+				if (_j < line->actual && !matcher.matchFunc(&matcher, line->text[_j].codepoint, ignorecase)) break;
+				_j++;
 			}
-		}
-		if (*match == '\\' && (match[1] == '$' || match[1] == '^' || match[1] == '/' || match[1] == '\\' || match[1] == '.')) {
-			match++;
-		} else if (*match == '\\' && match[1] == 't') {
-			if (line->text[k].codepoint != '\t') break;
-			match += 2;
+			if (!greedy) return 0;
+			while (_j >= k) {
+				int _len;
+				if (subsearch_matches(line, _j, match, ignorecase, &_len)) {
+					if (len) *len = _len + _j - j;
+					return 1;
+				}
+				_j--;
+			}
+			return 0;
+		} else {
+			if (!matcher.matchFunc(&matcher, line->text[k].codepoint, ignorecase)) break;
 			k++;
-			continue;
 		}
-		if (k == line->actual) break;
-		if (!search_matches(*match, line->text[k].codepoint, ignorecase)) break;
-		match++;
-		k++;
 	}
 	return 0;
 }
