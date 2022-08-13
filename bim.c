@@ -42,6 +42,7 @@ global_config_t global_config = {
 	.command_offset = 0,
 	.command_col_no = 0,
 	.history_point = -1,
+	.search_point = -1,
 	/* Bitset starts here */
 	.highlight_on_open = 1,
 	.initial_file_is_read_only = 0,
@@ -4837,6 +4838,7 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 
 #define COMMAND_HISTORY_MAX 255
 unsigned char * command_history[COMMAND_HISTORY_MAX] = {NULL};
+unsigned char * search_history[COMMAND_HISTORY_MAX] = {NULL};
 
 /**
  * Add a command to the history. If that command was
@@ -4844,12 +4846,12 @@ unsigned char * command_history[COMMAND_HISTORY_MAX] = {NULL};
  * otherwise, the whole list is shifted backwards and
  * overflow is freed up.
  */
-void insert_command_history(char * cmd) {
+void insert_command_history(unsigned char ** which_history, char * cmd) {
 	/* See if this is already in the history. */
 	size_t amount_to_shift = COMMAND_HISTORY_MAX - 1;
-	for (int i = 0; i < COMMAND_HISTORY_MAX && command_history[i]; ++i) {
-		if (!strcmp((char*)command_history[i], cmd)) {
-			free(command_history[i]);
+	for (int i = 0; i < COMMAND_HISTORY_MAX && which_history[i]; ++i) {
+		if (!strcmp((char*)which_history[i], cmd)) {
+			free(which_history[i]);
 			amount_to_shift = i;
 			break;
 		}
@@ -4857,13 +4859,13 @@ void insert_command_history(char * cmd) {
 
 	/* Remove last entry that will roll off the stack */
 	if (amount_to_shift == COMMAND_HISTORY_MAX - 1) {
-		if (command_history[COMMAND_HISTORY_MAX-1]) free(command_history[COMMAND_HISTORY_MAX-1]);
+		if (which_history[COMMAND_HISTORY_MAX-1]) free(which_history[COMMAND_HISTORY_MAX-1]);
 	}
 
 	/* Roll the history */
-	memmove(&command_history[1], &command_history[0], sizeof(char *) * (amount_to_shift));
+	memmove(&which_history[1], &which_history[0], sizeof(char *) * (amount_to_shift));
 
-	command_history[0] = (unsigned char*)strdup(cmd);
+	which_history[0] = (unsigned char*)strdup(cmd);
 }
 
 static uint32_t term_colors[] = {
@@ -6637,24 +6639,6 @@ done:
 #define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
 #define _syn_restore() do { env->syntax = global_config.command_syn_back; } while (0)
 
-#define _restore_history(point) do { \
-	unsigned char * t = command_history[point]; \
-	global_config.command_col_no = 1; \
-	global_config.command_buffer->actual = 0; \
-	_syn_command(); \
-	uint32_t state = 0; \
-	uint32_t c = 0; \
-	while (*t) { \
-		if (!decode(&state, &c, *t)) { \
-			char_t _c = {codepoint_width(c), 0, c}; \
-			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1); \
-			global_config.command_col_no++; \
-		} else if (state == UTF8_REJECT) state = 0; \
-		t++; \
-	} \
-	_syn_restore(); \
-} while (0)
-
 /**
  * Draw the command buffer and any prefix.
  */
@@ -6767,10 +6751,7 @@ BIM_ACTION(enter_command, 0,
 	render_command_input_buffer();
 }
 
-BIM_ACTION(command_accept, 0,
-	"Accept the command input and run the requested command."
-)(void) {
-	/* Convert command buffer to UTF-8 char-array string */
+static char * command_buffer_to_utf8(void) {
 	size_t size = 0;
 	for (int i = 0; i < global_config.command_buffer->actual; ++i) {
 		char tmp[8] = {0};
@@ -6782,6 +6763,14 @@ BIM_ACTION(command_accept, 0,
 		t += to_eight(global_config.command_buffer->text[i].codepoint, t);
 	}
 	*t = '\0';
+	return tmp;
+}
+
+BIM_ACTION(command_accept, 0,
+	"Accept the command input and run the requested command."
+)(void) {
+	/* Convert command buffer to UTF-8 char-array string */
+	char * tmp = command_buffer_to_utf8();
 
 	/* Free the original editing buffer */
 	free(global_config.command_buffer);
@@ -6789,7 +6778,7 @@ BIM_ACTION(command_accept, 0,
 
 	/* Run the converted command */
 	global_config.break_from_selection = 0;
-	insert_command_history(tmp);
+	insert_command_history(command_history, tmp);
 	global_config.overlay_mode = OVERLAY_MODE_NONE;
 	process_command(tmp);
 	free(tmp);
@@ -6871,24 +6860,52 @@ BIM_ACTION(command_backspace, 0,
 	global_config.command_offset = 0;
 }
 
-BIM_ACTION(command_scroll_history, ARG_IS_CUSTOM,
-	"Scroll through command input history."
-)(int direction) {
+static void _restore_history(unsigned char **which_history, int point) {
+	unsigned char * t = which_history[point];
+	global_config.command_col_no = 1;
+	global_config.command_buffer->actual = 0;
+	_syn_command();
+	uint32_t state = 0;
+	uint32_t c = 0;
+	while (*t) {
+		if (!decode(&state, &c, *t)) {
+			char_t _c = {codepoint_width(c), 0, c};
+			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
+			global_config.command_col_no++;
+		} else if (state == UTF8_REJECT) state = 0;
+		t++;
+	}
+	_syn_restore();
+}
+
+static void _scroll_history(int direction, unsigned char **which_history, int * which_point) {
 	if (direction == -1) {
-		if (command_history[global_config.history_point+1]) {
-			_restore_history(global_config.history_point+1);
-			global_config.history_point++;
+		if (which_history[*which_point+1]) {
+			_restore_history(which_history, *which_point+1);
+			(*which_point)++;
 		}
 	} else {
-		if (global_config.history_point > 0) {
-			global_config.history_point--;
-			_restore_history(global_config.history_point);
+		if (*which_point > 0) {
+			(*which_point)--;
+			_restore_history(which_history, *which_point);
 		} else {
-			global_config.history_point = -1;
+			*which_point = -1;
 			global_config.command_col_no = 1;
 			global_config.command_buffer->actual = 0;
 		}
 	}
+}
+
+BIM_ACTION(command_scroll_history, ARG_IS_CUSTOM,
+	"Scroll through command input history."
+)(int direction) {
+	_scroll_history(direction, command_history, &global_config.history_point);
+}
+
+BIM_ACTION(command_scroll_search_history, ARG_IS_CUSTOM,
+	"Scroll through search input history."
+)(int direction) {
+	_scroll_history(direction, search_history, &global_config.search_point);
 }
 
 BIM_ACTION(command_word_left, 0,
@@ -7209,6 +7226,10 @@ BIM_ACTION(search_accept, 0,
 		global_config.search[i] = global_config.command_buffer->text[i].codepoint;
 	}
 	global_config.search[global_config.command_buffer->actual] = 0;
+
+	char * tmp = command_buffer_to_utf8();
+	insert_command_history(search_history, tmp);
+	free(tmp);
 
 _finish:
 	/* Free the original editing buffer */
@@ -9965,8 +9986,8 @@ struct action_map _FILESEARCH_MAP[] = {
 struct action_map _SEARCH_MAP[] = {
 	{KEY_ENTER,    search_accept, 0, 0},
 
-	{KEY_UP,       NULL, 0, 0},
-	{KEY_DOWN,     NULL, 0, 0},
+	{KEY_UP,        command_scroll_search_history, opt_arg, -1}, /* back */
+	{KEY_DOWN,      command_scroll_search_history, opt_arg, 1}, /* forward */
 
 	{-1, NULL, 0, 0}
 };
