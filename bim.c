@@ -9219,13 +9219,20 @@ _finish_completion:
  * some effort when trying to search for things we pulled from the outside world.
  * (eg., ctags search terms)
  */
-void set_search_from_bytes(char * bytes) {
+static void set_search_from_bytes(char * bytes) {
 	if (global_config.search) free(global_config.search);
-	global_config.search = malloc(sizeof(uint32_t) * (strlen(bytes) + 1));
+	global_config.search = malloc(sizeof(uint32_t) * (strlen(bytes) * 2 + 1));
 	uint32_t * s = global_config.search;
 	char * tmp = bytes;
 	uint32_t c, istate = 0;
 	while (*tmp) {
+		if (strchr("\\.()[]+*?", *tmp)) {
+			*s++ = '\\';
+			*s++ = *tmp;
+			*s = 0;
+			tmp++;
+			continue;
+		}
 		if (!decode(&istate, &c, *tmp)) {
 			*s = c;
 			s++;
@@ -9234,6 +9241,15 @@ void set_search_from_bytes(char * bytes) {
 			istate = 0;
 		}
 		tmp++;
+	}
+}
+
+static void _perform_correct_search(struct completion_match * matches, int i) {
+	if (matches[i].search[0] == '/') {
+		set_search_from_bytes(&matches[i].search[1]);
+		search_next();
+	} else {
+		goto_line(atoi(matches[i].search));
 	}
 }
 
@@ -9259,22 +9275,13 @@ BIM_ACTION(goto_definition, 0,
 		goto _done;
 	}
 
-#define _perform_correct_search(i) do { \
-		if (matches[i].search[0] == '/') { \
-			set_search_from_bytes(&matches[i].search[1]); \
-			search_next(); \
-		} else { \
-			goto_line(atoi(matches[i].search)); \
-		} \
-	} while (0)
-
 	if (env->file_name && !strcmp(matches[0].file, env->file_name)) {
-		_perform_correct_search(0);
+		_perform_correct_search(matches, 0);
 	} else {
 		/* Check if there were other matches that are in this file */
 		for (int i =1; env->file_name && i < matches_count; ++i) {
 			if (!strcmp(matches[i].file, env->file_name)) {
-				_perform_correct_search(i);
+				_perform_correct_search(matches, i);
 				goto _done;
 			}
 		}
@@ -9284,7 +9291,7 @@ BIM_ACTION(goto_definition, 0,
 				if (left_buffer && buffers[i] != left_buffer && buffers[i] != right_buffer) unsplit();
 				env = buffers[i];
 				redraw_tabbar();
-				_perform_correct_search(i);
+				_perform_correct_search(matches, i);
 				goto _done;
 			}
 		}
@@ -9292,7 +9299,7 @@ BIM_ACTION(goto_definition, 0,
 		buffer_t * old_buf = env;
 		open_file(matches[0].file);
 		if (env != old_buf) {
-			_perform_correct_search(0);
+			_perform_correct_search(matches, 0);
 		} else {
 			render_error("Could not locate file containing definition");
 		}
