@@ -4699,7 +4699,13 @@ int regex_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *
 		if (*match == '?') {
 			/* Optional */
 			match++;
-			if (matcher.matchFunc(&matcher, line->text[k].codepoint, ignorecase)) k++;
+			if (matcher.matchFunc(&matcher, line->text[k].codepoint, ignorecase)) {
+				int _len;
+				if (regex_matches(line,k+1,match,ignorecase,&_len, needleout, refindex, refs)) {
+					if (len) *len = _len + k + 1 - j;
+					return 1;
+				}
+			}
 			continue;
 		} else if (*match == '+' || *match == '*') {
 			/* Must match at least one */
