@@ -16,7 +16,7 @@
  */
 #include "bim.h"
 
-#define BIM_VERSION   "3.0.0" TAG
+#define BIM_VERSION   "3.1.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2021 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #include <kuroko/kuroko.h>
