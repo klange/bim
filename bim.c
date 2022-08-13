@@ -8765,6 +8765,18 @@ BIM_ACTION(insert_char_at_column, ARG_IS_INPUT | ACTION_IS_RW,
 	place_cursor_actual();
 }
 
+BIM_ACTION(insert_tab_at_column, ACTION_IS_RW,
+	"Insert an indentation character on multiple lines."
+)(void) {
+	if (env->tabs) {
+		insert_char_at_column('\t');
+	} else {
+		for (int i = 0; i < env->tabstop; ++i) {
+			insert_char_at_column(' ');
+		}
+	}
+}
+
 BIM_ACTION(enter_col_insert, ACTION_IS_RW,
 	"Enter column insert mode."
 )(void) {
@@ -9850,6 +9862,7 @@ struct action_map _COL_INSERT_MAP[] = {
 	{KEY_ENTER,     NULL, 0, 0},
 	{KEY_CTRL_W,    NULL, 0, 0},
 	{KEY_CTRL_V,    insert_char_at_column, opt_char, 0},
+	{'\t',          insert_tab_at_column, 0, 0},
 	{KEY_LEFT,      column_left, 0, 0},
 	{KEY_RIGHT,     column_right, 0, 0},
 	{KEY_UP,        column_up, 0, 0},
@@ -10335,7 +10348,7 @@ void normal_mode(void) {
 				}
 				refresh = 0;
 			} else if (handle_action(COL_INSERT_MAP, key)) {
-				/* pass */
+				refresh = 2;
 			} else if (key < KEY_ESCAPE) {
 				insert_char_at_column(key);
 				refresh = 1;
