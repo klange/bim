@@ -4757,7 +4757,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 /**
  * Replace text on a given line with other text.
  */
-void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col) {
+void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement, int col, int ignorecase, int *out_col, int *line_out) {
 	line_t * line = env->lines[line_no-1];
 	int j = col;
 	while (j < line->actual + 1) {
@@ -4800,6 +4800,14 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 					}
 					t += refs[i].len;
 					rep = 0;
+				} else if (*r == '\\' && (r[1] == 'n')) {
+					++r;
+					env->lines = split_line(env->lines, line_no - 1, j + t);
+					line_no++;
+					line = env->lines[line_no-1];
+					j = 0;
+					t = 0;
+					continue;
 				}
 				if (rep) {
 					_c.codepoint = rep;
@@ -4813,6 +4821,7 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 				}
 			}
 			*out_col = j + t;
+			*line_out = line_no;
 			set_modified();
 
 			for (int i = 0; i < MAX_REFS; ++i) {
@@ -5317,10 +5326,19 @@ int replace_text(int range_top, int range_bot, char divider, char * needle) {
 	for (int line = range_top; line <= range_bot; ++line) {
 		int col = 0;
 		while (col != -1) {
-			perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col);
+			int _line = line;
+			perform_replacement(line, needle_c, replacement_c, col, case_insensitive, &col, &_line);
 			if (col != -1) replacements++;
+			if (_line > line) {
+				range_bot += _line - line;
+				line = _line;
+			}
 			if (!global) break;
 		}
+	}
+	if (env->mode == MODE_LINE_SELECTION) {
+		env->start_line = env->start_line < env->line_no ? range_top : range_bot;
+		env->line_no    = env->start_line < env->line_no ? range_bot : range_top;
 	}
 	free(needle_c);
 	free(replacement_c);
