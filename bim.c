@@ -4626,7 +4626,14 @@ int match_dot(struct MatchQualifier * self, uint32_t c, int mode) {
 	return 1;
 }
 
-int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *len) {
+struct BackRef {
+	int start;
+	int len;
+	uint32_t * copy;
+};
+
+#define MAX_REFS 10
+int regex_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *len, uint32_t **needleout, int refindex, struct BackRef * refs) {
 	int k = j;
 	uint32_t * match = needle;
 	if (*match == '^') {
@@ -4634,7 +4641,13 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 		match++;
 	}
 	while (k < line->actual + 1) {
+		if (needleout && *match == ')') {
+			*needleout = match + 1;
+			if (len) *len = k - j;
+			return 1;
+		}
 		if (*match == '\0') {
+			if (needleout) return 0;
 			if (len) *len = k - j;
 			return 1;
 		}
@@ -4649,7 +4662,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 		if (*match == '.') {
 			matcher.matchFunc = match_dot;
 			match++;
-		} else if (*match == '\\' && strchr("$^/\\.[?]*+",match[1]) != NULL) {
+		} else if (*match == '\\' && strchr("$^/\\.[?]*+()",match[1]) != NULL) {
 			matcher.matchChar = match[1];
 			match += 2;
 		} else if (*match == '\\' && match[1] == 't') {
@@ -4667,6 +4680,19 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			matcher.matchFunc = match_squares;
 			matcher.matchSquares.start = s;
 			matcher.matchSquares.end = e;
+		} else if (*match == '(') {
+			match++;
+			int _len;
+			uint32_t * newmatch;
+			if (!regex_matches(line, k, match, ignorecase, &_len, &newmatch, 0, NULL)) break;
+			match = newmatch;
+			if (refindex && refindex < MAX_REFS) {
+				refs[refindex].start = k;
+				refs[refindex].len = _len;
+				refindex++;
+			}
+			k += _len;
+			continue;
 		} else {
 			match++;
 		}
@@ -4693,7 +4719,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			int _j = k;
 			while (_j < line->actual + 1) {
 				int _len;
-				if (!greedy && subsearch_matches(line, _j, match, ignorecase, &_len)) {
+				if (!greedy && regex_matches(line, _j, match, ignorecase, &_len, needleout, refindex, refs)) {
 					if (len) *len = _len + _j - j;
 					return 1;
 				}
@@ -4703,7 +4729,7 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 			if (!greedy) return 0;
 			while (_j >= k) {
 				int _len;
-				if (subsearch_matches(line, _j, match, ignorecase, &_len)) {
+				if (regex_matches(line, _j, match, ignorecase, &_len, needleout, refindex, refs)) {
 					if (len) *len = _len + _j - j;
 					return 1;
 				}
@@ -4718,6 +4744,10 @@ int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, i
 	return 0;
 }
 
+int subsearch_matches(line_t * line, int j, uint32_t * needle, int ignorecase, int *len) {
+	return regex_matches(line, j, needle, ignorecase, len, NULL, 0, NULL);
+}
+
 /**
  * Replace text on a given line with other text.
  */
@@ -4726,7 +4756,17 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 	int j = col;
 	while (j < line->actual + 1) {
 		int match_len;
-		if (subsearch_matches(line,j,needle,ignorecase,&match_len)) {
+		struct BackRef refs[MAX_REFS] = {0};
+		if (regex_matches(line,j,needle,ignorecase,&match_len,NULL,1,refs)) {
+			refs[0].start = j;
+			refs[0].len = match_len;
+			for (int i = 0; i < MAX_REFS; ++i) {
+				refs[i].copy = malloc(sizeof(uint32_t) * refs[i].len);
+				for (int j = 0; j < refs[i].len; ++j) {
+					refs[i].copy[j] = line->text[j+refs[i].start].codepoint;
+				}
+			}
+
 			/* Perform replacement */
 			for (int i = 0; i < match_len; ++i) {
 				line_delete(line, j+1, line_no-1);
@@ -4734,26 +4774,45 @@ void perform_replacement(int line_no, uint32_t * needle, uint32_t * replacement,
 			int t = 0;
 			for (uint32_t * r = replacement; *r; ++r) {
 				uint32_t rep = *r;
+				char_t _c;
+				_c.flags = 0;
+				line_t * nline = line;
 				if (*r == '\\' && r[1] == 't') {
 					rep = '\t';
 					++r;
 				} else if (*r == '\\' && (r[1] == '\\')) {
 					rep = r[1];
 					++r;
+				} else if (*r == '\\' && (r[1] >= '0' && r[1] <= '9')) {
+					int i = r[1] - '0';
+					++r;
+					nline = line;
+					for (int k = 0; k < refs[i].len; ++k) {
+						_c.codepoint = refs[i].copy[k];
+						_c.display_width = codepoint_width(refs[i].copy[k]);
+						nline = line_insert(nline, _c, j + t + k, line_no -1);
+					}
+					t += refs[i].len;
+					rep = 0;
 				}
-				char_t _c;
-				_c.codepoint = rep;
-				_c.flags = 0;
-				_c.display_width = codepoint_width(rep);
-				line_t * nline = line_insert(line, _c, j + t, line_no -1);
+				if (rep) {
+					_c.codepoint = rep;
+					_c.display_width = codepoint_width(rep);
+					nline = line_insert(nline, _c, j + t, line_no -1);
+					t++;
+				}
 				if (line != nline) {
 					env->lines[line_no-1] = nline;
 					line = nline;
 				}
-				t++;
 			}
 			*out_col = j + t;
 			set_modified();
+
+			for (int i = 0; i < MAX_REFS; ++i) {
+				free(refs[i].copy);
+			}
+
 			return;
 		}
 		j++;
