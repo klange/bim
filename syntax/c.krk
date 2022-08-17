@@ -177,10 +177,9 @@ def makeit():
             if cond <= 0:
                 while None not in self:
                     if '#' in self:
-                        for i in range(self.i):
-                            if self[-i-1] != ' ' and self[-i-1] != '\t':
-                                self.skip()
-                                continue
+                        if any(self[-i-1] != ' ' and self[-i-1] != '\t' for i in range(self.i)):
+                            self.skip()
+                            continue
                         self[1] = FLAG_PRAGMA
                         while ' ' in self:
                             self[1] = FLAG_PRAGMA
