@@ -378,7 +378,7 @@ extern struct syntax_definition * syntaxes;
 
 struct action_def {
 	char * name;
-	void (*action)();
+	void (*action)(int,int,int);
 	int options;
 	const char * description;
 };
@@ -390,12 +390,12 @@ extern struct action_def * mappable_actions;
 #define ARG_IS_PROMPT  0x04 /* Prompts for an argument. */
 #define ACTION_IS_RW   0x08 /* Needs to be able to write. */
 
-#define BIM_ACTION(name, options, description) \
-	void name (); /* Define the action with unknown arguments */ \
+#define BIM_ACTION(name, options, description, ...) \
+	extern void name(__VA_ARGS__); /* Define the action with unknown arguments */ \
 	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action((struct action_def){#name, name, options, description}); \
+		add_action((struct action_def){#name, (void(*)(int,int,int))name, options, description}); \
 	} \
-	void name
+	void name(__VA_ARGS__)
 
 struct command_def {
 	char * name;
@@ -431,7 +431,7 @@ extern void quit(const char * message);
 extern void close_buffer(void);
 extern void set_syntax_by_name(const char * name);
 extern void rehighlight_search(line_t * line);
-extern void try_to_center();
+extern void try_to_center(void);
 extern int read_one_character(char * message);
 extern void bim_unget(int c);
 #define bim_getch() bim_getch_timeout(200)
@@ -494,7 +494,7 @@ extern void pause_for_key(void);
 
 struct action_map {
 	int key;
-	void (*method)();
+	void (*method)(int,int,int);
 	int options;
 	int arg;
 };
