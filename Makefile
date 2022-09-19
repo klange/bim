@@ -1,5 +1,5 @@
 TARGET=bim
-CFLAGS ?=-g -O2 -std=gnu11 -Wvla -pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unused-result
+CFLAGS ?=-g -O2 -std=gnu11 -Wvla -pedantic -Wall -Wextra -Wno-unused-parameter -Wno-unused-result -Wno-cast-function-type
 LDFLAGS ?=-rdynamic
 
 CFLAGS += $(shell docs/git-tag)
