@@ -2802,7 +2802,7 @@ int display_width_of_string(const char * str) {
 	return out;
 }
 
-int statusbar_append_status(int *remaining_width, size_t *filled, char * output, char * base, ...) {
+void statusbar_append_status(int *remaining_width, size_t *filled, char * output, char * base, ...) {
 	va_list args;
 	va_start(args, base);
 	char tmp[100] = {0}; /* should be big enough */
@@ -2818,7 +2818,7 @@ int statusbar_append_status(int *remaining_width, size_t *filled, char * output,
 	totalWidth += 3;
 
 	if (totalWidth + *filled >= 2047) {
-		return 0;
+		return;
 	}
 
 	if (width < *remaining_width) {
@@ -2830,9 +2830,6 @@ int statusbar_append_status(int *remaining_width, size_t *filled, char * output,
 		strcat(output,"]");
 		(*remaining_width) -= width;
 		(*filled) += totalWidth;
-		return width;
-	} else {
-		return 0;
 	}
 }
 
@@ -2883,11 +2880,10 @@ void redraw_statusbar(void) {
 
 	char status_bits[2048] = {0}; /* Sane maximum */
 	size_t filled = 0;
-	int status_bits_width = 0;
 
 	int remaining_width = global_config.term_width - right_width;
 
-#define ADD(...) do { status_bits_width += statusbar_append_status(&remaining_width, &filled, status_bits, __VA_ARGS__); } while (0)
+#define ADD(...) do { statusbar_append_status(&remaining_width, &filled, status_bits, __VA_ARGS__); } while (0)
 	if (env->syntax) {
 		ADD("%s",env->syntax->name);
 	}
