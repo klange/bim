@@ -461,7 +461,7 @@ int bim_getkey(int read_timeout) {
 	return KEY_TIMEOUT;
 }
 
-enum Key key_from_name(char * name) {
+enum Key key_from_name(const char * name) {
 	for (unsigned int i = 0;  i < sizeof(KeyNames)/sizeof(KeyNames[0]); ++i) {
 		if (!strcmp(KeyNames[i].name, name)) return KeyNames[i].keycode;
 	}
@@ -9781,7 +9781,7 @@ BIM_ACTION(paste_end, 0, "End bracketed paste; restore indentation, completion, 
 	redraw_all();
 }
 
-#define MAP_ACTION(key, func, opts, arg) {key, (void(*)(int,int,int))func, opts, arg}
+#define MAP_ACTION(key, func, opts, arg) {key, opts, {{(void(*)(int,int,int))func, arg}}}
 
 struct action_map _NORMAL_MAP[] = {
 	MAP_ACTION(KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0),
@@ -10089,6 +10089,19 @@ int handle_action(struct action_map * basemap, int key) {
 						reset_nav_buffer(0);
 					} else {
 						((action_one_arg)map->method)(-1);
+					}
+				} else if (map->options & opt_krk) {
+					ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
+					krk_push(map->callable);
+					krk_push(INTEGER_VAL(key));
+					krk_push(map->callable);
+					KrkValue result = krk_callStack(2);
+					krk_currentThread.stackTop = krk_currentThread.stack + before;
+					if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
+						render_error("Exception during action: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
+						krk_dumpTraceback();
+						int key = 0;
+						while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 					}
 				} else {
 					((action_no_arg)map->method)();
@@ -11201,6 +11214,62 @@ static KrkValue krk_bim_renderError(int argc, const KrkValue argv[], int hasKw) 
 	return NONE_VAL();
 }
 
+KRK_Function(getDocumentFilename) {
+	if (!env || !env->file_name) return NONE_VAL();
+	return OBJECT_VAL(krk_copyString(env->file_name,strlen(env->file_name)));
+}
+
+static KrkValue krk_bim_custom_action_dict;
+KRK_Function(bindkey) {
+	const char * key = NULL;
+	const char * mode = NULL;
+	KrkValue callable;
+
+	if (!krk_parseArgs("ssV", (const char*[]){"key","mode","callable"},
+		&key, &mode, &callable)) {
+		return NONE_VAL();
+	}
+
+	struct action_map ** mode_map = NULL;
+	for (struct mode_names * m = mode_names; m->name; ++m) {
+		if (!strcmp(m->name, mode)) {
+			mode_map = m->mode;
+			break;
+		}
+	}
+	if (!mode_map) return krk_runtimeError(vm.exceptions->valueError, "invalid mode: %s", mode);
+
+	enum Key keycode = key_from_name(key);
+	if (keycode == -1) return krk_runtimeError(vm.exceptions->valueError, "invalid key: %s", key);
+
+	struct action_map * candidate = NULL;
+	for (struct action_map * m = *mode_map; m->key != -1; ++m) {
+		if (m->key == keycode) {
+			candidate = m;
+			break;
+		}
+	}
+
+	if (!candidate) {
+		/* get size */
+		int len = 0;
+		for (struct action_map * m = *mode_map; m->key != -1; m++, len++);
+		*mode_map = realloc(*mode_map, sizeof(struct action_map) * (len + 2));
+		candidate = &(*mode_map)[len];
+		(*mode_map)[len+1].key = -1;
+	}
+
+	candidate->key = keycode;
+	candidate->options = opt_krk;
+	candidate->callable = callable;
+
+	return 0;
+
+	krk_tableSet(AS_DICT(krk_bim_custom_action_dict), callable, BOOLEAN_VAL(1));
+	return NONE_VAL();
+}
+
+
 /**
  * Run global initialization tasks
  */
@@ -11269,6 +11338,11 @@ void initialize(void) {
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
 	krk_defineNative(&bimModule->fields, "renderError", krk_bim_renderError);
+
+	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
+	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
+	BIND_FUNC(bimModule, bindkey);
+	BIND_FUNC(bimModule, getDocumentFilename);
 
 	/**
 	 * Class representing a BIM_ACTION.
@@ -11548,9 +11622,17 @@ BIM_COMMAND(whatis,"whatis","Describe actions bound to a key in different modes.
 		struct action_map * m = map->map;
 		while (m->key != -1) {
 			if (m->key == key) {
-				struct action_def * action = find_action(m->method);
-				render_commandline_message("%s: %s\n", map->name, action ? action->description : "(unmapped)");
-				found_something = 1;
+				if (m->options & opt_krk) {
+					struct StringBuilder sb = {0};
+					krk_pushStringBuilderFormat(&sb, "%R", m->callable);
+					krk_pushStringBuilder(&sb, '\0');
+					render_commandline_message("%s: %s\n", map->name, sb.bytes);
+					krk_discardStringBuilder(&sb);
+				} else {
+					struct action_def * action = find_action(m->method);
+					render_commandline_message("%s: %s\n", map->name, action ? action->description : "(unmapped)");
+					found_something = 1;
+				}
 				break;
 			}
 			m++;
@@ -11694,15 +11776,20 @@ char * describe_options(int options) {
 void dump_map_commands(const char * name, struct action_map * map) {
 	struct action_map * m = map;
 	while (m->key != -1) {
-		struct action_def * action = find_action(m->method);
-		fprintf(stdout,"mapkey %s %s %s",
-			name,
-			name_from_key(m->key),
-			action ? action->name : "none");
-		if (m->options) {
-			printf(" %s", describe_options(m->options));
-			if (m->options & opt_arg) {
-				printf(" %d", m->arg);
+		if (m->options & opt_krk) {
+			fprintf(stdout,"# key %s bound in %s mode to a krk function",
+				name_from_key(m->key), name);
+		} else {
+			struct action_def * action = find_action(m->method);
+			fprintf(stdout,"mapkey %s %s %s",
+				name,
+				name_from_key(m->key),
+				action ? action->name : "none");
+			if (m->options) {
+				printf(" %s", describe_options(m->options));
+				if (m->options & opt_arg) {
+					printf(" %d", m->arg);
+				}
 			}
 		}
 		printf("\n");

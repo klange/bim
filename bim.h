@@ -494,9 +494,14 @@ extern void pause_for_key(void);
 
 struct action_map {
 	int key;
-	void (*method)(int,int,int);
 	int options;
-	int arg;
+	union {
+		struct {
+			void (*method)(int,int,int);
+			int arg;
+		};
+		KrkValue callable;
+	};
 };
 
 #define opt_rep  0x1 /* This action will be repeated */
@@ -506,6 +511,7 @@ struct action_map {
 #define opt_rw   0x10 /* Must not be read-only */
 #define opt_norm 0x20 /* Returns to normal mode */
 #define opt_byte 0x40 /* Same as opt_char but forces a byte */
+#define opt_krk  0x80
 
 struct mode_names {
 	const char * description;
