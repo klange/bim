@@ -378,7 +378,7 @@ extern struct syntax_definition * syntaxes;
 
 struct action_def {
 	char * name;
-	void (*action)(int,int,int);
+	uintptr_t action;
 	int options;
 	const char * description;
 };
@@ -393,7 +393,7 @@ extern struct action_def * mappable_actions;
 #define BIM_ACTION(name, options, description, ...) \
 	extern void name(__VA_ARGS__); /* Define the action with unknown arguments */ \
 	void __attribute__((constructor)) _install_ ## name (void) { \
-		add_action((struct action_def){#name, (void(*)(int,int,int))name, options, description}); \
+		add_action((struct action_def){#name, (uintptr_t)name, options, description}); \
 	} \
 	void name(__VA_ARGS__)
 
@@ -497,7 +497,7 @@ struct action_map {
 	int options;
 	union {
 		struct {
-			void (*method)(int,int,int);
+			uintptr_t method;
 			int arg;
 		};
 		KrkValue callable;

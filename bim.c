@@ -231,7 +231,7 @@ struct ColorName color_names[] = {
 		flex_ ## name ## _count ++; \
 	}
 
-FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_def){NULL,NULL,0,NULL}))
+FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_def){NULL,0,0,NULL}))
 FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
 FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
@@ -9781,7 +9781,7 @@ BIM_ACTION(paste_end, 0, "End bracketed paste; restore indentation, completion, 
 	redraw_all();
 }
 
-#define MAP_ACTION(key, func, opts, arg) {key, opts, {{(void(*)(int,int,int))func, arg}}}
+#define MAP_ACTION(key, func, opts, arg) {key, opts, {{(uintptr_t)func, arg}}}
 
 struct action_map _NORMAL_MAP[] = {
 	MAP_ACTION(KEY_BACKSPACE, cursor_left_with_wrap, opt_rep, 0),
@@ -10986,7 +10986,7 @@ static KrkValue bim_krk_action_call(int argc, const KrkValue argv[], int hasKw) 
 		}
 	}
 
-	self->action->action(argsAsInts[0], argsAsInts[1], argsAsInts[2]);
+	((action_three_arg)self->action->action)(argsAsInts[0], argsAsInts[1], argsAsInts[2]);
 
 	return NONE_VAL();
 }
@@ -11506,7 +11506,7 @@ void init_terminal(void) {
 	signal(SIGINT,   SIGINT_handler);
 }
 
-struct action_def * find_action(void (*action)(int,int,int)) {
+struct action_def * find_action(uintptr_t action) {
 	if (!action) return NULL;
 	for (int i = 0; i < flex_mappable_actions_count; ++i) {
 		if (action == mappable_actions[i].action) return &mappable_actions[i];
