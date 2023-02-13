@@ -26,7 +26,7 @@ Bim aims to be lightweight and featureful with no external* dependencies, provid
 - Terminal support tested in ToaruOS, Sortix, xterm, urxvt, Gnome, XFCE, Linux and FreeBSD consoles, macOS Terminal.app, iTerm2.
 - Mouse support in Xterm-like terminals.
 - Line and character selection, with yanking (paste buffer).
-- Incremental forward and backward search with match highlighting and smart case sensitivity.
+- Incremental forward and backward search with match highlighting, smart case sensitivity, some regex support.
 - Undo/redo stack.
 - Highlight matching parens/braces.
 - Multi-line insert mode.
@@ -40,7 +40,7 @@ Bim aims to be lightweight and featureful with no external* dependencies, provid
 
 Bim requires a sufficiently Unix-like C library and a C99 compiler with certain GNU extensions (such as `__attribute__((constructor))`).
 
-Additionally, in this and future versions, a system installation of [Kuroko](https://github.com/kuroko-lang/kuroko) is needed.
+Bim 3 also needs [Kuroko](https://github.com/kuroko-lang/kuroko), which has has similar requirements. Bim is typically statically linked with the Kuroko interpreter for Linux builds, and dynamically linked for ToaruOS builds.
 
 Bim has been built successfully for a number of targets, including various BSDs, ToaruOS, Sortix, and others.
 
@@ -172,7 +172,7 @@ Based on selenized by Jan Warchoł
 
 ## Config File
 
-Bim will automatically run commands from `~/.bim3rc` on startup.
+Bim will automatically import `~/.bim3rc` on startup.
 
 A detailed bimrc example is available at [docs/example.bim3rc](docs/example.bim3rc).
 
@@ -201,6 +201,37 @@ Not all syntax highlighters are complete or support all features of their respec
 Bim's core functionality lives in `bim.c`.
 
 Syntax highlighters and themes are written in Kuroko and found in the `syntax` and `themes` directories.
+
+## Regex Syntax
+
+Bim's regular expression engine is something I cooked up haphazardly. Its functionality is somewhat limited and behavior is subject to change.
+
+- Search matching is on a single line. Multi-line matching is not implemented.
+- Some characters with special meaning can be escaped with `\`.
+- `^` matches the start of a line, `$` matches the end.
+- `.` matches any character.
+- `[]` brackets can be used for alternative matches.
+  - `^` as the first character negates the match.
+  - Use `a-b` for simple ranges.
+  - To include `-` in a bracket expression, place it before any other character but after a negating `^`, such as `[-_*]`.
+  - To include `^` in a bracket expression, use it any position after the first. `[^^]` means "anything except `^`".
+  - To include `]` in a bracket expression, use `\]`.
+  - Tab characters may be represented as `\t`. Use `\\` for a literal backslash.
+- `.`, `[]`, and single characters may be combined with the following, with backtracking:
+  - `?` optionally matches once.
+  - `*` matches any number of occurances.
+  - `+` matches at least on occurance.
+  - `*` and `+` are greedy by default, but can be followed with `?` to make them non-greedy.
+- `()` parentheses can be used at the top level for capture groups.
+  - Up to 9 capture groups will capture for replacements.
+  - Parentheses may be nested, but nested groups currently do not capture.
+  - Capture groups can not be combined with repetition operators (but repetition operators can be used within them).
+
+When performing replacements, some escape sequences are supported:
+
+- `\t` inserts a tab character. `\\` inserts a literal backslash.
+- `\0` inserts the entire matched string.
+- `\1` through `\9` insert captured groups.
 
 ## Bim is not Vim
 
