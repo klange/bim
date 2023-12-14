@@ -11128,7 +11128,7 @@ void import_directory(char * dirName) {
 static void findBim(char * argv[]) {
 	/* Try asking /proc */
 	char * binpath = realpath("/proc/self/exe", NULL);
-	if (!binpath) {
+	if (!binpath || (access(binpath, X_OK) != 0)) {
 		if (strchr(argv[0], '/')) {
 			binpath = realpath(argv[0], NULL);
 		} else {
@@ -11466,6 +11466,23 @@ void initialize(void) {
 	krk_resetStack();
 
 	krk_startModule("<bim-syntax>");
+
+#ifdef __toaru__
+# define KUROKO_SEARCH_PATH "/lib/kuroko/"
+#else
+# define KUROKO_SEARCH_PATH "/usr/lib/kuroko/"
+#endif
+
+	/* Try to import the shared object 'os' module. If we can't,
+	 * try adjusting the module_paths to find it. */
+	krk_interpret(
+		"try:\n"
+		"   import os\n"
+		"except:\n"
+		"   import kuroko\n"
+		"   if '" KUROKO_SEARCH_PATH "' not in kuroko.module_paths:\n"
+		"       kuroko.module_paths.append('" KUROKO_SEARCH_PATH "')", "<bim-syntax>");
+
 	import_directory("syntax");
 	krk_startModule("<bim-themes>");
 	import_directory("themes");
