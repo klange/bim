@@ -46,6 +46,8 @@ install: all
 	$(INSTALL_DATA) themes/*.krk $(DESTDIR)$(datadir)/bim/themes/
 	mkdir -p $(DESTDIR)$(datadir)/bim/syntax
 	$(INSTALL_DATA) syntax/*.krk $(DESTDIR)$(datadir)/bim/syntax/
+	mkdir -p $(DESTDIR)$(datadir)/bim/site
+	$(INSTALL_DATA) site/*.krk $(DESTDIR)$(datadir)/bim/site/
 
 install-strip: all
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install

@@ -1,0 +1,16 @@
+import kuroko
+
+let old_modules = kuroko.module_paths
+let directories = ["/usr/lib/kuroko/","/usr/local/lib/kuroko/","/lib/kuroko/"]
+
+while True:
+    try:
+        import os
+        break
+    except:
+        kuroko.module_paths = old_modules
+        if not directories:
+            break
+        kuroko.module_paths = [*old_modules, directories.pop(0)]
+
+
