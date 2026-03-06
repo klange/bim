@@ -5415,6 +5415,11 @@ BIM_COMMAND(e,"e","Open a file") {
 			return 1;
 		}
 
+		if (!env->file_name) {
+			render_error("No file name.");
+			return 1;
+		}
+
 		buffer_t * old_env = env;
 		open_file(env->file_name);
 		buffer_t * new_env = env;
