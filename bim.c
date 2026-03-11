@@ -11257,7 +11257,7 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	return 0;
 }
 
-static KrkValue krk_bim_getDocumentText(int argc, const KrkValue argv[], int hasKw) {
+KRK_Function(getDocumentText) {
 	struct StringBuilder sb = {0};
 
 	int i, j;
@@ -11279,13 +11279,29 @@ static KrkValue krk_bim_getDocumentText(int argc, const KrkValue argv[], int has
 	return finishStringBuilder(&sb);
 }
 
-static KrkValue krk_bim_renderError(int argc, const KrkValue argv[], int hasKw) {
-	static const char * _method_name = "renderError";
-	if (argc != 1 || !IS_STRING(argv[0])) return TYPE_ERROR(str,argv[0]);
-	if (AS_STRING(argv[0])->length == 0)
-		redraw_commandline();
-	else
-		render_error(AS_CSTRING(argv[0]));
+KRK_Function(renderError) {
+	char * message = NULL;
+	size_t message_len = 0;
+
+	if (!krk_parseArgs("|z#",(const char*[]){"message"},
+		&message, &message_len)) return NONE_VAL();
+
+	if (!message || !message_len) redraw_commandline();
+	else render_error("%s", message);
+
+	return NONE_VAL();
+}
+
+KRK_Function(renderMessage) {
+	char * message = NULL;
+	size_t message_len = 0;
+
+	if (!krk_parseArgs("|z#",(const char*[]){"message"},
+		&message, &message_len)) return NONE_VAL();
+
+	if (!message || !message_len) redraw_commandline();
+	else render_commandline_message("%s", message);
+
 	return NONE_VAL();
 }
 
@@ -11422,8 +11438,9 @@ void initialize(void) {
 	BIND_FUNC(bimModule, defineTheme);
 	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
-	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
-	krk_defineNative(&bimModule->fields, "renderError", krk_bim_renderError);
+	BIND_FUNC(bimModule, getDocumentText);
+	BIND_FUNC(bimModule, renderError);
+	BIND_FUNC(bimModule, renderMessage);
 
 	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
