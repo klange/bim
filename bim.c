@@ -11344,6 +11344,17 @@ KRK_Function(bindkey) {
 	return NONE_VAL();
 }
 
+KRK_Function(getkey) {
+	int timeout = DEFAULT_KEY_WAIT;
+	if (!krk_parseArgs("|i",(const char*[]){"timeout"},&timeout)) return NONE_VAL();
+	int key = bim_getkey(timeout);
+	return INTEGER_VAL(key);
+}
+
+KRK_Function(redraw) {
+	redraw_all();
+	return NONE_VAL();
+}
 
 /**
  * Run global initialization tasks
@@ -11418,6 +11429,8 @@ void initialize(void) {
 	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
 	BIND_FUNC(bimModule, bindkey);
 	BIND_FUNC(bimModule, getDocumentFilename);
+	BIND_FUNC(bimModule, getkey);
+	BIND_FUNC(bimModule, redraw);
 
 	/**
 	 * Class representing a BIM_ACTION.
