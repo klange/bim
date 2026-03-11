@@ -10721,23 +10721,25 @@ static int checkClass(KrkClass * _class, KrkClass * base) {
 }
 
 static KrkValue krk_bim_syntax_dict;
-static KrkValue krk_bim_register_syntax(int argc, const KrkValue argv[], int hasKw) {
-	if (argc < 1 || !IS_CLASS(argv[0]) || !checkClass(AS_CLASS(argv[0]), syntaxStateClass))
-		return krk_runtimeError(vm.exceptions->typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(argv[0]));
+KRK_Function(bindHighlighter) {
+	KrkValue cls;
+	if (!krk_parseArgs("V!", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) return NONE_VAL();
+	if (!checkClass(AS_CLASS(cls), syntaxStateClass))
+		return krk_runtimeError(vm.exceptions->typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(cls));
 
-	KrkValue name = krk_valueGetAttribute_default(argv[0], "name", NONE_VAL());
-	KrkValue extensions = krk_valueGetAttribute_default(argv[0], "extensions", NONE_VAL());
-	KrkValue spaces = krk_valueGetAttribute_default(argv[0], "spaces", BOOLEAN_VAL(0));
-	KrkValue calculate = krk_valueGetAttribute_default(argv[0], "calculate", NONE_VAL());
+	KrkValue name = krk_valueGetAttribute_default(cls, "name", NONE_VAL());
+	KrkValue extensions = krk_valueGetAttribute_default(cls, "extensions", NONE_VAL());
+	KrkValue spaces = krk_valueGetAttribute_default(cls, "spaces", BOOLEAN_VAL(0));
+	KrkValue calculate = krk_valueGetAttribute_default(cls, "calculate", NONE_VAL());
 
 	if (!IS_STRING(name))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(argv[0])->name->chars);
+		return krk_runtimeError(vm.exceptions->typeError, "%s.name must be str", AS_CLASS(cls)->name->chars);
 	if (!IS_TUPLE(extensions))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must be tuple<str>", AS_CLASS(argv[0])->name->chars);
+		return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must be tuple<str>", AS_CLASS(cls)->name->chars);
 	if (!IS_BOOLEAN(spaces))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.spaces must be bool", AS_CLASS(argv[0])->name->chars);
+		return krk_runtimeError(vm.exceptions->typeError, "%s.spaces must be bool", AS_CLASS(cls)->name->chars);
 	if (!IS_CLOSURE(calculate))
-		return krk_runtimeError(vm.exceptions->typeError, "%s.calculate must be method, not '%s'", AS_CLASS(argv[0])->name->chars, krk_typeName(calculate));
+		return krk_runtimeError(vm.exceptions->typeError, "%s.calculate must be method, not '%s'", AS_CLASS(cls)->name->chars, krk_typeName(calculate));
 
 	/* Convert tuple of strings */
 	char ** ext = malloc(sizeof(char *) * (AS_TUPLE(extensions)->values.count + 1)); /* +1 for NULL */
@@ -10745,7 +10747,7 @@ static KrkValue krk_bim_register_syntax(int argc, const KrkValue argv[], int has
 	for (size_t i = 0; i < AS_TUPLE(extensions)->values.count; ++i) {
 		if (!IS_STRING(AS_TUPLE(extensions)->values.values[i])) {
 			free(ext);
-			return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must by tuple<str>", AS_CLASS(argv[0])->name->chars);
+			return krk_runtimeError(vm.exceptions->typeError, "%s.extensions must by tuple<str>", AS_CLASS(cls)->name->chars);
 		}
 		ext[i] = AS_CSTRING(AS_TUPLE(extensions)->values.values[i]);
 	}
@@ -10758,11 +10760,11 @@ static KrkValue krk_bim_register_syntax(int argc, const KrkValue argv[], int has
 		NULL, /* qualifier */
 		NULL, /* matcher */
 		AS_OBJECT(calculate), /* krkFunc */
-		AS_OBJECT(argv[0]),
+		AS_OBJECT(cls),
 	});
 
 	/* And save it in the module stuff. */
-	krk_tableSet(AS_DICT(krk_bim_syntax_dict), name, argv[0]);
+	krk_tableSet(AS_DICT(krk_bim_syntax_dict), name, cls);
 
 	return NONE_VAL();
 }
@@ -11009,7 +11011,7 @@ static KrkValue bim_krk_state_init(int argc, const KrkValue argv[], int hasKw) {
 	return NONE_VAL();
 }
 
-static KrkValue krk_bim_get_commands(int argc, const KrkValue argv[], int hasKw) {
+KRK_Function(getCommands) {
 	KrkValue myList = krk_list_of(0, NULL,0);
 	krk_push(myList);
 	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
@@ -11431,8 +11433,8 @@ void initialize(void) {
 	KrkInstance * bimModule = krk_newInstance(vm.baseClasses->moduleClass);
 	krk_attachNamedObject(&vm.modules, "bim", (KrkObj*)bimModule);
 	krk_attachNamedObject(&bimModule->fields, "__name__", (KrkObj*)S("bim"));
-	krk_defineNative(&bimModule->fields, "bindHighlighter", krk_bim_register_syntax);
-	krk_defineNative(&bimModule->fields, "getCommands", krk_bim_get_commands);
+	BIND_FUNC(bimModule, bindHighlighter);
+	BIND_FUNC(bimModule, getCommands);
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "themes", krk_bim_theme_dict);
 	BIND_FUNC(bimModule, defineTheme);
