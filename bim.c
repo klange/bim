@@ -10713,19 +10713,11 @@ void load_bimrc(void) {
 	free(tmp);
 }
 
-static int checkClass(KrkClass * _class, KrkClass * base) {
-	while (_class) {
-		if (_class == base) return 1;
-		_class = _class->base;
-	}
-	return 0;
-}
-
 static KrkValue krk_bim_syntax_dict;
 KRK_Function(bindHighlighter) {
 	KrkValue cls;
 	if (!krk_parseArgs("V!", (const char*[]){"cls"}, KRK_BASE_CLASS(type), &cls)) return NONE_VAL();
-	if (!checkClass(AS_CLASS(cls), syntaxStateClass))
+	if (!krk_isSubClass(AS_CLASS(cls), syntaxStateClass))
 		return krk_runtimeError(vm.exceptions->typeError, "Can not register '%s' as a syntax highlighter, expected subclass of SyntaxState.", krk_typeName(cls));
 
 	KrkValue name = krk_valueGetAttribute_default(cls, "name", NONE_VAL());
