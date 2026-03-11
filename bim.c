@@ -1,6 +1,6 @@
 /* Bim - A Text Editor
  *
- * Copyright (C) 2012-2021 K. Lange
+ * Copyright (C) 2012-2026 K. Lange
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,8 +16,8 @@
  */
 #include "bim.h"
 
-#define BIM_VERSION   "3.1.0" TAG
-#define BIM_COPYRIGHT "Copyright 2012-2021 K. Lange <\033[3mklange@toaruos.org\033[23m>"
+#define BIM_VERSION   "3.2.0" TAG
+#define BIM_COPYRIGHT "Copyright 2012-2026 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
