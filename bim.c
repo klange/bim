@@ -11505,6 +11505,11 @@ void initialize(void) {
 	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
 
+	/* Helpful info */
+	krk_attachNamedObject(&bimModule->fields, "version", (KrkObj*)S(BIM_VERSION));
+	krk_attachNamedObject(&bimModule->fields, "copyright", (KrkObj*)S(BIM_COPYRIGHT));
+	krk_attachNamedObject(&bimModule->fields, "builddate", (KrkObj*)S(BIM_BUILD_DATE));
+
 	/**
 	 * Class representing a BIM_ACTION.
 	 * Actions end up in __builtins__, which is dirty, but done for config reasons.
