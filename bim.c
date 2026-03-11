@@ -5780,6 +5780,7 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 					int key = 0;
 					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 				}
+				current_theme = d->name;
 				redraw_all();
 				return 0;
 			}
@@ -10767,19 +10768,18 @@ static KrkValue krk_bim_register_syntax(int argc, const KrkValue argv[], int has
 }
 
 static KrkValue krk_bim_theme_dict;
-static KrkValue krk_bim_define_theme(int argc, const KrkValue argv[], int hasKw) {
-	if (argc < 1 || !IS_CLOSURE(argv[0]))
-		return krk_runtimeError(vm.exceptions->typeError, "themes must be functions, not '%s'", krk_typeName(argv[0]));
+KRK_Function(defineTheme) {
+	KrkClosure * theme;
+	if (!krk_parseArgs("O!", (const char*[]){"theme"}, KRK_BASE_CLASS(function), &theme)) return NONE_VAL();
 
-	KrkValue name = OBJECT_VAL(AS_CLOSURE(argv[0])->function->name);
-
+	KrkValue name = OBJECT_VAL(theme->function->name);
 	add_colorscheme((struct theme_def) {
 		AS_CSTRING(name),
-		AS_OBJECT(argv[0]),
+		theme
 	});
 
-	krk_tableSet(AS_DICT(krk_bim_theme_dict), name, argv[0]);
-	return argv[0];
+	krk_tableSet(AS_DICT(krk_bim_theme_dict), name, OBJECT_VAL(theme));
+	return OBJECT_VAL(theme);
 }
 
 static int c_keyword_qualifier(int c) {
@@ -11419,7 +11419,7 @@ void initialize(void) {
 	krk_defineNative(&bimModule->fields, "getCommands", krk_bim_get_commands);
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "themes", krk_bim_theme_dict);
-	krk_defineNative(&bimModule->fields, "defineTheme", krk_bim_define_theme);
+	BIND_FUNC(bimModule, defineTheme);
 	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 	krk_defineNative(&bimModule->fields, "getDocumentText", krk_bim_getDocumentText);
