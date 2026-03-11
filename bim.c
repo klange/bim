@@ -7381,8 +7381,6 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 		return; /* Invalid cursor position */
 	}
 
-	/* TODO: vim can find the nearest paren to start searching from, we need to be on one right now */
-
 	int paren_match = 0;
 	int direction = 0;
 	int start = env->lines[env->line_no-1]->text[env->col_no-in_col].codepoint;
@@ -9655,6 +9653,16 @@ BIM_ACTION(jump_to_matching_bracket, 0,
 	"Find and jump to the matching bracket for the character under the cursor."
 ,void) {
 	recalculate_selected_lines();
+
+	/* Search forward first */
+	for (int i = env->col_no; i <= env->lines[env->line_no-1]->actual; ++i) {
+		if (is_paren(env->lines[env->line_no-1]->text[i-1].codepoint)) {
+			env->col_no = i;
+			break;
+		}
+	}
+
+	/* Then find match */
 	int paren_line = -1, paren_col = -1;
 	find_matching_paren(&paren_line, &paren_col, 1);
 	if (paren_line != -1) {
