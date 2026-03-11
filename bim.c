@@ -11331,6 +11331,19 @@ KRK_Function(renderMessage) {
 	return NONE_VAL();
 }
 
+KRK_Function(renderStatus) {
+	char * message = NULL;
+	size_t message_len = 0;
+
+	if (!krk_parseArgs("|z#",(const char*[]){"message"},
+		&message, &message_len)) return NONE_VAL();
+
+	if (!message || !message_len) redraw_commandline();
+	else render_status_message("%s", message);
+
+	return NONE_VAL();
+}
+
 KRK_Function(getDocumentFilename) {
 	if (!env || !env->file_name) return NONE_VAL();
 	return OBJECT_VAL(krk_copyString(env->file_name,strlen(env->file_name)));
@@ -11469,6 +11482,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, getDocumentText);
 	BIND_FUNC(bimModule, renderError);
 	BIND_FUNC(bimModule, renderMessage);
+	BIND_FUNC(bimModule, renderStatus);
 	BIND_FUNC(bimModule, bindkey);
 	BIND_FUNC(bimModule, getDocumentFilename);
 	BIND_FUNC(bimModule, getkey);
