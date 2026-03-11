@@ -11406,11 +11406,6 @@ KRK_Function(getkey) {
 	return INTEGER_VAL(key);
 }
 
-KRK_Function(redraw) {
-	redraw_all();
-	return NONE_VAL();
-}
-
 KRK_Function(displayWidth) {
 	char * str;
 	if (!krk_parseArgs("s",(const char*[]){"str"},&str)) return NONE_VAL();
@@ -11486,7 +11481,6 @@ void initialize(void) {
 	BIND_FUNC(bimModule, bindkey);
 	BIND_FUNC(bimModule, getDocumentFilename);
 	BIND_FUNC(bimModule, getkey);
-	BIND_FUNC(bimModule, redraw);
 	BIND_FUNC(bimModule, displayWidth);
 
 	/* Direct access and GC references */
