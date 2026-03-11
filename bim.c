@@ -89,6 +89,7 @@ global_config_t global_config = {
 	.tab_offset = 0,
 	.background_task = NULL,
 	.tail_task = NULL,
+	.paren_pairs = NULL,
 };
 
 struct key_name_map KeyNames[] = {
@@ -279,6 +280,9 @@ int bim_getch_timeout(int timeout) {
 
 /**
  * UTF-8 parser state
+ *
+ * TODO Why is this state global? Should be per-buffer or otherwise managed by add_buffer, and probably
+ *      reset a lot more often than we are currently resetting it.
  */
 static uint32_t codepoint_r;
 static uint32_t state = 0;
@@ -3252,12 +3256,10 @@ void render_error(char * message, ...) {
 
 }
 
-char * paren_pairs = "()[]{}<>";
-
 int is_paren(int c) {
-	char * p = paren_pairs;
+	uint32_t * p = global_config.paren_pairs;
 	while (*p) {
-		if (c == *p) return 1;
+		if ((uint32_t)c == *p) return 1;
 		p++;
 	}
 	return 0;
@@ -7387,11 +7389,10 @@ void find_matching_paren(int * out_line, int * out_col, int in_col) {
 	int flags = env->lines[env->line_no-1]->text[env->col_no-in_col].flags & 0x1F;
 	int count = 0;
 
-	/* TODO what about unicode parens? */
-	for (int i = 0; paren_pairs[i]; ++i) {
-		if (start == paren_pairs[i]) {
+	for (int i = 0; global_config.paren_pairs[i]; ++i) {
+		if ((uint32_t)start == global_config.paren_pairs[i]) {
 			direction = (i % 2 == 0) ? 1 : -1;
-			paren_match = paren_pairs[(i % 2 == 0) ? (i+1) : (i-1)];
+			paren_match = global_config.paren_pairs[(i % 2 == 0) ? (i+1) : (i-1)];
 			break;
 		}
 	}
@@ -11425,6 +11426,38 @@ KRK_Function(pauseForKey) {
 	return NONE_VAL();
 }
 
+KRK_Function(paren_pairs) {
+	KrkString * pairs = NULL;
+	if (!krk_parseArgs("|O!", (const char *[]){"pairs"},
+		KRK_BASE_CLASS(str), &pairs)) return NONE_VAL();
+
+	if (pairs) {
+		krk_unicodeString(pairs);
+
+		uint32_t * new_pairs = calloc(sizeof(uint32_t), pairs->codesLength + 1);
+		for (size_t i = 0; i < pairs->codesLength; ++i) {
+			uint32_t cp = (uint32_t)KRK_STRING_FAST(pairs,i);
+			new_pairs[i] = cp;
+		}
+
+		if (global_config.paren_pairs) free(global_config.paren_pairs);
+		global_config.paren_pairs = new_pairs;
+	}
+
+	if (!global_config.paren_pairs) return NONE_VAL();
+
+	/* Somehow we don't have a good API for building a string from a char32 array. */
+	struct StringBuilder sb = {0};
+
+	for (uint32_t * value = global_config.paren_pairs; *value; ++value) {
+		unsigned char bytes[5] = {0};
+		size_t len = krk_codepointToBytes(*value, bytes);
+		krk_pushStringBuilderStr(&sb, (char*)bytes, len);
+	}
+
+	return krk_finishStringBuilder(&sb);
+}
+
 /**
  * Run global initialization tasks
  */
@@ -11468,6 +11501,10 @@ void initialize(void) {
 	global_config.tab_indicator = strdup(">");
 	global_config.space_indicator = strdup("-");
 
+	uint32_t pairs[] = U"()[]{}<>";
+	global_config.paren_pairs = malloc(sizeof(pairs));
+	memcpy(global_config.paren_pairs, pairs, sizeof(pairs));
+
 	/* Initialize Kuroko runtime context */
 	krk_initVM(0);
 
@@ -11496,6 +11533,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, getkey);
 	BIND_FUNC(bimModule, displayWidth);
 	BIND_FUNC(bimModule, pauseForKey);
+	BIND_FUNC(bimModule, paren_pairs);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
