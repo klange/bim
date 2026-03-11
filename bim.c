@@ -11412,6 +11412,11 @@ KRK_Function(displayWidth) {
 	return INTEGER_VAL(display_width_of_string(str));
 }
 
+KRK_Function(pauseForKey) {
+	pause_for_key();
+	return NONE_VAL();
+}
+
 /**
  * Run global initialization tasks
  */
@@ -11482,6 +11487,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, getDocumentFilename);
 	BIND_FUNC(bimModule, getkey);
 	BIND_FUNC(bimModule, displayWidth);
+	BIND_FUNC(bimModule, pauseForKey);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
