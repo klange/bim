@@ -24,3 +24,13 @@ global.git(1)
 global.statusbar(1)
 global.autohidetabs(1)
 smartcomplete(1)
+
+# The @c onload function is called, if it exists, whenever a file is
+# opened. There are two APIs available: If your implementation takes
+# one required argument, the old API is used and details of the file
+# are passed in a dictionary. Otherwise, the new API is used. Users
+# of the new API should accept arbitrary keyword arguments, all of
+# which are optional.
+def onload(lang='',**kwargs):
+    if lang == 'gitcommit':
+        goto_line(0)

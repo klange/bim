@@ -3764,23 +3764,44 @@ int line_matches(line_t * line, char * string) {
 }
 
 void run_onload(buffer_t * env) {
-	/* TODO */
 	KrkValue onLoad;
 	if (krk_tableGet_fast(&krk_currentThread.module->fields, S("onload"), &onLoad)) {
 		krk_push(onLoad);
-		krk_push(krk_dict_of(0,NULL,0));
 
+		int args = 0;
 		if (env->file_name) {
-			krk_attachNamedObject(AS_DICT(krk_peek(0)), "filename",
-				(KrkObj*)krk_copyString(env->file_name,strlen(env->file_name)));
+			krk_push(OBJECT_VAL(S("filename")));
+			krk_push(OBJECT_VAL(krk_copyString(env->file_name,strlen(env->file_name))));
+			args++;
+		}
+		if (env->syntax) {
+			krk_push(OBJECT_VAL(S("lang")));
+			krk_push(OBJECT_VAL(krk_copyString(env->syntax->name,strlen(env->syntax->name))));
+			args++;
+
+			if (env->syntax->krkClass) {
+				krk_push(OBJECT_VAL(S("highlighter")));
+				krk_push(OBJECT_VAL(env->syntax->krkClass));
+				args++;
+			}
 		}
 
-		if (env->syntax && env->syntax->krkClass) {
-			krk_attachNamedObject(AS_DICT(krk_peek(0)), "highlighter",
-				(KrkObj*)env->syntax->krkClass);
+		if (IS_CLOSURE(onLoad) && AS_CLOSURE(onLoad)->function->requiredArgs == 1) {
+			/* Use old ABI if the function accepts one required argument. */
+			krk_push(krk_callNativeOnStack(args * 2, &krk_currentThread.stackTop[-args*2], 0, krk_dict_of));
+			if (args) {
+				krk_swap(args * 2);
+				while (args--) {
+					krk_pop();
+					krk_pop();
+				}
+			}
+			krk_callStack(1);
+		} else {
+			/* Otherwise use the new API where the function can accepts keyword args. */
+			krk_push(KWARGS_VAL(args));
+			krk_callStack(args * 2 + 1);
 		}
-
-		krk_callStack(1);
 		krk_resetStack();
 	}
 }
@@ -6638,9 +6659,7 @@ _reject:
 			if ((*tmp & 0xC0) == 0x80) {
 				/* Count back until we find the start byte and make sure we have the right number */
 				int count = 1;
-				int x = 0;
 				while (tmp >= start) {
-					x++;
 					tmp--;
 					if ((*tmp & 0xC0) == 0x80) {
 						count++;
