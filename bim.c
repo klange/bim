@@ -11398,6 +11398,12 @@ KRK_Function(redraw) {
 	return NONE_VAL();
 }
 
+KRK_Function(displayWidth) {
+	char * str;
+	if (!krk_parseArgs("s",(const char*[]){"str"},&str)) return NONE_VAL();
+	return INTEGER_VAL(display_width_of_string(str));
+}
+
 /**
  * Run global initialization tasks
  */
@@ -11459,21 +11465,23 @@ void initialize(void) {
 	krk_attachNamedObject(&bimModule->fields, "__name__", (KrkObj*)S("bim"));
 	BIND_FUNC(bimModule, bindHighlighter);
 	BIND_FUNC(bimModule, getCommands);
-	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
-	krk_attachNamedValue(&bimModule->fields, "themes", krk_bim_theme_dict);
 	BIND_FUNC(bimModule, defineTheme);
-	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
-	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 	BIND_FUNC(bimModule, getDocumentText);
 	BIND_FUNC(bimModule, renderError);
 	BIND_FUNC(bimModule, renderMessage);
-
-	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
-	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
 	BIND_FUNC(bimModule, bindkey);
 	BIND_FUNC(bimModule, getDocumentFilename);
 	BIND_FUNC(bimModule, getkey);
 	BIND_FUNC(bimModule, redraw);
+	BIND_FUNC(bimModule, displayWidth);
+
+	/* Direct access and GC references */
+	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
+	krk_attachNamedValue(&bimModule->fields, "themes", krk_bim_theme_dict);
+	krk_bim_syntax_dict = krk_dict_of(0,NULL,0);
+	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
+	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
+	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
 
 	/**
 	 * Class representing a BIM_ACTION.
