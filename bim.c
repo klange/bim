@@ -6178,6 +6178,7 @@ int compare_candidate(const void * a, const void * b) {
 
 /**
  * List of file extensions to ignore when tab completing.
+ * TODO this should be configurable
  */
 const char * tab_complete_ignore[] = {".o",".lo",NULL};
 
@@ -6193,9 +6194,71 @@ static KrkValue findFromProperty(KrkValue current, KrkToken next) {
 }
 
 /**
+ * Macros for use in command mode.
+ */
+#define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
+#define _syn_restore() do { env->syntax = global_config.command_syn_back; } while (0)
+
+/* Forward declarations because I don't want to move these. */
+extern void eat_mouse(void);
+extern void eat_mouse_sgr(void);
+
+/**
+ * Clear everything before the cursor in the command in put buffer.
+ * Generally part of serialization/deserialization when moving things
+ * into and out of the command buffer for tab completion.
+ */
+static void command_buffer_clear_before(void) {
+	_syn_command();
+	while (global_config.command_col_no > 1) {
+		line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
+		global_config.command_col_no--;
+	}
+	_syn_restore();
+}
+
+/**
+ * Serialize the command buffer, up to the cursor, to a utf8 string,
+ * and then delete that portion of the buffer.
+ */
+static char * command_buffer_serialize(void) {
+	struct StringBuilder sb = {0};
+
+	for (int i = 0; i < global_config.command_col_no-1; ++i) {
+		char buf[10];
+		size_t t = to_eight(global_config.command_buffer->text[i].codepoint, buf);
+		krk_pushStringBuilderStr(&sb, buf, t);
+	}
+	krk_pushStringBuilder(&sb, '\0');
+
+	command_buffer_clear_before();
+
+	return sb.bytes;
+}
+
+/**
+ * Fill the command buffer, from the cursor, with a string.
+ */
+static void command_buffer_deserialize(char * tmp) {
+	uint32_t state = 0, c= 0;
+	char * t = tmp;
+	_syn_command();
+	while (*t) {
+		if (!decode(&state, &c, *t)) {
+			char_t _c = {codepoint_width(c), 0, c};
+			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
+			global_config.command_col_no++;
+		}
+		t++;
+	}
+	_syn_restore();
+	free(tmp);
+}
+
+/**
  * Tab completion for command mode.
  */
-void command_tab_complete(char * buffer) {
+char * command_tab_complete(char * buffer) {
 	/* Figure out which argument this is and where it starts */
 	int arg = 0;
 	char * buf = strdup(buffer);
@@ -6590,109 +6653,154 @@ _cleanup:
 
 _accept_candidate:
 	if (candidate_count == 0) {
-		redraw_statusbar();
 		goto done;
 	}
 
 	if (candidate_count == 1) {
 		/* Only one completion possibility */
-		redraw_statusbar();
-
-		/* Fill out the rest of the command */
-		char * cstart = (buffer) + (start - buf);
+		struct StringBuilder sb = {0};
+		krk_pushStringBuilderStr(&sb, buffer, start - buf);
 		for (unsigned int i = 0; i < strlen(candidates[0].text); ++i) {
-			*cstart = candidates[0].text[i];
-			cstart++;
+			krk_pushStringBuilder(&sb, candidates[0].text[i]);
 		}
-		*cstart = '\0';
+		krk_pushStringBuilder(&sb, '\0');
+		/* Accept this new buffer data */
+		free(buffer);
+		buffer = sb.bytes;
 	} else {
 		/* Sort candidates */
 		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_candidate);
-		/* Print candidates in status bar */
-		char * tmp = malloc(global_config.term_width+1 + candidate_count * 100);
-		memset(tmp, 0, global_config.term_width+1);
-		int offset = 0;
-		for (int i = 0; i < candidate_count; ++i) {
-			char * printed_candidate = candidates[i].text;
-			if (_candidates_are_files) {
-				for (char * c = printed_candidate; *c; ++c) {
-					if (c[0] == '/' && c[1] != '\0') {
-						printed_candidate = c+1;
+		int selection = 0;
+
+		while (1) {
+			/* Print candidates in status bar */
+			struct StringBuilder sb = {0};
+			int offset = 0;
+			int selection_found = (selection == -1);
+			for (int i = 0; i < candidate_count; ++i) {
+				char * printed_candidate = candidates[i].text;
+				if (_candidates_are_files) {
+					/* If the candidates are files, then the candidate can be a full path
+					 * but we are only completing the last element, so we should restrict
+					 * what we show to just that final element. */
+					for (char * c = printed_candidate; *c; ++c) {
+						if (c[0] == '/' && c[1] != '\0') {
+							printed_candidate = c+1;
+						}
 					}
+				} else {
+					/* Otherwise, try to be smart about completing things within a
+					 * Kuroko expression, skipping over previous member accesses or
+					 * function calls. */
+					for (char * c = printed_candidate; *c; ++c) {
+						if ((c[0] == '.' || c[0] == '(') && c[1] != '\0') {
+							printed_candidate = c+1;
+						}
+					}
+				}
+
+				if (offset + 1 + (signed)display_width_of_string(printed_candidate) > global_config.term_width - 3) {
+					if (selection_found) {
+						/* We have run out of space but we have shown the current selected candidate.
+						 * Stop here and show that there are more candidates available off-screen. */
+						krk_pushStringBuilderFormat(&sb, " %s>", color_string(COLOR_STATUS_BG, COLOR_STATUS_FG));
+						krk_pushStringBuilderFormat(&sb, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+						break;
+					}
+					/* We have run out of space but still haven't shown the current selected candidate,
+					 * so clear out the current status line and start over from here. */
+					krk_discardStringBuilder(&sb);
+					offset = 0;
+				}
+
+				/* Did we find the selected candidate ? */
+				if (i == selection) selection_found = 1;
+
+				/* Put a space before any candidate that isn't the first on the line. */
+				if (offset > 0) {
+					krk_pushStringBuilderFormat(&sb, " ");
+					offset++;
+				}
+
+				/* Color the candidate based on its type, unless it's the selected
+				 * candidate, in which case we use the search highlight colors. */
+				const char * color_fg =
+					candidates[i].type == Candidate_Normal ? COLOR_STATUS_FG :
+						candidates[i].type == Candidate_Command ? COLOR_KEYWORD :
+							candidates[i].type == Candidate_Builtin ? COLOR_TYPE : COLOR_STATUS_FG;
+				const char * colorString = (i == selection) ? color_string(COLOR_SEARCH_FG, COLOR_SEARCH_BG) : color_string(color_fg, COLOR_STATUS_BG);
+
+				krk_pushStringBuilderFormat(&sb, "%s%s", colorString, printed_candidate);
+				krk_pushStringBuilderFormat(&sb, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+
+				offset += display_width_of_string(printed_candidate);
+			}
+
+			/* Finally, render the message we built. */
+			krk_pushStringBuilder(&sb, '\0');
+			render_status_message("%s", sb.bytes);
+			krk_discardStringBuilder(&sb);
+
+			/* Reuse the previous string builder to fill the current selected
+			 * candidate into the input buffer and redraw the input buffer */
+			if (selection >= 0) {
+				krk_pushStringBuilderStr(&sb, buffer, start - buf);
+				for (unsigned int i = 0; i < strlen(candidates[selection].text); ++i) {
+					krk_pushStringBuilder(&sb, candidates[selection].text[i]);
 				}
 			} else {
-				for (char * c = printed_candidate; *c; ++c) {
-					if ((c[0] == '.' || c[0] == '(') && c[1] != '\0') {
-						printed_candidate = c+1;
-					}
-				}
+				/* With selection == -1, we want to redraw the original input. */
+				krk_pushStringBuilderStr(&sb, buffer, strlen(buffer));
 			}
-			if (offset + 1 + (signed)strlen(printed_candidate) > global_config.term_width - 5) {
-				strcat(tmp, "...");
-				break;
-			}
-			if (offset > 0) {
-				strcat(tmp, " ");
-				offset++;
-			}
-			const char * colorString = color_string(
-				candidates[i].type == Candidate_Normal ? COLOR_STATUS_FG :
-					candidates[i].type == Candidate_Command ? COLOR_KEYWORD :
-						candidates[i].type == Candidate_Builtin ? COLOR_TYPE : COLOR_STATUS_FG,
-				COLOR_STATUS_BG);
-			/* Does not affect offset */
-			strcat(tmp, colorString);
-			strcat(tmp, printed_candidate);
-			offset += strlen(printed_candidate);
-		}
-		render_status_message("%s", tmp);
-		free(tmp);
+			krk_pushStringBuilder(&sb, '\0');
+			command_buffer_deserialize(sb.bytes);
+			render_command_input_buffer();
 
-		/* Complete to longest common substring */
-		char * cstart = (buffer) + (start - buf);
-		for (int i = 0; i < 1023 /* max length of command */; i++) {
-			for (int j = 1; j < candidate_count; ++j) {
-				if (candidates[0].text[i] != candidates[j].text[i]) goto _reject;
+			int k = 0;
+			while ((k = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+
+			switch (k) {
+				/* Move selection to next candidate. */
+				case KEY_RIGHT:
+				case KEY_TAB:
+					selection = selection + 1;
+					if (selection == candidate_count) selection = -1;
+					command_buffer_clear_before();
+					continue;
+				/* Move selection to previous candidate. */
+				case KEY_LEFT:
+				case KEY_SHIFT_TAB:
+					selection = (selection >= 0 ? selection : candidate_count) - 1;
+					command_buffer_clear_before();
+					continue;
+				/* Abort tab completion. Clear anything we put in the buffer,
+				 * and let the command mode figure out what to do next, which
+				 * is probably just exit command mode. */
+				case KEY_ESCAPE:
+					bim_unget(27);
+					command_buffer_clear_before();
+					break;
+				/* TODO: Consider supporting mouse input for picking a selection? */
+				case KEY_MOUSE:
+					eat_mouse();
+					command_buffer_clear_before();
+					continue;
+				case KEY_MOUSE_SGR:
+					eat_mouse_sgr();
+					command_buffer_clear_before();
+					continue;
+				/* On anything else, accept the current candidate and then try
+				 * to let the command mode handle the entered text if it wasn't a special key. */
+				default:
+					if (k < 256) bim_unget(k);
+					/* Replace the old buffer data with empty data, we have already written out
+					 * our completion to the command buffer. */
+					free(buffer);
+					buffer = strdup("");
+					break;
 			}
-			*cstart = candidates[0].text[i];
-			cstart++;
-		}
-		/* End of longest common substring */
-_reject:
-		*cstart = '\0';
-		/* Just make sure the buffer doesn't end on an incomplete multibyte sequence */
-		if (start > buf) { /* Start point needs to be something other than first byte */
-			char * tmp = cstart - 1;
-			if ((*tmp & 0xC0) == 0x80) {
-				/* Count back until we find the start byte and make sure we have the right number */
-				int count = 1;
-				while (tmp >= start) {
-					tmp--;
-					if ((*tmp & 0xC0) == 0x80) {
-						count++;
-					} else if ((*tmp & 0xC0) == 0xC0) {
-						/* How many should we have? */
-						int i = 1;
-						int j = *tmp;
-						while (j & 0x20) {
-							i += 1;
-							j <<= 1;
-						}
-						if (count != i) {
-							*tmp = '\0';
-							break;
-						}
-						break;
-					} else {
-						/* This isn't right, we had a bad multibyte sequence? Or someone is typing Latin-1. */
-						tmp++;
-						*tmp = '\0';
-						break;
-					}
-				}
-			} else if ((*tmp & 0xC0) == 0xC0) {
-				*tmp = '\0';
-			}
+
+			break;
 		}
 	}
 
@@ -6702,15 +6810,11 @@ _reject:
 	}
 
 done:
+	redraw_statusbar();
 	free(candidates);
 	free(buf);
+	return buffer;
 }
-
-/**
- * Macros for use in command mode.
- */
-#define _syn_command() do { env->syntax = global_config.command_syn; } while (0)
-#define _syn_restore() do { env->syntax = global_config.command_syn_back; } while (0)
 
 /**
  * Draw the command buffer and any prefix.
@@ -6889,32 +6993,9 @@ BIM_ACTION(command_tab_complete_buffer, 0,
 	"Complete command names and arguments in the input buffer."
 ,void) {
 	/* command_tab_complete should probably just be adjusted to deal with the buffer... */
-	char * tmp = calloc(1024,1);
-	char * t = tmp;
-	for (int i = 0; i < global_config.command_col_no-1; ++i) {
-		t += to_eight(global_config.command_buffer->text[i].codepoint, t);
-	}
-	*t = '\0';
-	_syn_command();
-	while (global_config.command_col_no > 1) {
-		line_delete(global_config.command_buffer, global_config.command_col_no - 1, -1);
-		global_config.command_col_no--;
-	}
-	_syn_restore();
-	command_tab_complete(tmp);
-	_syn_command();
-	uint32_t state = 0, c= 0;
-	t = tmp;
-	while (*t) {
-		if (!decode(&state, &c, *t)) {
-			char_t _c = {codepoint_width(c), 0, c};
-			global_config.command_buffer = line_insert(global_config.command_buffer, _c, global_config.command_col_no - 1, -1);
-			global_config.command_col_no++;
-		}
-		t++;
-	}
-	_syn_restore();
-	free(tmp);
+	char * tmp = command_buffer_serialize();
+	tmp = command_tab_complete(tmp);
+	command_buffer_deserialize(tmp);
 }
 
 BIM_ACTION(command_backspace, 0,
