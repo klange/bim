@@ -6167,13 +6167,21 @@ struct Candidate {
 	int type;
 };
 
+static int biased_strcmp(const char *l, const char *r) {
+	for (; *l == *r && *l; l++, r++);
+	/* Treat / like \0 */
+	if (*l == '/') return -1;
+	if (*r == '/') return 1;
+	return *(unsigned char *)l - *(unsigned char *)r;
+}
+
 /**
  * Wrap strcmp for use with qsort.
  */
 int compare_candidate(const void * a, const void * b) {
 	const struct Candidate *_a = a;
 	const struct Candidate *_b = b;
-	return strcmp(_a->text, _b->text);
+	return biased_strcmp(_a->text, _b->text);
 }
 
 /**
@@ -6672,11 +6680,32 @@ _accept_candidate:
 		qsort(candidates, candidate_count, sizeof(candidates[0]), compare_candidate);
 		int selection = 0;
 
+		struct StringBuilder cmd = {0};
+
+		/* Try to prefill the buffer with a common substring. If this actually resulted
+		 * in some amount of prefill, then the selection will start in a special mode and
+		 * won't be filled with one of the candidates. */
+		krk_pushStringBuilderStr(&cmd, buffer, start - buf);
+		for (int i = 0; ; ++i) {
+			if ((signed char)candidates[0].text[i] <= 0) goto _end_prefill; /* TODO continuation bytes */
+			for (int j = 1; j < candidate_count; ++j) {
+				if (candidates[0].text[i] != candidates[j].text[i]) goto _end_prefill;
+			}
+			krk_pushStringBuilder(&cmd, candidates[0].text[i]);
+		}
+_end_prefill:
+		if (cmd.length > strlen(buffer)) {
+			selection = -2;
+		} else {
+			/* That didn't do anything new, so never mind. */
+			krk_discardStringBuilder(&cmd);
+		}
+
 		while (1) {
 			/* Print candidates in status bar */
 			struct StringBuilder sb = {0};
 			int offset = 0;
-			int selection_found = (selection == -1);
+			int selection_found = (selection < 0);
 			for (int i = 0; i < candidate_count; ++i) {
 				char * printed_candidate = candidates[i].text;
 				if (_candidates_are_files) {
@@ -6744,17 +6773,19 @@ _accept_candidate:
 			/* Reuse the previous string builder to fill the current selected
 			 * candidate into the input buffer and redraw the input buffer */
 			if (selection >= 0) {
-				krk_pushStringBuilderStr(&sb, buffer, start - buf);
+				krk_pushStringBuilderStr(&cmd, buffer, start - buf);
 				for (unsigned int i = 0; i < strlen(candidates[selection].text); ++i) {
-					krk_pushStringBuilder(&sb, candidates[selection].text[i]);
+					krk_pushStringBuilder(&cmd, candidates[selection].text[i]);
 				}
-			} else {
+			} else if (selection == -1) {
 				/* With selection == -1, we want to redraw the original input. */
-				krk_pushStringBuilderStr(&sb, buffer, strlen(buffer));
+				krk_pushStringBuilderStr(&cmd, buffer, strlen(buffer));
 			}
-			krk_pushStringBuilder(&sb, '\0');
-			command_buffer_deserialize(sb.bytes);
+			/* else selection == -2 and we already filled it before printing the candidate list */
+			krk_pushStringBuilder(&cmd, '\0');
+			command_buffer_deserialize(cmd.bytes);
 			render_command_input_buffer();
+			cmd = (struct StringBuilder){0};
 
 			int k = 0;
 			while ((k = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
@@ -6763,7 +6794,7 @@ _accept_candidate:
 				/* Move selection to next candidate. */
 				case KEY_RIGHT:
 				case KEY_TAB:
-					selection = selection + 1;
+					selection = (selection < 0) ? 0 : selection + 1;
 					if (selection == candidate_count) selection = -1;
 					command_buffer_clear_before();
 					continue;
