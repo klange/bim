@@ -1787,6 +1787,9 @@ void set_unbuffered(void) {
 #ifdef VLNEXT
 	new.c_cc[VLNEXT] = 0;
 #endif
+#ifdef VDISCARD
+	new.c_cc[VDISCARD] = 0;
+#endif
 	tcsetattr(STDOUT_FILENO, TCSAFLUSH, &new);
 }
 
