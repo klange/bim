@@ -546,27 +546,45 @@ buffer_t * buffer_new(void) {
 }
 
 /**
+ * Parse a file path that maybe starts with ~
+ *
+ * If the returned pointer is different from the one passed in,
+ * a new string has been allocated that should be freed by the caller.
+ */
+char * interpret_file_path(char * file, char *plus) {
+	struct StringBuilder sb = {0};
+	char * home;
+	if (*file == '~' && (home = getenv("HOME"))) {
+		krk_pushStringBuilderFormat(&sb, "%s%s", home, file+1);
+	}
+
+	if (plus) {
+		krk_pushStringBuilderFormat(&sb, "/%s", plus);
+	}
+
+	if (!sb.length) return file;
+
+	krk_pushStringBuilder(&sb,'\0');
+	return sb.bytes;
+}
+
+/**
  * Open the biminfo file.
  */
 FILE * open_biminfo(void) {
 	if (!global_config.use_biminfo) return NULL;
 
-	char * home = getenv("HOME");
-	if (!home) {
-		/* ... but since it's not, we need $HOME, so fail if it isn't set. */
-		return NULL;
-	}
-
-	/* biminfo lives at ~/.biminfo */
-	char biminfo_path[PATH_MAX+1] = {0};
-	sprintf(biminfo_path,"%s/.biminfo",home);
+	char * base = "~/.biminfo";
+	char * path = interpret_file_path(base,NULL);
 
 	/* Try to open normally first... */
-	FILE * biminfo = fopen(biminfo_path,"r+");
+	FILE * biminfo = fopen(path,"r+");
 	if (!biminfo) {
 		/* Otherwise, try to create it. */
-		biminfo = fopen(biminfo_path,"w+");
+		biminfo = fopen(path,"w+");
 	}
+
+	if (path != base) free(path);
 	return biminfo;
 }
 
@@ -575,14 +593,7 @@ FILE * open_biminfo(void) {
  */
 int file_is_open(char * file) {
 	/* Get the absolute path of the file to normalize for lookup */
-	char * _file = file;
-	if (file[0] == '~') {
-		char * home = getenv("HOME");
-		if (home) {
-			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-			sprintf(_file, "%s%s", home, file+1);
-		}
-	}
+	char * _file = interpret_file_path(file,NULL);
 
 	char tmp_path[PATH_MAX+2];
 	if (!realpath(_file, tmp_path)) {
@@ -641,14 +652,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 	if (!buf->file_name) return 1;
 
 	char * file = buf->file_name;
-	char * _file = file;
-	if (file[0] == '~') {
-		char * home = getenv("HOME");
-		if (home) {
-			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-			sprintf(_file, "%s%s", home, file+1);
-		}
-	}
+	char * _file = interpret_file_path(file,NULL);
 
 	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+2];
@@ -698,14 +702,7 @@ int update_biminfo(buffer_t * buf, int is_open) {
 	if (!buf->file_name) return 1;
 
 	char * file = buf->file_name;
-	char * _file = file;
-	if (file[0] == '~') {
-		char * home = getenv("HOME");
-		if (home) {
-			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-			sprintf(_file, "%s%s", home, file+1);
-		}
-	}
+	char * _file = interpret_file_path(file,NULL);
 
 	/* Get the absolute path of the file to normalize for lookup */
 	char tmp_path[PATH_MAX+1];
@@ -3891,15 +3888,7 @@ void open_file(char * file) {
 			init_line = atoi(l);
 		}
 
-		char * _file = file;
-
-		if (file[0] == '~') {
-			char * home = getenv("HOME");
-			if (home) {
-				_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-				sprintf(_file, "%s%s", home, file+1);
-			}
-		}
+		char * _file = interpret_file_path(file,NULL);
 
 		if (file_is_open(_file)) {
 			if (file != _file) free(_file);
@@ -4283,15 +4272,7 @@ void write_file(char * file) {
 		return;
 	}
 
-	char * _file = file;
-
-	if (file[0] == '~') {
-		char * home = getenv("HOME");
-		if (home) {
-			_file = malloc(strlen(file) + strlen(home) + 4); /* Paranoia */
-			sprintf(_file, "%s%s", home, file+1);
-		}
-	}
+	char * _file = interpret_file_path(file,NULL);
 
 
 	FILE * f = fopen(_file, "w+");
@@ -6428,15 +6409,9 @@ char * command_tab_complete(char * buffer) {
 				/* Started with slash, and it was the only slash */
 				dirp = opendir("/");
 			} else {
-				char * home;
-				if (*tmp == '~' && (home = getenv("HOME"))) {
-					char * t = malloc(strlen(tmp) + strlen(home) + 4);
-					sprintf(t, "%s%s",home,tmp+1);
-					dirp = opendir(t);
-					free(t);
-				} else {
-					dirp = opendir(tmp);
-				}
+				char * t = interpret_file_path(tmp,NULL);
+				dirp = opendir(t);
+				if (t != tmp) free(t);
 			}
 		} else {
 			/* No directory match, completing from current directory */
@@ -6458,17 +6433,9 @@ char * command_tab_complete(char * buffer) {
 				struct stat statbuf;
 				/* Figure out if this file is a directory */
 				if (last_slash) {
-					char * x;
-					char * home;
-					if (tmp[0] == '~' && (home = getenv("HOME"))) {
-						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1);
-						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1 + strlen(home) + 1, "%s%s/%s",home,tmp+1,ent->d_name);
-					} else {
-						x = malloc(strlen(tmp) + 1 + strlen(ent->d_name) + 1);
-						snprintf(x, strlen(tmp) + 1 + strlen(ent->d_name) + 1, "%s/%s",tmp,ent->d_name);
-					}
+					char * x = interpret_file_path(tmp, ent->d_name);
 					stat(x, &statbuf);
-					free(x);
+					if (x != tmp) free(x);
 				} else {
 					stat(ent->d_name, &statbuf);
 				}
@@ -10804,28 +10771,10 @@ void load_bimrc(void) {
 	if (!global_config.bimrc_path) return;
 
 	/* Default is ~/.bimrc */
-	char * tmp = strdup(global_config.bimrc_path);
+	char * t = (char*)global_config.bimrc_path;
+	if (!*t) return;
 
-	if (!*tmp) {
-		free(tmp);
-		return;
-	}
-
-	/* Parse ~ at the front of the path. */
-	if (*tmp == '~') {
-		char path[1024] = {0};
-		char * home = getenv("HOME");
-		if (!home) {
-			/* $HOME is unset? */
-			free(tmp);
-			return;
-		}
-
-		/* New path is $HOME/.bimrc */
-		snprintf(path, 1024, "%s%s", home, tmp+1);
-		free(tmp);
-		tmp = strdup(path);
-	}
+	char * tmp = interpret_file_path(t,NULL);
 
 	struct stat statbuf;
 	if (stat(tmp, &statbuf)) {
@@ -10834,7 +10783,7 @@ void load_bimrc(void) {
 	}
 
 	krk_runfile(tmp,tmp);
-	free(tmp);
+	if (t != tmp) free(tmp);
 }
 
 static KrkValue krk_bim_syntax_dict;
