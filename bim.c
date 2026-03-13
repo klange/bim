@@ -6555,6 +6555,7 @@ _try_kuroko:
 				"let","not","or","return","while","try","except","raise",
 				"continue","break","as","from","elif","lambda","with","is",
 				"pass","assert","yield","finally","async","await",
+				"True","False","None",
 				NULL
 			};
 
