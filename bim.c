@@ -2213,7 +2213,7 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
  * The active buffer is highlighted.
  */
 void redraw_tabbar(void) {
-	if (!global_config.tabs_visible) return;
+	if (!global_config.tabs_visible && global_config.overlay_mode != OVERLAY_MODE_FILESEARCH) return;
 	/* Hide cursor while rendering UI */
 	hide_cursor();
 
