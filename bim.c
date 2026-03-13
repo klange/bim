@@ -11327,6 +11327,13 @@ static void do_kuroko_imports(void) {
 	krk_resetStack();
 }
 
+/**
+ * @c bim.reload()
+ *
+ * Attempts to reload all of the syntax highlighters and colorschemes.
+ *
+ * Also loads any new site modules, but doesn't remove the old ones?
+ */
 BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	/* Unload everything syntax-y */
 	KrkValue result = krk_interpret(
@@ -11346,6 +11353,11 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 	return 0;
 }
 
+/**
+ * @c bim.getDocumentText()
+ *
+ * Get the complete contents of the current buffer as a string.
+ */
 KRK_Function(getDocumentText) {
 	struct StringBuilder sb = {0};
 
@@ -11355,19 +11367,24 @@ KRK_Function(getDocumentText) {
 		for (j = 0; j < line->actual; j++) {
 			char_t c = line->text[j];
 			if (c.codepoint == 0) {
-				pushStringBuilder(&sb, 0);
+				krk_pushStringBuilder(&sb, 0);
 			} else {
 				char tmp[8] = {0};
 				int len = to_eight(c.codepoint, tmp);
-				pushStringBuilderStr(&sb, tmp, len);
+				krk_pushStringBuilderStr(&sb, tmp, len);
 			}
 		}
-		pushStringBuilder(&sb, '\n');
+		krk_pushStringBuilder(&sb, '\n');
 	}
 
 	return finishStringBuilder(&sb);
 }
 
+/**
+ * @c bim.renderError(message)
+ *
+ * Render an error message to the command input area.
+ */
 KRK_Function(renderError) {
 	char * message = NULL;
 	size_t message_len = 0;
@@ -11381,6 +11398,11 @@ KRK_Function(renderError) {
 	return NONE_VAL();
 }
 
+/**
+ * @c bim.renderMessage(message)
+ *
+ * Render a message to the command input area.
+ */
 KRK_Function(renderMessage) {
 	char * message = NULL;
 	size_t message_len = 0;
@@ -11394,6 +11416,11 @@ KRK_Function(renderMessage) {
 	return NONE_VAL();
 }
 
+/**
+ * @c bim.renderStatus(message)
+ *
+ * Render a message to the status bar.
+ */
 KRK_Function(renderStatus) {
 	char * message = NULL;
 	size_t message_len = 0;
@@ -11407,12 +11434,23 @@ KRK_Function(renderStatus) {
 	return NONE_VAL();
 }
 
+/**
+ * @c bim.getDocumentFilename()
+ *
+ * Return the current open file's filename.
+ */
 KRK_Function(getDocumentFilename) {
 	if (!env || !env->file_name) return NONE_VAL();
 	return OBJECT_VAL(krk_copyString(env->file_name,strlen(env->file_name)));
 }
 
 static KrkValue krk_bim_custom_action_dict;
+
+/**
+ * @c bim.bindkey(key,mode,callable)
+ *
+ * Bind a key in a given mode to a Kuroko function.
+ */
 KRK_Function(bindkey) {
 	const char * key = NULL;
 	const char * mode = NULL;
@@ -11462,6 +11500,14 @@ KRK_Function(bindkey) {
 	return NONE_VAL();
 }
 
+/**
+ * @c bim.getKey(timeout=DEFAULT_KEY_WAIT)
+ *
+ * Read a key press, and interpret special sequences to return a Bim key code.
+ *
+ * Without a provided timeout, the default is to either wait indefinitely or
+ * immediately return, depending on whether background tasks are scheduled.
+ */
 KRK_Function(getkey) {
 	int timeout = DEFAULT_KEY_WAIT;
 	if (!krk_parseArgs("|i",(const char*[]){"timeout"},&timeout)) return NONE_VAL();
@@ -11469,17 +11515,36 @@ KRK_Function(getkey) {
 	return INTEGER_VAL(key);
 }
 
+/**
+ * @c bim.displayWidth(str)
+ *
+ * Returns the display width of a string in cells. Essentially the same as 'wcwidth'.
+ */
 KRK_Function(displayWidth) {
 	char * str;
 	if (!krk_parseArgs("s",(const char*[]){"str"},&str)) return NONE_VAL();
 	return INTEGER_VAL(display_width_of_string(str));
 }
 
+/**
+ * @c bim.pauseForKey()
+ *
+ * Waits for a key press. The key will remain in the buffer for processing.
+ */
 KRK_Function(pauseForKey) {
 	pause_for_key();
 	return NONE_VAL();
 }
 
+/**
+ * @c bim.paren_pairs(pairs)
+ *
+ * Set the parenthesis matching pairs.
+ *
+ * If no arguments are provided, the current value is returned.
+ * To set no matching parens, use an empty string.
+ * The string should be a sequence of pairs, like "()[]{}".
+ */
 KRK_Function(paren_pairs) {
 	KrkString * pairs = NULL;
 	if (!krk_parseArgs("|O!", (const char *[]){"pairs"},
