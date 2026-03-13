@@ -11488,6 +11488,11 @@ KRK_Function(paren_pairs) {
 	if (pairs) {
 		krk_unicodeString(pairs);
 
+		if (pairs->codesLength % 2) {
+			return krk_runtimeError(vm.exceptions->valueError,
+				"pairs must be of even length");
+		}
+
 		uint32_t * new_pairs = calloc(sizeof(uint32_t), pairs->codesLength + 1);
 		for (size_t i = 0; i < pairs->codesLength; ++i) {
 			uint32_t cp = (uint32_t)KRK_STRING_FAST(pairs,i);
