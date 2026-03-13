@@ -90,6 +90,7 @@ global_config_t global_config = {
 	.background_task = NULL,
 	.tail_task = NULL,
 	.paren_pairs = NULL,
+	.tab_complete_ignore = NULL,
 };
 
 struct key_name_map KeyNames[] = {
@@ -6175,12 +6176,6 @@ int compare_candidate(const void * a, const void * b) {
 }
 
 /**
- * List of file extensions to ignore when tab completing.
- * TODO this should be configurable
- */
-const char * tab_complete_ignore[] = {".o",".lo",NULL};
-
-/**
  * Wrapper around krk_valueGetAttribute...
  */
 static KrkValue findFromProperty(KrkValue current, KrkToken next) {
@@ -6468,7 +6463,7 @@ char * command_tab_complete(char * buffer) {
 				}
 
 				int skip = 0;
-				for (const char ** c = tab_complete_ignore; *c; ++c) {
+				for (char ** c = global_config.tab_complete_ignore; *c; ++c) {
 					if (str_ends_with(s, *c)) {
 						skip = 1;
 						break;
@@ -11518,6 +11513,64 @@ KRK_Function(paren_pairs) {
 }
 
 /**
+ * @c bim.tab_complete_ignore(*args)
+ *
+ * Set the tab completion ignore list, which is a set of filename suffixes
+ * that are skipped in tab completion. The default is ('.o', '.lo').
+ *
+ * If no arguments are provided, the current value is returned as a tuple.
+ * If one argument is provided and it is None, the ignore list is disabled.
+ * Otherwise, the arguments should all be strings.
+ *
+ * Examples:
+ *
+ * @c bim.tab_complete_ignore() returns the current set.
+ * @c bim.tab_complete_ignore(None) disables the ignore list.
+ * @c bim.tab_complete_ignore('.o','.lo') is equivalent to the default.
+ */
+KRK_Function(tab_complete_ignore) {
+	int arg_c;
+	KrkValue * arg_v;
+	if (!krk_parseArgs("*", (const char*[]){"args"}, &arg_c, &arg_v)) return NONE_VAL();
+
+	if (arg_c == 0) {
+		size_t size = 0;
+		for (char **c = global_config.tab_complete_ignore; *c; c++) size++;
+		KrkTuple * values = krk_newTuple(size);
+		krk_push(OBJECT_VAL(values));
+		for (char **c = global_config.tab_complete_ignore; *c; c++) {
+			values->values.values[values->values.count++] = OBJECT_VAL(krk_copyString(*c,strlen(*c)));
+		}
+		return krk_pop();
+	}
+
+	if (arg_c == 1 && IS_NONE(arg_v[0])) {
+		arg_c = 0;
+	}
+
+	/* First make sure they are all strings. */
+	for (int i = 0; i < arg_c; ++i) {
+		if (!IS_STRING(arg_v[i])) return TYPE_ERROR(str,arg_v[i]);
+	}
+
+	char ** new_tab_ignore = malloc(sizeof(char*) * (arg_c + 1));
+
+	for (int i = 0; i < arg_c; ++i) {
+		new_tab_ignore[i] = strdup(AS_CSTRING(arg_v[i]));
+	}
+
+	new_tab_ignore[arg_c] = NULL;
+
+	for (char **c = global_config.tab_complete_ignore; *c; c++) {
+		free(*c);
+	}
+	free(global_config.tab_complete_ignore);
+	global_config.tab_complete_ignore = new_tab_ignore;
+
+	return NONE_VAL();
+}
+
+/**
  * Run global initialization tasks
  */
 void initialize(void) {
@@ -11564,6 +11617,11 @@ void initialize(void) {
 	global_config.paren_pairs = malloc(sizeof(pairs));
 	memcpy(global_config.paren_pairs, pairs, sizeof(pairs));
 
+	global_config.tab_complete_ignore = malloc(sizeof(char*)*3);
+	global_config.tab_complete_ignore[0] = strdup(".o");
+	global_config.tab_complete_ignore[1] = strdup(".lo");
+	global_config.tab_complete_ignore[2] = NULL;
+
 	/* Initialize Kuroko runtime context */
 	krk_initVM(0);
 
@@ -11593,6 +11651,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, displayWidth);
 	BIND_FUNC(bimModule, pauseForKey);
 	BIND_FUNC(bimModule, paren_pairs);
+	BIND_FUNC(bimModule, tab_complete_ignore);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);

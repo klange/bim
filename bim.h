@@ -232,6 +232,7 @@ typedef struct {
 	background_task_t * tail_task;
 
 	uint32_t * paren_pairs;
+	char ** tab_complete_ignore;
 
 } global_config_t;
 
