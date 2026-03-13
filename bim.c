@@ -2207,6 +2207,25 @@ int draw_tab_name(buffer_t * _env, char * out, int max_width, int * width) {
 	return 0;
 }
 
+#define KRK_STRING_FAST(string,offset)  (uint32_t)\
+	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) <= (KRK_OBJ_FLAGS_STRING_UCS1) ? ((uint8_t*)string->codes)[offset] : \
+	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) == (KRK_OBJ_FLAGS_STRING_UCS2) ? ((uint16_t*)string->codes)[offset] : \
+	((uint32_t*)string->codes)[offset]))
+
+static int file_search_matches(buffer_t * _env) {
+	if (global_config.overlay_mode != OVERLAY_MODE_FILESEARCH) return 0;
+	if (!global_config.command_buffer->actual) return 0;
+
+	char * f = _env->file_name ? file_basename(_env->file_name) : "";
+	KrkString * s = krk_copyString(f,strlen(f));
+	krk_push(OBJECT_VAL((KrkObj*)s));
+	krk_unicodeString(s);
+	size_t i = 0;
+	for (; i < s->codesLength && i < (size_t)global_config.command_buffer->actual &&
+	      (KRK_STRING_FAST(s,i)) == global_config.command_buffer->text[i].codepoint; ++i);
+	krk_pop();
+	return ((size_t)global_config.command_buffer->actual == i);
+}
 /**
  * Redraw the tabbar, with a tab for each buffer.
  *
@@ -2246,19 +2265,9 @@ void redraw_tabbar(void) {
 			set_underline();
 		}
 
-		if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
-			if (global_config.command_buffer->actual) {
-				char * f = _env->file_name ? file_basename(_env->file_name) : "";
-				/* TODO: Support unicode input here; needs conversion */
-				int i = 0;
-				for (; i < global_config.command_buffer->actual &&
-				      f[i] == global_config.command_buffer->text[i].codepoint; ++i);
-				if (global_config.command_buffer->actual == i) {
-					set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
-				}
-			}
+		if (file_search_matches(_env)) {
+			set_colors(COLOR_SEARCH_FG, COLOR_SEARCH_BG);
 		}
-
 
 		char title[64];
 		int size = 0;
@@ -7301,19 +7310,9 @@ BIM_ACTION(file_search_accept, 0, "Open the requested tab",void) {
 	buffer_t * match = NULL;
 	for (int i = global_config.tab_offset; i < buffers_len; i++) {
 		buffer_t * _env = buffers[i];
-
-		if (global_config.overlay_mode == OVERLAY_MODE_FILESEARCH) {
-			if (global_config.command_buffer->actual) {
-				char * f = _env->file_name ? file_basename(_env->file_name) : "";
-				/* TODO: Support unicode input here; needs conversion */
-				int i = 0;
-				for (; i < global_config.command_buffer->actual &&
-				      f[i] == global_config.command_buffer->text[i].codepoint; ++i);
-				if (global_config.command_buffer->actual == i) {
-					match = _env;
-					break;
-				}
-			}
+		if (file_search_matches(_env)) {
+			match = _env;
+			break;
 		}
 	}
 
@@ -10978,11 +10977,6 @@ KRK_Method(SyntaxState,__setitem__) {
 	paint(howMuch, whatFlag);
 	return NONE_VAL();
 }
-
-#define KRK_STRING_FAST(string,offset)  (uint32_t)\
-	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) <= (KRK_OBJ_FLAGS_STRING_UCS1) ? ((uint8_t*)string->codes)[offset] : \
-	((string->obj.flags & KRK_OBJ_FLAGS_STRING_MASK) == (KRK_OBJ_FLAGS_STRING_UCS2) ? ((uint16_t*)string->codes)[offset] : \
-	((uint32_t*)string->codes)[offset]))
 
 KRK_Method(SyntaxState,__contains__) {
 	KRK_BIM_STATE();
