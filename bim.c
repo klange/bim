@@ -6241,7 +6241,6 @@ static void command_buffer_deserialize(char * tmp) {
 		t++;
 	}
 	_syn_restore();
-	free(tmp);
 }
 
 /**
@@ -6752,7 +6751,7 @@ _end_prefill:
 			krk_pushStringBuilder(&cmd, '\0');
 			command_buffer_deserialize(cmd.bytes);
 			render_command_input_buffer();
-			cmd = (struct StringBuilder){0};
+			krk_discardStringBuilder(&cmd);
 
 			int k = 0;
 			while ((k = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
@@ -6994,6 +6993,7 @@ BIM_ACTION(command_tab_complete_buffer, 0,
 	char * tmp = command_buffer_serialize();
 	tmp = command_tab_complete(tmp);
 	command_buffer_deserialize(tmp);
+	free(tmp);
 }
 
 BIM_ACTION(command_backspace, 0,
