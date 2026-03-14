@@ -404,24 +404,25 @@ struct command_def {
 	char * name;
 	int (*command)(char *, int, char * arg[]);
 	const char * description;
+	KrkValue callable;
 };
 
 #define BIM_COMMAND(cmd_name, cmd_str, description) \
 	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
 	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
-		add_command((struct command_def){cmd_str, bim_command_ ## cmd_name, description}); \
+		add_command((struct command_def){cmd_str, bim_command_ ## cmd_name, description, NONE_VAL()}); \
 	} \
 	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
 
 #define BIM_ALIAS(alias, alias_name, cmd_name) \
 	void __attribute__((constructor)) _install_alias_ ## alias_name (void) { \
-		add_command((struct command_def){alias, bim_command_ ## cmd_name, "Alias for " #cmd_name}); \
+		add_command((struct command_def){alias, bim_command_ ## cmd_name, "Alias for " #cmd_name, NONE_VAL()}); \
 	}
 
 #define BIM_PREFIX_COMMAND(cmd_name, cmd_prefix, description) \
 	int bim_command_ ## cmd_name (char * cmd, int argc, char * argv[]); \
 	void __attribute__((constructor)) _install_cmd_ ## cmd_name (void) { \
-		add_prefix_command((struct command_def){cmd_prefix, bim_command_ ## cmd_name, description}); \
+		add_prefix_command((struct command_def){cmd_prefix, bim_command_ ## cmd_name, description, NONE_VAL()}); \
 	} \
 	int bim_command_ ## cmd_name (char * cmd __attribute__((unused)), int argc __attribute__((unused)), char * argv[] __attribute__((unused)))
 

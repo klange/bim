@@ -235,8 +235,8 @@ struct ColorName color_names[] = {
 	}
 
 FLEXIBLE_ARRAY(mappable_actions, add_action, struct action_def, ((struct action_def){NULL,0,0,NULL}))
-FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
-FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL}))
+FLEXIBLE_ARRAY(regular_commands, add_command, struct command_def, ((struct command_def){NULL,NULL,NULL,NONE_VAL()}))
+FLEXIBLE_ARRAY(prefix_commands, add_prefix_command, struct command_def, ((struct command_def){NULL,NULL,NULL,NONE_VAL()}))
 FLEXIBLE_ARRAY(themes, add_colorscheme, struct theme_def, ((struct theme_def){NULL,NULL}))
 
 /**
@@ -6101,6 +6101,8 @@ int alldigits(const char * c) {
 	return 1;
 }
 
+static int run_custom_krk_command(KrkValue callable, int argc, char * argv[]);
+
 /**
  * Process a user command.
  */
@@ -6144,7 +6146,11 @@ int process_command(char * cmd) {
 		argv[argc] = NULL;
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 			if (!strcmp(argv[0], c->name)) {
-				return c->command((char*)cmd, argc, argv);
+				if (c->callable != NONE_VAL()) {
+					return run_custom_krk_command(c->callable, argc, argv);
+				} else {
+					return c->command((char*)cmd, argc, argv);
+				}
 			}
 		}
 	}
@@ -11476,6 +11482,7 @@ KRK_Function(getDocumentFilename) {
 }
 
 static KrkValue krk_bim_custom_action_dict;
+static KrkValue krk_bim_custom_command_dict;
 
 /**
  * @c bim.bindkey(key,mode,callable)
@@ -11742,6 +11749,50 @@ KRK_Function(addStringAtCursor) {
 	return NONE_VAL();
 }
 
+static int run_custom_krk_command(KrkValue callable, int argc, char * argv[]) {
+	ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
+	krk_push(callable);
+	for (int i = 0; i < argc; ++i) {
+		krk_push(OBJECT_VAL((KrkObj*)krk_copyString(argv[i],strlen(argv[i]))));
+	}
+	KrkValue result = krk_callStack(argc);
+	krk_currentThread.stackTop = krk_currentThread.stack + before;
+	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
+		render_error("Exception running command: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
+		krk_dumpTraceback();
+		krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
+		pause_for_key();
+	}
+	if (IS_INTEGER(result)) return AS_INTEGER(result);
+	return 0;
+}
+
+KRK_Function(bindCommand) {
+	char * name;
+	KrkValue callable;
+	char * description = NULL;
+
+	if (!krk_parseArgs("sV|s", (const char*[]){"name","callable","description"},
+		&name, &callable, &description)) return NONE_VAL();
+
+	/* Check that a command by this name doesn't already exist. */
+	for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
+		if (!strcmp(c->name, name)) {
+			return krk_runtimeError(vm.exceptions->valueError, "Command already exists (can not re-bind name)");
+		}
+	}
+
+	name = strdup(name);
+	description = description ? strdup(description) : "";
+
+	add_command((struct command_def){name, NULL, description, callable});
+
+	krk_tableSet(AS_DICT(krk_bim_custom_command_dict), callable, BOOLEAN_VAL(1));
+
+	return NONE_VAL();
+}
+
+
 /**
  * Run global initialization tasks
  */
@@ -11829,6 +11880,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, charAtCursor);
 	BIND_FUNC(bimModule, lineAtCursor);
 	BIND_FUNC(bimModule, addStringAtCursor);
+	BIND_FUNC(bimModule, bindCommand);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
@@ -11837,6 +11889,8 @@ void initialize(void) {
 	krk_attachNamedValue(&bimModule->fields, "highlighters", krk_bim_syntax_dict);
 	krk_bim_custom_action_dict = krk_dict_of(0,NULL,0);
 	krk_attachNamedValue(&bimModule->fields,"customActions", krk_bim_custom_action_dict);
+	krk_bim_custom_command_dict = krk_dict_of(0,NULL,0);
+	krk_attachNamedValue(&bimModule->fields,"customCommands", krk_bim_custom_command_dict);
 
 	/* Helpful info */
 	krk_attachNamedObject(&bimModule->fields, "version", (KrkObj*)S(BIM_VERSION));
