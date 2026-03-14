@@ -1,5 +1,5 @@
 import os
-from bim import getCommands
+from bim import getCommands, fileExists
 from syntax import Highlighter, bind
 from syntax.doxygen import tryDoxygenComment
 
@@ -177,12 +177,9 @@ class BimcmdHighlighter(KrkHighlighter):
                         while self[0] == ' ': self.skip()
                         let filePath = self[0:]
                         if filePath:
-                            if filePath.startswith('~/'):
-                                filePath = filePath.replace('~',os.environ.get('HOME','~'),1)
-                            try:
-                                os.stat(filePath)
+                            if fileExists(filePath):
                                 self.paint(-1, self.FLAG_DIFFPLUS)
-                            except:
+                            else:
                                 self.paint(-1, self.FLAG_DIFFMINUS)
                         return -1
             if self.findKeywords(getCommands(), self.FLAG_KEYWORD, self.cKeywordQualifier):

@@ -11650,6 +11650,32 @@ KRK_Function(tab_complete_ignore) {
 	return NONE_VAL();
 }
 
+KRK_Function(fileExists) {
+	char * path;
+	if (!krk_parseArgs("s", (const char *[]){"path"}, &path)) return NONE_VAL();
+
+	/* Possibly handle ~ prefix. */
+	char * t = interpret_file_path(path, NULL);
+
+	/* Look for a colon. */
+	char * l = strrchr(t, ':');
+	if (l && is_all_numbers(l+1)) {
+		if (t == path) {
+			/* If we need to modify the filename and we didn't already get
+			 * a new one from interpret_file_path, create one now. */
+			t = strdup(path);
+			l = l - path + t;
+		}
+		*l = '\0';
+	}
+
+	struct stat statbuf;
+	int result = !stat(t, &statbuf);
+	if (t != path) free(t);
+
+	return BOOLEAN_VAL(result);
+}
+
 /**
  * Run global initialization tasks
  */
@@ -11732,6 +11758,7 @@ void initialize(void) {
 	BIND_FUNC(bimModule, pauseForKey);
 	BIND_FUNC(bimModule, paren_pairs);
 	BIND_FUNC(bimModule, tab_complete_ignore);
+	BIND_FUNC(bimModule, fileExists);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
