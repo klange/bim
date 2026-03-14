@@ -1462,7 +1462,7 @@ line_t ** merge_lines(line_t ** lines, int lineb) {
 
 	/* Move other lines up */
 	if (lineb < env->line_count) {
-		memmove(&lines[lineb], &lines[lineb+1], sizeof(line_t *) * (env->line_count - (lineb - 1)));
+		memmove(&lines[lineb], &lines[lineb+1], sizeof(line_t *) * (env->line_count - (lineb + 1)));
 		lines[env->line_count-1] = NULL;
 	}
 
@@ -1504,8 +1504,8 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	}
 
 	/* Shift later lines down */
-	if (line < env->line_count) {
-		memmove(&lines[line+2], &lines[line+1], sizeof(line_t *) * (env->line_count - line));
+	if (line + 1 < env->line_count) {
+		memmove(&lines[line+2], &lines[line+1], sizeof(line_t *) * (env->line_count - (line + 1)));
 	}
 
 	int remaining = lines[line]->actual - split;
@@ -1529,6 +1529,9 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	memmove(lines[line+1]->text, &lines[line]->text[split], sizeof(char_t) * remaining);
 	lines[line]->actual = split;
 
+	env->lines = lines;
+	env->line_count += 1;
+
 	if (!env->loading) {
 		lines[line]->rev_status = 2;
 		lines[line+1]->rev_status = 2;
@@ -1537,9 +1540,6 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 		recalculate_syntax(lines[line], line);
 		recalculate_syntax(lines[line+1], line+1);
 	}
-
-	/* There is one new line */
-	env->line_count += 1;
 
 	/* We may have reallocated lines */
 	return lines;
