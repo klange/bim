@@ -11024,6 +11024,14 @@ KRK_StaticMethod(SyntaxState,cKeywordQualifier) {
 	return BOOLEAN_VAL(!!c_keyword_qualifier(AS_CSTRING(argv[0])[0]));
 }
 
+KRK_StaticMethod(SyntaxState,isSubstitutionSymbol) {
+	FUNCTION_TAKES_EXACTLY(1);
+	if (IS_INTEGER(argv[0])) return BOOLEAN_VAL(!!isSubstitutionSymbol(AS_INTEGER(argv[0])));
+	if (!IS_STRING(argv[0])) return BOOLEAN_VAL(0);
+	if (AS_STRING(argv[0])->length > 1) return BOOLEAN_VAL(0);
+	return BOOLEAN_VAL(!!isSubstitutionSymbol(AS_CSTRING(argv[0])[0]));
+}
+
 static int callQualifier(KrkValue qualifier, int codepoint) {
 	if (IS_NATIVE(qualifier) && AS_NATIVE(qualifier)->function == FUNC_NAME(SyntaxState,cKeywordQualifier)) return AS_BOOLEAN(!!c_keyword_qualifier(codepoint));
 	krk_push(qualifier);
@@ -11913,6 +11921,7 @@ void initialize(void) {
 	BIND_STATICMETHOD(SyntaxState,cKeywordQualifier);
 	BIND_STATICMETHOD(SyntaxState,isdigit);
 	BIND_STATICMETHOD(SyntaxState,isxdigit);
+	BIND_STATICMETHOD(SyntaxState,isSubstitutionSymbol);
 	BIND_METHOD(SyntaxState,paint);
 	BIND_METHOD(SyntaxState,paintComment);
 	BIND_METHOD(SyntaxState,skip);
