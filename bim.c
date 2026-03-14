@@ -6658,9 +6658,19 @@ _accept_candidate:
 		 * won't be filled with one of the candidates. */
 		krk_pushStringBuilderStr(&cmd, buffer, start - buf);
 		for (int i = 0; ; ++i) {
-			if ((signed char)candidates[0].text[i] <= 0) goto _end_prefill; /* TODO continuation bytes */
+			if (!candidates[0].text[i]) goto _end_prefill;
 			for (int j = 1; j < candidate_count; ++j) {
 				if (candidates[0].text[i] != candidates[j].text[i]) goto _end_prefill;
+			}
+			if (((unsigned char)candidates[0].text[i] & 0xc0) == 0xc0) {
+				/* All continuation bytes must match or we break early. */
+				for (int x = 1; ((unsigned char)candidates[0].text[i+x] & 0xc0) == 0x80; ++x) {
+					for (int j = 1; j < candidate_count; ++j) {
+						if (candidates[0].text[i+x] != candidates[j].text[i+x]) goto _end_prefill;
+					}
+				}
+				/* All the continuation bytes of this sequence matched; let them be added normally by
+				 * continuing the loop from here. */
 			}
 			krk_pushStringBuilder(&cmd, candidates[0].text[i]);
 		}
