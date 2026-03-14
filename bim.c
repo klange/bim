@@ -557,6 +557,8 @@ char * interpret_file_path(char * file, char *plus) {
 	char * home;
 	if (*file == '~' && (home = getenv("HOME"))) {
 		krk_pushStringBuilderFormat(&sb, "%s%s", home, file+1);
+	} else if (plus) {
+		krk_pushStringBuilderFormat(&sb, "%s", file);
 	}
 
 	if (plus) {
