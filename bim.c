@@ -9906,6 +9906,7 @@ BIM_ACTION(enter_line_selection_and_cursor_up, 0,
 ,void) {
 	enter_line_selection();
 	cursor_up();
+	_redraw_line(env->line_no, 1);
 }
 
 BIM_ACTION(enter_line_selection_and_cursor_down, 0,
@@ -9913,6 +9914,7 @@ BIM_ACTION(enter_line_selection_and_cursor_down, 0,
 ,void) {
 	enter_line_selection();
 	cursor_down();
+	_redraw_line(env->line_no, 1);
 }
 
 BIM_ACTION(shift_horizontally, ARG_IS_CUSTOM,
