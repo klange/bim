@@ -1024,6 +1024,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 				render_commandline_message("\n");
 				krk_dumpTraceback();
+				krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 				goto _syntaxError;
 			} else if (!IS_NONE(result) && !IS_INTEGER(result)) {
 				render_error("Instead of an integer, got %s", krk_typeName(result));
@@ -1054,7 +1055,7 @@ _next:
 	}
 
 _syntaxError:
-	krk_resetStack();
+	krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 	fprintf(stderr,"This syntax highlighter will be disabled in this environment.");
 	env->syntax = NULL;
 	cancel_background_tasks(env);
@@ -3815,7 +3816,6 @@ void run_onload(buffer_t * env) {
 			krk_push(KWARGS_VAL(args));
 			krk_callStack(args * 2 + 1);
 		}
-		krk_resetStack();
 	}
 }
 
@@ -5774,8 +5774,8 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 				if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 					render_error("Exception occurred in theme: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 					krk_dumpTraceback();
-					int key = 0;
-					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+					krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
+					pause_for_key();
 				}
 				current_theme = d->name;
 				redraw_all();
@@ -6142,7 +6142,6 @@ int process_command(char * cmd) {
 		argv[argc] = NULL;
 		for (struct command_def * c = regular_commands; regular_commands && c->name; ++c) {
 			if (!strcmp(argv[0], c->name)) {
-				krk_resetStack();
 				return c->command((char*)cmd, argc, argv);
 			}
 		}
@@ -6627,7 +6626,6 @@ _try_kuroko:
 
 _cleanup:
 		free(space);
-		krk_resetStack();
 	}
 
 _accept_candidate:
@@ -10266,8 +10264,8 @@ int handle_action(struct action_map * basemap, int key) {
 					if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 						render_error("Exception during action: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 						krk_dumpTraceback();
-						int key = 0;
-						while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
+						krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
+						pause_for_key();
 					}
 				} else {
 					((action_no_arg)map->method)();
@@ -10588,16 +10586,7 @@ struct CommandDef {
 int process_krk_command(const char * cmd, KrkValue * outVal) {
 	place_cursor(global_config.term_width, global_config.term_height);
 	fprintf(stdout, "\n");
-	/* By resetting, we're at 0 frames. */
-	krk_resetStack();
-	/* Push something so we're not at the bottom of the stack when an
-	 * exception happens, or we'll get the normal interpreter behavior
-	 * and won't be able to examine the exception ourselves. */
-	krk_push(NONE_VAL());
-	/* If we don't set outSlots for the top frame a syntax error will
-	 * get printed by the interpreter and we can't catch it here. */
-	krk_currentThread.frames[0].outSlots = 1;
-	/* Call the interpreter */
+
 	KrkValue out = krk_interpret(cmd,"<bim>");
 	/* If the user typed just a command name, try to execute it. */
 	if (krk_isInstanceOf(out,CommandDef)) {
@@ -10614,10 +10603,10 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 		set_fg_color(COLOR_RED);
 		fflush(stdout);
 		krk_dumpTraceback();
+		krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 		set_fg_color(COLOR_FG);
 		fflush(stdout);
 		hadOutput = 1;
-		krk_resetStack();
 	}
 	/* Otherwise, we can look at the result here. */
 	if (!IS_NONE(out) && !(IS_INTEGER(out) && AS_INTEGER(out) == 0)) {
@@ -10628,7 +10617,6 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 			fprintf(stdout, " => %s\n", AS_CSTRING(repr));
 			clear_to_end();
 		}
-		krk_resetStack();
 		hadOutput = 1;
 	}
 	/* If we had either an exception or a non-zero, non-None result,
@@ -10711,7 +10699,7 @@ BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 		render_error("Exception occurred in script");
 		render_commandline_message("\n");
 		krk_dumpTraceback();
-		krk_resetStack();
+		krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 		pause_for_key();
 	}
 
@@ -11293,6 +11281,7 @@ void import_directory(char * dirName) {
 
 			if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
 				krk_dumpTraceback();
+				krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 				render_error("The above exception was encountered while loading '%s/%s'.", dirName, ent->d_name);
 
 				if (global_config.has_terminal) {
@@ -11301,7 +11290,7 @@ void import_directory(char * dirName) {
 					int key;
 					while ((key = bim_getkey(DEFAULT_KEY_WAIT)) == KEY_TIMEOUT);
 					if (key != 'y') {
-						krk_resetStack();
+						krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 						break;
 					}
 				} else {
@@ -11311,8 +11300,7 @@ void import_directory(char * dirName) {
 				}
 			}
 
-			/* reset the stack */
-			krk_resetStack();
+			krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 		}
 		ent = readdir(dirp);
 	}
@@ -11350,7 +11338,6 @@ static void findBim(char * argv[]) {
 }
 
 static void do_kuroko_imports(void) {
-	krk_resetStack();
 	krk_startModule("<bim-site>");
 	import_directory("site");
 	krk_startModule("<bim-syntax>");
@@ -11359,7 +11346,6 @@ static void do_kuroko_imports(void) {
 	import_directory("themes");
 	krk_startModule("<bim-repl>");
 	load_bimrc();
-	krk_resetStack();
 }
 
 /**
@@ -11380,6 +11366,7 @@ BIM_COMMAND(reload,"reload","Reloads all the Kuroko stuff.") {
 
 	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 		krk_dumpTraceback();
+		krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 		return 1;
 	}
 
