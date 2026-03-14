@@ -11701,6 +11701,51 @@ KRK_Function(fileExists) {
 	return BOOLEAN_VAL(result);
 }
 
+KRK_Function(getCursor) {
+	/* Get the line and column of the cursor. */
+	KrkTuple * out = krk_newTuple(2);
+	krk_push(OBJECT_VAL((KrkObj*)out));
+
+	out->values.values[out->values.count++] = INTEGER_VAL(env->line_no);
+	out->values.values[out->values.count++] = INTEGER_VAL(env->col_no);
+
+	return krk_pop();
+}
+
+KRK_Function(charAtCursor) {
+	if (env->col_no > env->lines[env->line_no-1]->actual) return NONE_VAL();
+	if (env->line_no > env->line_count) return NONE_VAL();
+
+	char tmp[7] = {0};
+	size_t l = to_eight(env->lines[env->line_no-1]->text[env->col_no-1].codepoint, tmp);
+
+	return OBJECT_VAL(krk_copyString(tmp,l));
+}
+
+KRK_Function(lineAtCursor) {
+	if (env->line_no > env->line_count) return NONE_VAL();
+
+	struct StringBuilder sb = {0};
+	for (int i = 0; i < env->lines[env->line_no-1]->actual; ++i) {
+		char buf[10];
+		size_t t = to_eight(env->lines[env->line_no-1]->text[i].codepoint, buf);
+		krk_pushStringBuilderStr(&sb, buf, t);
+	}
+
+	return krk_finishStringBuilder(&sb);
+}
+
+KRK_Function(addStringAtCursor) {
+	char * str;
+	size_t l;
+
+	if (!krk_parseArgs("s#", (const char*[]){"str"}, &str, &l)) return NONE_VAL();
+
+	add_buffer((uint8_t*)str, l);
+
+	return NONE_VAL();
+}
+
 /**
  * Run global initialization tasks
  */
@@ -11784,6 +11829,10 @@ void initialize(void) {
 	BIND_FUNC(bimModule, paren_pairs);
 	BIND_FUNC(bimModule, tab_complete_ignore);
 	BIND_FUNC(bimModule, fileExists);
+	BIND_FUNC(bimModule, getCursor);
+	BIND_FUNC(bimModule, charAtCursor);
+	BIND_FUNC(bimModule, lineAtCursor);
+	BIND_FUNC(bimModule, addStringAtCursor);
 
 	/* Direct access and GC references */
 	krk_bim_theme_dict = krk_dict_of(0,NULL,0);
