@@ -1,4 +1,3 @@
-import os
 from bim import getCommands, fileExists
 from syntax import Highlighter, bind
 from syntax.doxygen import tryDoxygenComment
