@@ -6398,7 +6398,7 @@ char * command_tab_complete(char * buffer) {
 	}
 
 	if (arg == 1 && (!strcmp(args[0], "e") || !strcmp(args[0], "tabnew") ||
-	    !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runscript") ||
+	    !strcmp(args[0],"split") || !strcmp(args[0],"w") || !strcmp(args[0],"runkrk") ||
 	    !strcmp(args[0],"rundir") || args[0][0] == '!')) {
 		/* Complete file paths */
 
@@ -10692,7 +10692,32 @@ static void show_usage(char * argv[]) {
 
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	if (argc < 2) return 1;
-	krk_runfile(argv[1],argv[1]);
+
+	/* Handle ~ in filename */
+	char * script = interpret_file_path(argv[1],NULL);
+
+	/* Store the enclosing module (should be the repl context) */
+	KrkInstance * enclosing = krk_currentThread.module;
+
+	/* Execute our script as the __main__ module. */
+	krk_startModule("__main__");
+	krk_runfile(script,script);
+
+	/* Free up the modified filename, if it was modified. */
+	if (script != argv[1]) free(script);
+
+	/* Catch exceptions and print them, then wait to continue. */
+	if (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION) {
+		render_error("Exception occurred in script");
+		render_commandline_message("\n");
+		krk_dumpTraceback();
+		krk_resetStack();
+		pause_for_key();
+	}
+
+	/* Restore the repl context. */
+	krk_currentThread.module = enclosing;
+
 	redraw_all();
 	return 0;
 }
