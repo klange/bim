@@ -8642,71 +8642,68 @@ int point_in_range(int start_line, int end_line, int start_col, int end_col, int
 /**
  * Macro for redrawing selected lines with appropriate highlighting.
  */
-#define _redraw_line(line, force_start_line) \
-	do { \
-		if (!(force_start_line) && (line) == env->start_line) break; \
-		if ((line) > env->line_count + 1) { \
-			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
-				draw_excess_line((line) - env->offset - 1); \
-			} \
-			break; \
-		} \
-		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
-			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
-			(env->line_no == env->start_line && (line) != env->start_line)) { \
-			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
-			} \
-		} else { \
-			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
-			} \
-		} \
-		redraw_line((line)-1); \
-	} while (0)
+static void _redraw_line(int line, int force_start_line) {
+	if (!(force_start_line) && (line) == env->start_line) return;
+	if ((line) > env->line_count + 1) {
+		if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) {
+			draw_excess_line((line) - env->offset - 1);
+		}
+		return;
+	}
+	if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) ||
+		(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) ||
+		(env->line_no == env->start_line && (line) != env->start_line)) {
+		for (int j = 0; j < env->lines[(line)-1]->actual; ++j) {
+			env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT);
+		}
+	} else {
+		for (int j = 0; j < env->lines[(line)-1]->actual; ++j) {
+			env->lines[(line)-1]->text[j].flags |= FLAG_SELECT;
+		}
+	}
+	redraw_line((line)-1);
+}
 
-#define _redraw_line_char(line, force_start_line) \
-	do { \
-		if (!(force_start_line) && (line) == env->start_line) break; \
-		if ((line) > env->line_count + 1) { \
-			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
-				draw_excess_line((line) - env->offset - 1); \
-			} \
-			break; \
-		} \
-		if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) || \
-			(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) || \
-			(env->line_no == env->start_line && (line) != env->start_line)) { \
-			/* Line is completely outside selection */ \
-			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
-			} \
-		} else { \
-			if ((line) == env->start_line || (line) == env->line_no) { \
-				for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-					env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT); \
-				} \
-			} \
-			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) { \
-				if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) { \
-					env->lines[(line)-1]->text[j].flags |= FLAG_SELECT; \
-				} \
-			} \
-		} \
-		redraw_line((line)-1); \
-	} while (0)
+static void _redraw_line_char(int line, int force_start_line) {
+	if (!(force_start_line) && (line) == env->start_line) return;
+	if ((line) > env->line_count + 1) {
+		if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) {
+			draw_excess_line((line) - env->offset - 1);
+		}
+		return;
+	}
+	if ((env->line_no < env->start_line  && ((line) < env->line_no || (line) > env->start_line)) ||
+		(env->line_no > env->start_line  && ((line) > env->line_no || (line) < env->start_line)) ||
+		(env->line_no == env->start_line && (line) != env->start_line)) {
+		/* Line is completely outside selection */
+		for (int j = 0; j < env->lines[(line)-1]->actual; ++j) {
+			env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT);
+		}
+	} else {
+		if ((line) == env->start_line || (line) == env->line_no) {
+			for (int j = 0; j < env->lines[(line)-1]->actual; ++j) {
+				env->lines[(line)-1]->text[j].flags &= ~(FLAG_SELECT);
+			}
+		}
+		for (int j = 0; j < env->lines[(line)-1]->actual; ++j) {
+			if (point_in_range(env->start_line, env->line_no,env->start_col, env->col_no, (line), j+1)) {
+				env->lines[(line)-1]->text[j].flags |= FLAG_SELECT;
+			}
+		}
+	}
+	redraw_line((line)-1);
+}
 
-#define _redraw_line_col(line, force_start_line) \
-	do {\
-		if (!(force_start_line) && (line) == env->start_line) break; \
-		if ((line) > env->line_count + 1) { \
-			if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) { \
-				draw_excess_line((line) - env->offset - 1); \
-			} \
-			break; \
-		} \
-		redraw_line((line)-1); \
-	} while (0)
+static void _redraw_line_col(int line, int force_start_line) {
+	if (!(force_start_line) && (line) == env->start_line) return;
+	if ((line) > env->line_count + 1) {
+		if ((line) - env->offset - 1 < global_config.term_height - global_config.bottom_size - 1) {
+			draw_excess_line((line) - env->offset - 1);
+		}
+		return;
+	}
+	redraw_line((line)-1);
+}
 
 BIM_ACTION(adjust_indent, ARG_IS_CUSTOM | ACTION_IS_RW,
 	"Adjust the indentation on the selected lines (`<tab>` for deeper, `<shift-tab>` for shallower)."
