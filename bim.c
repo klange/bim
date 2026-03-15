@@ -780,6 +780,34 @@ void cancel_background_tasks(buffer_t * buf) {
 }
 
 /**
+ * @brief add a background task to the end of the work queue.
+ *
+ * Schedules a new task to run @c func on buffer @c env with the given private data.
+ * The task will run, eventually, whenever we are waiting on a @c bim_getch.
+ *
+ * @param env Environment to switch to when running the task.
+ * @param priv_i Arbitrary int data to include in the task.
+ * @param priv_p Arbitrary void pointer to include in the task.
+ * @param func Function to run to execute the task.
+ */
+void schedule_background_task(buffer_t * env, int priv_i, void * priv_p, void (*func)(struct background_task*)) {
+	background_task_t * task = malloc(sizeof(background_task_t));
+	task->env  = env;
+	task->_private_i = priv_i;
+	task->_private_p = priv_p;
+	task->func = func;
+	task->next = NULL;
+	if (global_config.tail_task) {
+		global_config.tail_task->next = task;
+	}
+	global_config.tail_task = task;
+	if (!global_config.background_task) {
+		global_config.background_task = task;
+	}
+}
+
+
+/**
  * Close a buffer
  */
 buffer_t * buffer_close(buffer_t * buf) {
@@ -3875,18 +3903,7 @@ static void schedule_complete_recalc(void) {
 
 	/* TODO see if there's already a redraw scheduled */
 	for (int i = 0; i < env->line_count; ++i) {
-		background_task_t * task = malloc(sizeof(background_task_t));
-		task->env  = env;
-		task->_private_i = i;
-		task->func = render_syntax_async;
-		task->next = NULL;
-		if (global_config.tail_task) {
-			global_config.tail_task->next = task;
-		}
-		global_config.tail_task = task;
-		if (!global_config.background_task) {
-			global_config.background_task = task;
-		}
+		schedule_background_task(env, i, NULL, render_syntax_async);
 	}
 	redraw_statusbar();
 }
