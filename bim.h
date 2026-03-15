@@ -528,7 +528,6 @@ extern struct mode_names mode_names[];
 
 static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c));
 static int common_comment_buzzwords(struct syntax_state * state);
-static int paint_comment(struct syntax_state * state);
 static struct syntax_definition * find_syntax_calculator(const char * name);
 
 /* Hacky workaround for isdigit not really accepting Unicode stuff */

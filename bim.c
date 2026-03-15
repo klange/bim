@@ -928,19 +928,6 @@ static int common_comment_buzzwords(struct syntax_state * state) {
 }
 
 /**
- * Paint a comment until end of line; assumes this comment can not continue.
- * (Some languages have comments that can continue with a \ - don't use this!)
- * Assumes you've already painted your comment start characters.
- */
-static int paint_comment(struct syntax_state * state) {
-	while (charat() != -1) {
-		if (common_comment_buzzwords(state)) continue;
-		else { paint(1, FLAG_COMMENT); }
-	}
-	return -1;
-}
-
-/**
  * Find and return a highlighter by name, or return NULL if none was found.
  */
 static struct syntax_definition * find_syntax_calculator(const char * name) {
@@ -11022,7 +11009,10 @@ KRK_Method(SyntaxState,paint) {
 
 KRK_Method(SyntaxState,paintComment) {
 	KRK_BIM_STATE();
-	paint_comment(state);
+	while (charat() != -1) {
+		if (common_comment_buzzwords(state)) continue;
+		else { paint(1, FLAG_COMMENT); }
+	}
 	return NONE_VAL();
 }
 
