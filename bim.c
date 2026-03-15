@@ -3779,9 +3779,22 @@ int line_matches(line_t * line, char * string) {
 	return 1;
 }
 
-void run_onload(buffer_t * env) {
+/**
+ * @brief Run a single onload function.
+ *
+ * Preps the argument list to call an onload function using either the new or
+ * the old calling convention: If the callable is a function that takes exactly
+ * one required argument (one positional), then we use the old calling convention
+ * and the arguments are placed in a dict. Otherwise, we use the new calling
+ * convention and pass all of the arguments as kwargs; the function may accept
+ * them however it wishes, but it must accept all of them, so **kws is good.
+ *
+ * @param env Environment to operate on.
+ * @param which Function name to look for in the <bim-repl> context.
+ */
+static void run_onload_once(buffer_t * env, KrkString * which) {
 	KrkValue onLoad;
-	if (krk_tableGet_fast(&krk_currentThread.module->fields, S("onload"), &onLoad)) {
+	if (krk_tableGet_fast(&krk_currentThread.module->fields, which, &onLoad)) {
 		krk_push(onLoad);
 
 		int args = 0;
@@ -3818,6 +3831,33 @@ void run_onload(buffer_t * env) {
 			krk_push(KWARGS_VAL(args));
 			krk_callStack(args * 2 + 1);
 		}
+	}
+}
+
+/**
+ * @brief Run all onload functions for an environment.
+ *
+ * Runs @c onload and @c onload_LANG functions from the <bim-repl> module context.
+ *
+ * @param env The environment to operate on.
+ */
+void run_onload(buffer_t * env) {
+	/* First run the global 'onload' */
+	krk_push(OBJECT_VAL(S("onload")));
+	run_onload_once(env, AS_STRING(krk_peek(0)));
+	krk_pop();
+
+	/* Then see if there's a more specific one. */
+	if (env->syntax) {
+		struct StringBuilder sb = {0};
+		/* In Bim 2, this would have been onload:lang, but Kuroko - like Python - does
+		 * not support having symbols like : in a function name. We could use a Unicode
+		 * codepoint, but it might be too difficult to type in normal circumstances,
+		 * so we'll be boring and use _. */
+		krk_pushStringBuilderFormat(&sb, "onload_%s", env->syntax->name);
+		krk_push(krk_finishStringBuilder(&sb));
+		run_onload_once(env, AS_STRING(krk_peek(0)));
+		krk_pop();
 	}
 }
 
