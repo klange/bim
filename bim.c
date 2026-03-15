@@ -756,6 +756,15 @@ _done:
 	return 0;
 }
 
+/**
+ * @brief Cancel all background tasks associated with a buffer.
+ *
+ * Goes through the work queue and removes any background task
+ * that was schedule to run on a particular buffer, so that
+ * the buffer may be closed.
+ *
+ * @param buf Buffer to remove tasks for.
+ */
 void cancel_background_tasks(buffer_t * buf) {
 	background_task_t * t = global_config.background_task;
 	background_task_t * last = NULL;
@@ -808,7 +817,12 @@ void schedule_background_task(buffer_t * env, int priv_i, void * priv_p, void (*
 
 
 /**
- * Close a buffer
+ * @brief Close a buffer
+ *
+ * Cancels pending background tasks, updates the biminfo, and frees
+ * all associated data for a buffer, and removes it from the buffer list.
+ *
+ * @param buf Buffer to close.
  */
 buffer_t * buffer_close(buffer_t * buf) {
 	int i;
@@ -877,7 +891,14 @@ buffer_t * buffer_close(buffer_t * buf) {
 }
 
 /**
- * Convert syntax highlighting flag to color code
+ * @brief Convert syntax highlighting flag to color code
+ *
+ * TODO: This should be configurable by the theme, so the theme
+ *       can create a palette and then pick colors from it, rather
+ *       than having specific COLOR values defined for each flag.
+ *
+ * @param _flag Flag to convert.
+ * @returns COLOR string to pass to @c set_colors.
  */
 const char * flag_to_color(int _flag) {
 	int flag = _flag & FLAG_MASK_COLORS;
@@ -912,8 +933,19 @@ const char * flag_to_color(int _flag) {
 }
 
 /**
+ * @brief Check for a keyword match and paint it with a color flag.
+ *
  * Match and paint a single keyword. Returns 1 if the keyword was matched and 0 otherwise,
  * so it can be used for prefix checking for things that need further special handling.
+ *
+ * The provided qualifier is used to ensure the keyword matches a whole word: characters
+ * before and after the keyword must not match the qualifier, or the match will fail.
+ *
+ * @param state Syntax state
+ * @param keyword Keyword to look for
+ * @param flag Color flag to paint the keyword with
+ * @param keyword_qualifier Qualifier function to lex the keyword with
+ * @returns 1 on match, 0 on failure
  */
 static int match_and_paint(struct syntax_state * state, const char * keyword, int flag, int (*keyword_qualifier)(int c)) {
 	if (keyword_qualifier(lastchar())) return 0;
@@ -937,16 +969,26 @@ static int match_and_paint(struct syntax_state * state, const char * keyword, in
 }
 
 /**
- * This is a basic character matcher for "keyword" characters.
+ * @brief Basic alphanumeric qualifier.
+ *
+ * Used in a few places internally such as for word scanning in navigation.
+ * Also used as a keyword qualifier in "comment buzzwords".
  */
 static int simple_keyword_qualifier(int c) {
 	return isalnum(c) || (c == '_');
 }
 
 /**
+ * @brief Highlight common callout words in a comment.
+ *
  * These words can appear in comments and should be highlighted.
  * Since there are a lot of comment highlighters, this is provided
  * as a common function that can be used by multiple highlighters.
+ *
+ * TODO The buzzwords should be customizable. Currently we highlight:
+ *      TODO XXX FIXME
+ *
+ * @returns 1 if a buzzword was matched and painted, 0 otherwise.
  */
 static int common_comment_buzzwords(struct syntax_state * state) {
 	if (match_and_paint(state, "TODO", FLAG_NOTICE, simple_keyword_qualifier)) { return 1; }
@@ -956,7 +998,9 @@ static int common_comment_buzzwords(struct syntax_state * state) {
 }
 
 /**
- * Find and return a highlighter by name, or return NULL if none was found.
+ * @brief Find a syntax highlighter by name.
+ *
+ * Used internally to find the @c dirent and @c bimcmd highlighters.
  */
 static struct syntax_definition * find_syntax_calculator(const char * name) {
 	for (struct syntax_definition * s = syntaxes; syntaxes && s->name; ++s) {
@@ -995,14 +1039,22 @@ void add_syntax(struct syntax_definition def) {
 void redraw_all(void);
 
 /**
- * Calculate syntax highlighting for the given line, and lines after
- * if their initial syntax state has changed by this recalculation.
+ * @brief Recalculate syntax for a given line.
  *
- * If `line_no` is -1, this line is taken to be a special line and not
- * part of a buffer; search highlighting will not be processed and syntax
- * highlighting will halt after the line is finished.
+ * This is kinda hacked-together to make it support the command input buffer.
  *
- * If `env->slowop` is currently enabled, recalculation is skipped.
+ * Recalculate syntax highlighting for @c line using the current @c env->syntax.
+ *
+ * If @c line_no is not -1, continue recalculating syntax for later lines if their
+ * indicated initial state does not match the ending state of the previous line.
+ *
+ * If @c line_no is -1, assume that @c line is not actually in the environment,
+ * ignore search highlighting, and stop after handling the first line.
+ *
+ * If @c env->slowop is currently enabled, recalculation is skipped.
+ *
+ * @param line Line to operate on.
+ * @param line_no Line number or -1 for disconnected line.
  */
 void recalculate_syntax(line_t * line, int line_no) {
 	if (env->slowop) return;
