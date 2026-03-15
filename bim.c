@@ -1027,16 +1027,21 @@ void recalculate_syntax(line_t * line, int line_no) {
 		s->state.i = 0;
 
 		while (1) {
+
+			/* Temporarily allow ^C to interrupt syntax highlighting, in case it gets stuck. */
 			struct termios old, new;
 			tcgetattr(global_config.tty_in, &old);
 			new = old; new.c_lflag |= ISIG;
 			tcsetattr(global_config.tty_in, TCSANOW, &new);
-			ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
+
+			/* Call syntax highlighter */
 			krk_push(OBJECT_VAL(env->syntax->krkFunc));
 			krk_push(OBJECT_VAL(s));
 			KrkValue result = krk_callStack(1);
+
+			/* Switch signals back off */
 			tcsetattr(global_config.tty_in, TCSANOW, &old);
-			krk_currentThread.stackTop = krk_currentThread.stack + before;
+
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 				render_commandline_message("\n");
@@ -5813,10 +5818,8 @@ BIM_COMMAND(theme,"theme","Set color theme") {
 	} else {
 		for (struct theme_def * d = themes; themes && d->name; ++d) {
 			if (!strcmp(argv[1], d->name)) {
-				ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 				krk_push(OBJECT_VAL(d->callable));
 				KrkValue result = krk_callStack(0);
-				krk_currentThread.stackTop = krk_currentThread.stack + before;
 				if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 					render_error("Exception occurred in theme: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 					krk_dumpTraceback();
@@ -10306,12 +10309,10 @@ int handle_action(struct action_map * basemap, int key) {
 						((action_one_arg)map->method)(-1);
 					}
 				} else if (map->options & opt_krk) {
-					ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 					krk_push(map->callable);
 					krk_push(INTEGER_VAL(key));
 					krk_push(map->callable);
 					KrkValue result = krk_callStack(2);
-					krk_currentThread.stackTop = krk_currentThread.stack + before;
 					if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 						render_error("Exception during action: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 						krk_dumpTraceback();
@@ -11797,13 +11798,11 @@ KRK_Function(addStringAtCursor) {
 }
 
 static int run_custom_krk_command(KrkValue callable, int argc, char * argv[]) {
-	ptrdiff_t before = krk_currentThread.stackTop - krk_currentThread.stack;
 	krk_push(callable);
 	for (int i = 0; i < argc; ++i) {
 		krk_push(OBJECT_VAL((KrkObj*)krk_copyString(argv[i],strlen(argv[i]))));
 	}
 	KrkValue result = krk_callStack(argc);
-	krk_currentThread.stackTop = krk_currentThread.stack + before;
 	if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 		render_error("Exception running command: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
 		krk_dumpTraceback();
