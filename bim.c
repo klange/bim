@@ -11430,7 +11430,7 @@ static void findBim(char * argv[]) {
 			binpath = realpath(argv[0], NULL);
 		} else {
 			/* Search PATH for argv[0] */
-			char * _path = strdup(getenv("PATH"));
+			char * _path = strdup(getenv("PATH") ? getenv("PATH") : "/usr/bin:/bin");
 			char * path = _path;
 			while (path) {
 				char * next = strchr(path,':');
