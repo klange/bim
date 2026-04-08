@@ -1391,7 +1391,7 @@ line_t ** remove_line(line_t ** lines, int offset) {
 
 	/* Move other lines up */
 	if (offset < env->line_count-1) {
-		memmove(&lines[offset], &lines[offset+1], sizeof(line_t *) * (env->line_count - (offset - 1)));
+		memmove(&lines[offset], &lines[offset+1], sizeof(line_t *) * (env->line_count - (offset + 1)));
 		lines[env->line_count-1] = NULL;
 	}
 
