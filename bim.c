@@ -224,7 +224,7 @@ struct ColorName color_names[] = {
 	void add_name (type input) { \
 		if (flex_ ## name ## _space == 0) { \
 			flex_ ## name ## _space = 4; \
-			name = calloc(sizeof(type), flex_ ## name ## _space); \
+			name = calloc(flex_ ## name ## _space, sizeof(type)); \
 		} else if (flex_ ## name ## _count + 1 == flex_ ## name ## _space) { \
 			flex_ ## name ## _space *= 2; \
 			name = realloc(name, sizeof(type) * flex_ ## name ## _space); \
@@ -1019,7 +1019,7 @@ void add_syntax(struct syntax_definition def) {
 
 	if (syntax_space == 0) {
 		syntax_space = 4;
-		syntaxes = calloc(sizeof(struct syntax_definition), syntax_space);
+		syntaxes = calloc(syntax_space, sizeof(struct syntax_definition));
 	} else if (syntax_count +1 == syntax_space) {
 		syntax_space *= 2;
 		syntaxes = realloc(syntaxes, sizeof(struct syntax_definition) * syntax_space);
@@ -1425,7 +1425,7 @@ line_t ** add_line(line_t ** lines, int offset) {
 	}
 
 	/* Allocate the new line */
-	lines[offset] = calloc(sizeof(line_t) + sizeof(char_t) * 32, 1);
+	lines[offset] = calloc(1, sizeof(line_t) + sizeof(char_t) * 32);
 	lines[offset]->available = 32;
 
 	/* There is one new line */
@@ -1586,7 +1586,7 @@ line_t ** split_line(line_t ** lines, int line, int split) {
 	v++;
 
 	/* Allocate space for the new line */
-	lines[line+1] = calloc(sizeof(line_t) + sizeof(char_t) * v, 1);
+	lines[line+1] = calloc(1, sizeof(line_t) + sizeof(char_t) * v);
 	lines[line+1]->available = v;
 	lines[line+1]->actual = remaining;
 
@@ -1834,7 +1834,7 @@ void setup_buffer(buffer_t * env) {
 	env->lines = malloc(sizeof(line_t *) * env->line_avail);
 
 	/* Initialize the first line */
-	env->lines[0] = calloc(sizeof(line_t) + sizeof(char_t) * 32, 1);
+	env->lines[0] = calloc(1, sizeof(line_t) + sizeof(char_t) * 32);
 	env->lines[0]->available = 32;
 }
 
@@ -3750,7 +3750,7 @@ void read_directory_into_buffer(char * file) {
 	/* Flexible array to hold directory contents */
 	int available = 32;
 	int count = 0;
-	struct file_listing * files = calloc(sizeof(struct file_listing), available);
+	struct file_listing * files = calloc(available, sizeof(struct file_listing));
 
 	/* Read directory */
 	struct dirent * ent = readdir(dirp);
@@ -7025,7 +7025,7 @@ BIM_ACTION(enter_command, 0,
 		free(global_config.command_buffer);
 	}
 
-	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer = calloc(1, sizeof(line_t)+sizeof(char_t)*32);
 	global_config.command_buffer->available = 32;
 
 	global_config.command_syn_back = env->syntax;
@@ -7393,7 +7393,7 @@ BIM_ACTION(start_file_search, 0, "Search for open files and switch tabs quickly.
 		free(global_config.command_buffer);
 	}
 
-	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer = calloc(1, sizeof(line_t)+sizeof(char_t)*32);
 	global_config.command_buffer->available = 32;
 
 	global_config.command_syn_back = env->syntax;
@@ -7451,7 +7451,7 @@ BIM_ACTION(enter_search, ARG_IS_CUSTOM,
 		free(global_config.command_buffer);
 	}
 
-	global_config.command_buffer = calloc(sizeof(line_t)+sizeof(char_t)*32,1);
+	global_config.command_buffer = calloc(1, sizeof(line_t)+sizeof(char_t)*32);
 	global_config.command_buffer->available = 32;
 
 	global_config.command_syn_back = env->syntax;
@@ -11692,7 +11692,7 @@ KRK_Function(paren_pairs) {
 				"pairs must be of even length");
 		}
 
-		uint32_t * new_pairs = calloc(sizeof(uint32_t), pairs->codesLength + 1);
+		uint32_t * new_pairs = calloc(pairs->codesLength + 1, sizeof(uint32_t));
 		for (size_t i = 0; i < pairs->codesLength; ++i) {
 			uint32_t cp = (uint32_t)KRK_STRING_FAST(pairs,i);
 			new_pairs[i] = cp;
