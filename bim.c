@@ -6538,7 +6538,7 @@ char * command_tab_complete(char * buffer) {
 
 		struct dirent * ent = readdir(dirp);
 		while (ent != NULL) {
-			if (ent->d_name[0] != '.' || (last_slash ? (last_slash[1] == '.') : (tmp[0] == '.'))) {
+			if (ent->d_name[0] != '.' || (last_slash ? (last_slash[1] == '.') : (args[arg][0] == '.'))) {
 				struct stat statbuf;
 				/* Figure out if this file is a directory */
 				if (last_slash) {
