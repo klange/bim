@@ -610,15 +610,12 @@ int file_is_open(char * file) {
 	if (!biminfo) return 0; /* Assume not */
 
 	/* Scan */
-	char line[PATH_MAX+64];
+	char * line = NULL;
+	size_t available = 0;
+	ssize_t line_len = 0;
 
-	while (!feof(biminfo)) {
-		fpos_t start_of_line;
-		fgetpos(biminfo, &start_of_line);
-		fgets(line, PATH_MAX+63, biminfo);
-		if (line[0] != '%') {
-			continue;
-		}
+	while ((line_len = getline(&line, &available, biminfo)) >= 0) {
+		if (*line != '%') continue;
 
 		if (!strncmp(&line[1],tmp_path, strlen(tmp_path))) {
 			/* File is currently open */
@@ -643,6 +640,8 @@ int file_is_open(char * file) {
 			return 0;
 		}
 	}
+
+	if (line) free(line);
 	fclose(biminfo);
 	return 0;
 }
@@ -670,15 +669,12 @@ int fetch_from_biminfo(buffer_t * buf) {
 	if (!biminfo) return 1;
 
 	/* Scan */
-	char line[PATH_MAX+64];
+	char * line = NULL;
+	size_t available = 0;
+	ssize_t line_len = 0;
 
-	while (!feof(biminfo)) {
-		fpos_t start_of_line;
-		fgetpos(biminfo, &start_of_line);
-		fgets(line, PATH_MAX+63, biminfo);
-		if (line[0] != '>') {
-			continue;
-		}
+	while ((line_len = getline(&line, &available, biminfo)) >= 0) {
+		if (*line != '>') continue;
 
 		if (!strncmp(&line[1],tmp_path, strlen(tmp_path))) {
 			/* Read */
@@ -694,6 +690,7 @@ int fetch_from_biminfo(buffer_t * buf) {
 		}
 	}
 
+	if (line) free(line);
 	fclose(biminfo);
 	return 0;
 }
@@ -720,12 +717,16 @@ int update_biminfo(buffer_t * buf, int is_open) {
 	if (!biminfo) return 1;
 
 	/* Scan */
-	char line[PATH_MAX+64];
+	char * line = NULL;
+	size_t available = 0;
+	ssize_t line_len = 0;
 
 	while (!feof(biminfo)) {
 		fpos_t start_of_line;
 		fgetpos(biminfo, &start_of_line);
-		fgets(line, PATH_MAX+63, biminfo);
+
+		if ((line_len = getline(&line, &available, biminfo)) < 0) break;
+
 		if (line[0] != '>' && line[0] != '%') {
 			continue;
 		}
@@ -738,6 +739,8 @@ int update_biminfo(buffer_t * buf, int is_open) {
 			goto _done;
 		}
 	}
+
+	if (line) free(line);
 
 	if (ftell(biminfo) == 0) {
 		/* New biminfo */
@@ -9258,8 +9261,11 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 
 	FILE * tags = fopen("tags","r");
 	if (tags) {
-		char tmp[4096]; /* max line */
-		while (!feof(tags) && fgets(tmp, 4096, tags)) {
+		char * tmp = NULL;
+		size_t available = 0;
+		ssize_t line_len = 0;
+
+		while ((line_len = getline(&tmp, &available, tags)) >= 0) {
 			if (tmp[0] == '!') continue;
 			int i = 0;
 			while (comp[i] && comp[i] == (unsigned int)tmp[i]) i++;
@@ -9280,6 +9286,8 @@ int read_tags(uint32_t * comp, struct completion_match **matches, int * matches_
 				add_match(tmp,file,search);
 			}
 		}
+
+		if (tmp) free(tmp);
 		fclose(tags);
 	}
 
