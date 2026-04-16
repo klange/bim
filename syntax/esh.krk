@@ -81,10 +81,6 @@ class EshHighlighter(Highlighter):
             return 0
         else if self.findKeywords(self.keywords, self.FLAG_KEYWORD, self.keywordQualifier):
             return 0
-        else if self.isdigit(self[0]):
-            while self.isdigit(self[0]):
-                self.paint(1, self.FLAG_NUMERAL)
-            return 0
         else if self[0]:
             self.skip()
             return 0
