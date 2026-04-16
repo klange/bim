@@ -1075,9 +1075,12 @@ void recalculate_syntax(line_t * line, int line_no) {
 
 			/* Temporarily allow ^C to interrupt syntax highlighting, in case it gets stuck. */
 			struct termios old, new;
-			tcgetattr(global_config.tty_in, &old);
-			new = old; new.c_lflag |= ISIG;
-			tcsetattr(global_config.tty_in, TCSANOW, &new);
+
+			if (global_config.has_terminal) {
+				tcgetattr(global_config.tty_in, &old);
+				new = old; new.c_lflag |= ISIG;
+				tcsetattr(global_config.tty_in, TCSANOW, &new);
+			}
 
 			/* Call syntax highlighter */
 			krk_push(OBJECT_VAL(env->syntax->krkFunc));
@@ -1085,7 +1088,7 @@ void recalculate_syntax(line_t * line, int line_no) {
 			KrkValue result = krk_callStack(1);
 
 			/* Switch signals back off */
-			tcsetattr(global_config.tty_in, TCSANOW, &old);
+			if (global_config.has_terminal) tcsetattr(global_config.tty_in, TCSANOW, &old);
 
 			if (IS_NONE(result) && (krk_currentThread.flags & KRK_THREAD_HAS_EXCEPTION)) {
 				render_error("Exception occurred in plugin: %s", AS_INSTANCE(krk_currentThread.currentException)->_class->name->chars);
@@ -1124,6 +1127,7 @@ _next:
 _syntaxError:
 	krk_currentThread.flags &= ~(KRK_THREAD_HAS_EXCEPTION);
 	fprintf(stderr,"This syntax highlighter will be disabled in this environment.");
+	if (!global_config.has_terminal) exit(1);
 	env->syntax = NULL;
 	cancel_background_tasks(env);
 	pause_for_key();
@@ -2084,6 +2088,7 @@ void clear_screen(void) {
  * Hide the cursor
  */
 void hide_cursor(void) {
+	if (!global_config.has_terminal) return;
 	if (global_config.can_hideshow) {
 		printf("\033[?25l");
 	}
@@ -2093,6 +2098,7 @@ void hide_cursor(void) {
  * Show the cursor
  */
 void show_cursor(void) {
+	if (!global_config.has_terminal) return;
 	if (global_config.can_hideshow) {
 		printf("\033[?25h");
 	}
@@ -3196,6 +3202,7 @@ BIM_ACTION(redraw_all, 0,
 	"Repaint the screen."
 ,void) {
 	if (!env) return;
+	if (!global_config.has_terminal) return;
 	redraw_tabbar();
 	redraw_text();
 	if (left_buffer) {
@@ -3942,6 +3949,7 @@ static void render_syntax_async(background_task_t * task) {
 }
 
 static void schedule_complete_recalc(void) {
+	if (!global_config.has_terminal) return;
 	if (env->line_count < 1000) {
 		for (int i = 0; i < env->line_count; ++i) {
 			recalculate_syntax(env->lines[i], i);
