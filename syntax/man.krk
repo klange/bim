@@ -3,6 +3,55 @@ from syntax import Highlighter, bind
 class ManpageHighlighter(Highlighter):
     name = 'man'
     extensions = ('.1','.2','.3','.4','.5','.6','.7','.8')
+
+    def paint_with_escapes(flag, base):
+        if self[0] == '\\':
+            if self[1] == 'f':
+                self.paint(2, self.FLAG_NUMERAL)
+                let c = self[0]
+                if c == '(':
+                    c = self[0] + self[1]
+                    self.paint(2, self.FLAG_PRAGMA)
+                else:
+                    self.paint(1, self.FLAG_PRAGMA)
+                if c == 'P': flag = base
+                else if c == 'I': flag = self.FLAG_UNDERLINE
+                else if c == 'B': flag = self.FLAG_BOLD
+                else if c == 'BI': flag = self.FLAG_BOLD|self.FLAG_UNDERLINE
+            else if self[1] == '(':
+                self.paint(4, self.FLAG_ESCAPE)
+            else if self[1] == '"':
+                self.paint(-1, self.FLAG_COMMENT)
+            else:
+                self.paint(2, self.FLAG_ESCAPE)
+        else:
+            self.paint(1, flag)
+        return flag
+
+    def paint_rest(flag,base):
+        while self[0]:
+            flag = self.paint_with_escapes(flag,base)
+
+    def do_word(current):
+        while self[0] == ' ': self.skip()
+        if self[0] == '"':
+            self.paint(1, self.FLAG_ESCAPE)
+            let flag = current
+            while self[0] and self[0] != '"':
+                flag = self.paint_with_escapes(flag, current)
+            self.paint(1, self.FLAG_ESCAPE)
+        else:
+            let flag = current
+            while self[0] and self[0] != ' ':
+                flag = self.paint_with_escapes(flag, current)
+
+    def alternate(flaga, flagb):
+        let current = flaga
+        let next = flagb
+        while self[0]:
+            self.do_word(current)
+            current, next = next, current
+
     def calculate():
         while self[0]:
             if self.i == 0 and self[0] == '.':
@@ -11,23 +60,33 @@ class ManpageHighlighter(Highlighter):
                     self.paint(-1, self.FLAG_STRING)
                 else if self[1] == 'B' and self[2] == ' ':
                     self.paint(2, self.FLAG_KEYWORD)
-                    self.paint(-1, self.FLAG_BOLD)
+                    self.paint_rest(self.FLAG_BOLD,self.FLAG_BOLD)
+                else if self[1] == 'B' and self[2] == 'I' and self[3] == ' ':
+                    self.paint(3, self.FLAG_KEYWORD)
+                    self.alternate(self.FLAG_BOLD, self.FLAG_BOLD|self.FLAG_UNDERLINE)
+                else if self[1] == 'B' and self[2] == 'R' and self[3] == ' ':
+                    self.paint(3, self.FLAG_KEYWORD)
+                    self.alternate(self.FLAG_BOLD, 0)
+                else if self[1] == 'I' and self[2] == 'R' and self[3] == ' ':
+                    self.paint(3, self.FLAG_KEYWORD)
+                    self.alternate(self.FLAG_UNDERLINE, 0)
+                else if self[1] == 'T' and self[2] == 'H' and self[3] == ' ':
+                    self.paint(3, self.FLAG_KEYWORD)
+                    self.do_word(self.FLAG_BOLD)
+                    self.do_word(self.FLAG_TYPE)
+                    self.do_word(self.FLAG_NUMERAL)
+                    self.do_word(self.FLAG_STRING)
+                    self.do_word(self.FLAG_STRING)
                 else if self.isalpha(self[1]):
                     self.paint(1, self.FLAG_KEYWORD)
                     while self[0] and self.isalpha(self[0]):
                         self.paint(1, self.FLAG_KEYWORD)
                 else if self[1] == '\\' and self[2] == '"':
-                    self.paint(1, self.FLAG_COMMENT)
+                    self.paint(-1, self.FLAG_COMMENT)
                 else:
                     self.skip()
-            else if self[0] == '\\':
-                if self[1] == 'f':
-                    self.paint(2, self.FLAG_NUMERAL)
-                    self.paint(1, self.FLAG_PRAGMA)
-                else:
-                    self.paint(2, self.FLAG_ESCAPE)
             else:
-                self.skip()
+                self.paint_rest(0,0)
         return None
 
 bind(ManpageHighlighter)
