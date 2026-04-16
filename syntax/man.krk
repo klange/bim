@@ -61,6 +61,9 @@ class ManpageHighlighter(Highlighter):
                 else if self[1] == 'B' and self[2] == ' ':
                     self.paint(2, self.FLAG_KEYWORD)
                     self.paint_rest(self.FLAG_BOLD,self.FLAG_BOLD)
+                else if self[1] == 'I' and self[2] == ' ':
+                    self.paint(2, self.FLAG_KEYWORD)
+                    self.paint_rest(self.FLAG_UNDERLINE,self.FLAG_UNDERLINE)
                 else if self[1] == 'B' and self[2] == 'I' and self[3] == ' ':
                     self.paint(3, self.FLAG_KEYWORD)
                     self.alternate(self.FLAG_BOLD, self.FLAG_BOLD|self.FLAG_UNDERLINE)
