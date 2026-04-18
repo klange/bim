@@ -727,7 +727,7 @@ int update_biminfo(buffer_t * buf, int is_open) {
 			/* Update */
 			fsetpos(biminfo, &start_of_line);
 			fprintf(biminfo,"%c%s  %20d %20d\n", is_open ? '%' : '>', tmp_path,
-				is_open ? getpid() : buf->line_no, buf->col_no);
+				is_open ? (int)getpid() : buf->line_no, buf->col_no);
 			goto _done;
 		}
 	}
@@ -742,7 +742,7 @@ int update_biminfo(buffer_t * buf, int is_open) {
 	/* If we reach this point, we didn't find a record for this file
 	 * and the write cursor should be at the end, so just add a new line */
 	fprintf(biminfo,"%c%s  %20d %20d\n", is_open ? '%' : '>', tmp_path,
-		is_open ? getpid() : buf->line_no, buf->col_no);
+		is_open ? (int)getpid() : buf->line_no, buf->col_no);
 
 _done:
 	if (line) free(line);
