@@ -19,6 +19,8 @@
 #define BIM_VERSION   "3.2.0" TAG
 #define BIM_COPYRIGHT "Copyright 2012-2026 K. Lange <\033[3mklange@toaruos.org\033[23m>"
 
+#include "keigo.h"
+
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
 #include <kuroko/debug.h>
@@ -10750,9 +10752,9 @@ int process_krk_command(const char * cmd, KrkValue * outVal) {
 }
 
 /**
- * Show help text for -?
+ * Show help text for --help
  */
-static void show_usage(char * argv[]) {
+static int show_help(char * argv[]) {
 #define _s "\033[3m"
 #define _e "\033[0m\n"
 	printf(
@@ -10772,7 +10774,6 @@ static void show_usage(char * argv[]) {
 			" -c,-C  " _s "print file to stdout with syntax highlighting" _e
 			"        " _s "-C includes line numbers, -c does not" _e
 			" -u     " _s "override bimrc file" _e
-			" -?     " _s "show this help text" _e
 			"\n"
 			"Long options:\n"
 			" --help          " _s "show this help text" _e
@@ -10782,9 +10783,19 @@ static void show_usage(char * argv[]) {
 			" --dump-config   " _s "dump key mappings as a bimscript" _e
 			" --html FILE     " _s "convert FILE to syntax-highlighted HTML" _e
 			"\n", argv[0], argv[0]);
+	return 0;
+}
+
+static int show_usage(char * argv[]) {
+	fprintf(stderr,
+		"usage: %s [-R] [-O opt...] [-u config] [-S syntax] [file...]\n"
+		"       %s [-R] [-O opt...] [-u config] [-S syntax] {-c|-C} file\n"
+		"(try `%s --help' for more information)\n",
+		argv[0], argv[0], argv[0]);
+	return 1;
+}
 #undef _e
 #undef _s
-}
 
 BIM_COMMAND(runkrk,"runkrk", "Run a kuroko script") {
 	if (argc < 2) return 1;
@@ -12576,7 +12587,11 @@ _argument_error:
 int main(int argc, char * argv[]) {
 	findBim(argv);
 	int opt;
-	while ((opt = getopt(argc, argv, "?c:C:u:q:RS:O:-:")) != -1) {
+	struct Keigo ctx = {0};
+#define optind (ctx.i)
+#define optarg (ctx.arg)
+#define optopt (ctx.opt)
+	while ((opt = keigo(&ctx, argc, argv, "c:C:u:q:RS:O:-:")) != -1) {
 		switch (opt) {
 			case 'R':
 				global_config.initial_file_is_read_only = 1;
@@ -12657,8 +12672,7 @@ int main(int argc, char * argv[]) {
 					ENDSECTION();
 					return 0;
 				} else if (!strcmp(optarg,"help")) {
-					show_usage(argv);
-					return 0;
+					return show_help(argv);
 				} else if (!strcmp(optarg,"dump-mappings")) {
 					initialize();
 					for (struct mode_names * m = mode_names; m->name; ++m) {
@@ -12671,8 +12685,7 @@ int main(int argc, char * argv[]) {
 					return 0;
 				} else if (!strcmp(optarg,"html")) {
 					if (optind >= argc) {
-						show_usage(argv);
-						return 1;
+						return show_usage(argv);
 					}
 					initialize();
 					global_config.go_to_line = 0;
@@ -12691,14 +12704,15 @@ int main(int argc, char * argv[]) {
 						dump_map_commands(m->name, *m->mode);
 					}
 					return 0;
-				} else if (strlen(optarg)) {
-					fprintf(stderr, "bim: unrecognized option `%s'\n", optarg);
-					return 1;
-				} /* Else, this is -- to indicate end of arguments */
-				break;
+				}
+				fprintf(stderr, "%s: unrecognized option `--%s'\n", argv[0], optarg);
+				return show_usage(argv);
+			case ':':
+				fprintf(stderr, "%s: option `-%c' requires an argument\n", argv[0], optopt);
+				return show_usage(argv);
 			case '?':
-				show_usage(argv);
-				return 0;
+				fprintf(stderr, "%s: unrecognized option `-%c'\n", argv[0], optopt);
+				return show_usage(argv);
 		}
 	}
 
