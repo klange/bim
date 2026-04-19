@@ -1964,28 +1964,29 @@ void place_cursor(int x, int y) {
  */
 char * color_string(const char * fg, const char * bg) {
 	static char output[100];
-	char * t = output;
-	t += sprintf(t,"\033[22;23;");
+	char bg_str[30] = {0};
+	char fg_str[30] = {0};
 	if (*bg == '@') {
 		int _bg = atoi(bg+1);
 		if (_bg < 10) {
-			t += sprintf(t, "4%d;", _bg);
+			snprintf(bg_str, 30, "4%d;", _bg);
 		} else {
-			t += sprintf(t, "10%d;", _bg-10);
+			snprintf(bg_str, 30, "10%d;", _bg-10);
 		}
 	} else {
-		t += sprintf(t, "48;%s;", bg);
+		snprintf(bg_str, 30, "48;%s;", bg);
 	}
 	if (*fg == '@') {
 		int _fg = atoi(fg+1);
 		if (_fg < 10) {
-			t += sprintf(t, "3%dm", _fg);
+			snprintf(fg_str, 30, "3%dm", _fg);
 		} else {
-			t += sprintf(t, "9%dm", _fg-10);
+			snprintf(fg_str, 30, "9%dm", _fg-10);
 		}
 	} else {
-		t += sprintf(t, "38;%sm", fg);
+		snprintf(fg_str, 30, "38;%sm", fg);
 	}
+	snprintf(output, 100, "\033[22;23;%s%s", bg_str, fg_str);
 	return output;
 }
 
@@ -2959,20 +2960,23 @@ void statusbar_append_status(int *remaining_width, size_t *filled, char * output
 	}
 }
 
-int statusbar_build_right(char * right_hand) {
-	char tmp[1024] = {0};
-	sprintf(tmp, " Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
-	int out = display_width_of_string(tmp);
+int statusbar_build_right(char * right_hand, size_t len) {
+	int out = snprintf(NULL, 0, " Line %d/%d Col: %d ", env->line_no, env->line_count, env->col_no);
 	char * s = right_hand;
 
-	s += sprintf(s, "%s", color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
-	s += sprintf(s, " Line ");
-	s += sprintf(s, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
-	s += sprintf(s, "%d/%d ", env->line_no, env->line_count);
-	s += sprintf(s, "%s", color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
-	s += sprintf(s, " Col: ");
-	s += sprintf(s, "%s", color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
-	s += sprintf(s, "%d ", env->col_no);
+	char * color_alt = strdup(color_string(COLOR_STATUS_ALT, COLOR_STATUS_BG));
+	char * color_main = strdup(color_string(COLOR_STATUS_FG, COLOR_STATUS_BG));
+
+	snprintf(s, len, "%s Line %s%d/%d%s Col: %s%d",
+		color_alt,
+		color_main,
+		env->line_no, env->line_count,
+		color_alt,
+		color_main,
+		env->col_no);
+
+	free(color_alt);
+	free(color_main);
 
 	return out;
 }
@@ -3002,7 +3006,7 @@ void redraw_statusbar(void) {
 
 	/* Pre-render the right hand side of the status bar */
 	char right_hand[1024] = {0};
-	int right_width = statusbar_build_right(right_hand);
+	int right_width = statusbar_build_right(right_hand, 1024);
 
 	char status_bits[2048] = {0}; /* Sane maximum */
 	size_t filled = 0;
@@ -3812,11 +3816,11 @@ BIM_ACTION(open_file_from_line, 0,
 	if (env->lines[env->line_no-1]->text[0].codepoint != 'd' &&
 	    env->lines[env->line_no-1]->text[0].codepoint != 'f') return;
 	/* Collect file name */
-	char * tmp = malloc(strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7); /* Should be enough */
-	memset(tmp, 0, strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7);
+	size_t size = strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7;
+	char * tmp = calloc(1,sizeof(char)); /* Should be enough */
 	char * t = tmp;
 	/* Start by copying the filename */
-	t += sprintf(t, "%s/", env->file_name);
+	t += snprintf(t, size, "%s/", env->file_name);
 	/* Start from character 2 to skip d/f and space */
 	for (int i = 2; i < env->lines[env->line_no-1]->actual; ++i) {
 		t += to_eight(env->lines[env->line_no-1]->text[i].codepoint, t);
@@ -5055,12 +5059,12 @@ static void html_convert_color(const char * color_string) {
 		/* 24-bit color */
 		int red, green, blue;
 		sscanf(color_string+2,"%d;%d;%d",&red,&green,&blue);
-		sprintf(tmp, "#%02x%02x%02x;", red,green,blue);
+		snprintf(tmp, 100, "#%02x%02x%02x;", red,green,blue);
 	} else if (!strncmp(color_string,"5;",2)) {
 		/* 256 colors; needs lookup table */
 		int index;
 		sscanf(color_string+2,"%d",&index);
-		sprintf(tmp,"#%06x;", (unsigned int)term_colors[(index >= 0 && index <= 255) ? index : 0]);
+		snprintf(tmp, 100, "#%06x;", (unsigned int)term_colors[(index >= 0 && index <= 255) ? index : 0]);
 	} else {
 		/* 16 colors; needs lookup table */
 		int index;
@@ -5074,7 +5078,7 @@ static void html_convert_color(const char * color_string) {
 		} else {
 			color = term_colors[index];
 		}
-		sprintf(tmp,"#%06x;", (unsigned int)color);
+		snprintf(tmp,100,"#%06x;", (unsigned int)color);
 	}
 	add_string(tmp);
 	char * italic = strstr(color_string,";3");
@@ -5120,7 +5124,7 @@ int convert_to_html(void) {
 	for (int i = 0; i < 15; ++i) {
 		/* For each of the relevant flags... */
 		char tmp[20];
-		sprintf(tmp,"			.s%d { color: ", i);
+		snprintf(tmp,20,"			.s%d { color: ", i);
 		add_string(tmp);
 		/* These are special */
 		if (i == FLAG_NOTICE) {
@@ -5175,7 +5179,7 @@ int convert_to_html(void) {
 	add_string("			}\n");
 	for (int i = 1; i <= env->tabstop; ++i) {
 		char tmp[20];
-		sprintf(tmp, ".tab%d", i);
+		snprintf(tmp,20, ".tab%d", i);
 		add_string("			");
 		add_string(tmp);
 		add_string(">span {\n");
@@ -5212,7 +5216,7 @@ int convert_to_html(void) {
 
 	for (int i = 0; i < old->line_count; ++i) {
 		char tmp[100];
-		sprintf(tmp, "<span id=\"L%d\"><a href=\"#L%d\"></a>", i+1, i+1);
+		snprintf(tmp,100, "<span id=\"L%d\"><a href=\"#L%d\"></a>", i+1, i+1);
 		add_string(tmp);
 		int last_flag = -1;
 		int opened = 0;
@@ -5226,7 +5230,7 @@ int convert_to_html(void) {
 				if (opened) add_string("</span>");
 				opened = 1;
 				char tmp[100];
-				sprintf(tmp, "<span class=\"s%d%s\">",
+				snprintf(tmp, 100, "<span class=\"s%d%s\">",
 					c.flags & FLAG_MASK_COLORS,
 					(c.flags & FLAG_UNDERLINE) ? " ul" : "");
 				add_string(tmp);
@@ -5241,7 +5245,7 @@ int convert_to_html(void) {
 				add_string("&amp;");
 			} else if (c.codepoint == '\t') {
 				char tmp[100];
-				sprintf(tmp, "<span class=\"tab%d\"><span>	</span></span>",c.display_width);
+				snprintf(tmp, 100, "<span class=\"tab%d\"><span>	</span></span>",c.display_width);
 				add_string(tmp);
 			} else if (j > 0 && c.codepoint == ' ' && all_spaces && !(j % old->tabstop)) {
 				add_string("<span class=\"space\"> </span>");
@@ -6698,8 +6702,8 @@ _try_kuroko:
 					/* If this symbol is shorter than the current submatch, skip it. */
 					if (length && (int)s->length < length) continue;
 					if (!memcmp(s->chars, space[count-base].start, length)) {
-						char * tmp = malloc(strlen(args[arg]) + s->length + 1);
-						sprintf(tmp,"%s%s", args[arg], s->chars + length);
+						char *tmp;
+						asprintf(&tmp,"%s%s", args[arg], s->chars + length);
 						int type = Candidate_Normal;
 						if (IS_OBJECT(root) && AS_OBJECT(root) == (KrkObj*)vm.builtins) {
 							type = Candidate_Builtin;
@@ -11347,15 +11351,15 @@ void import_directory(char * dirName) {
 		dirpath = strdup(dirname(tmp));
 		extra = "/";
 		free(tmp);
-		sprintf(file, "%s/%s", dirpath, dirName);
+		snprintf(file, 4096, "%s/%s", dirpath, dirName);
 	} else {
-		sprintf(file, "%s", dirName);
+		snprintf(file, 4096, "%s", dirName);
 	}
 
 	DIR * dirp = opendir(file);
 	if (!dirp && dirpath) {
 		/* Try ../share/bim/dirName */
-		sprintf(file, "%s/../share/bim/%s", dirpath, dirName);
+		snprintf(file, 4096, "%s/../share/bim/%s", dirpath, dirName);
 		extra = "/../share/bim/";
 		dirp = opendir(file);
 	}
@@ -11363,7 +11367,7 @@ void import_directory(char * dirName) {
 		/* Try /usr/share/bim */
 		if (dirpath) free(dirpath);
 		dirpath = strdup("/usr/share/bim");
-		sprintf(file, "%s/%s", dirpath, dirName);
+		snprintf(file, 4096, "%s/%s", dirpath, dirName);
 		extra = "/";
 		dirp = opendir(file);
 	}
@@ -11371,7 +11375,7 @@ void import_directory(char * dirName) {
 		/* Try one last fallback */
 		if (dirpath) free(dirpath);
 		dirpath = strdup("/usr/local/share/bim");
-		sprintf(file, "%s/%s", dirpath, dirName);
+		snprintf(file, 4096, "%s/%s", dirpath, dirName);
 		extra = "/";
 		dirp = opendir(file);
 	}
@@ -11452,7 +11456,7 @@ static void findBim(char * argv[]) {
 				if (next) *next++ = '\0';
 
 				char tmp[4096];
-				sprintf(tmp, "%s/%s", path, argv[0]);
+				snprintf(tmp, 4096, "%s/%s", path, argv[0]);
 				if (access(tmp, X_OK)) {
 					binpath = strdup(tmp);
 					break;
