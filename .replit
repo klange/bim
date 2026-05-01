@@ -1,2 +1,0 @@
-run = "make && chmod +x ./bim && ./bim -u docs/example.bimrc bim.c"
-language = "c"
