@@ -3817,7 +3817,7 @@ BIM_ACTION(open_file_from_line, 0,
 	    env->lines[env->line_no-1]->text[0].codepoint != 'f') return;
 	/* Collect file name */
 	size_t size = strlen(env->file_name) + 1 + env->lines[env->line_no-1]->actual * 7;
-	char * tmp = calloc(1,sizeof(char)); /* Should be enough */
+	char * tmp = calloc(size,sizeof(char)); /* Should be enough */
 	char * t = tmp;
 	/* Start by copying the filename */
 	t += snprintf(t, size, "%s/", env->file_name);
