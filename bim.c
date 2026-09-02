@@ -380,39 +380,24 @@ int bim_getkey(int read_timeout) {
 					timeout = 0;
 					return KEY_ESCAPE;
 				}
-				if (timeout >= 1 && this_buf[0] == '\033' && c == 'O') {
-					this_buf[timeout] = c;
-					timeout++;
-					continue;
-				}
-				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == 'O') {
-					switch (c) {
-						case 'P': return KEY_F1;
-						case 'Q': return KEY_F2;
-						case 'R': return KEY_F3;
-						case 'S': return KEY_F4;
-					}
-					timeout = 0;
-					continue;
-				}
-				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c != '[') {
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && (c != '[' && c != 'O')) {
 					timeout = 0;
 					bim_unget(c);
 					return KEY_ESCAPE;
 				}
-				if (timeout >= 1 && this_buf[timeout-1] == '\033' && c == '[') {
+				if (timeout >= 1 && this_buf[timeout-1] == '\033' && (c == '[' || c == 'O')) {
 					timeout = 1;
 					this_buf[timeout] = c;
 					timeout++;
 					continue;
 				}
-				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[' &&
+				if (timeout >= 2 && this_buf[0] == '\033' && (this_buf[1] == '[' || this_buf[1] == 'O') &&
 				    (isdigit(c) || (c == ';'))) {
 					this_buf[timeout] = c;
 					timeout++;
 					continue;
 				}
-				if (timeout >= 2 && this_buf[0] == '\033' && this_buf[1] == '[') {
+				if (timeout >= 2 && this_buf[0] == '\033' && (this_buf[1] == '[' || this_buf[1] == 'O')) {
 					switch (c) {
 						case 'M': return KEY_MOUSE;
 						case '<': return KEY_MOUSE_SGR;
@@ -424,6 +409,10 @@ int bim_getkey(int read_timeout) {
 						case 'F': return KEY_END;
 						case 'I': return KEY_PAGE_UP;
 						case 'G': return KEY_PAGE_DOWN;
+						case 'P': return KEY_F1;
+						case 'Q': return KEY_F2;
+						case 'R': return KEY_F3;
+						case 'S': return KEY_F4;
 						case 'Z': return KEY_SHIFT_TAB;
 						case '~':
 							if (timeout == 3) {
